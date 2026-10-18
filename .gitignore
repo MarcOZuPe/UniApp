@@ -1,8 +1,18 @@
+# Secretos y entorno (nunca a Git)
 .env
 .env.*
 !.env.example
 *.pem
 *.key
-__pycache__/
+
+# Dependencias y cachés
 node_modules/
+__pycache__/
+
+# Artefactos de build y binarios
+dist/
+*.exe
+/backend/uniapp-api
+
+# Sistema
 .DS_Store

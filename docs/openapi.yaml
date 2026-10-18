@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: UniApp · Flujo A (Acceso) · I01
+  version: 0.1.0
+  description: Contrato de cuentas, sesión y roles. Los demás flujos lo consumen vía API (nunca por tablas).
+servers: [{ url: http://localhost:8080 }]
+tags:
+  - { name: A-acceso, description: "Flujo A · Víctor · implementado en I01" }
+  - { name: B-tutor, description: "Flujo B · Miguel · esqueleto (I02)" }
+  - { name: C-oferta, description: "Flujo C · Mateo · esqueleto (I03)" }
+  - { name: D-reserva, description: "Flujo D · Jhon · esqueleto (I04)" }
+  - { name: E-sesion, description: "Flujo E · Marco · esqueleto (I05)" }
+components:
+  securitySchemes:
+    sesion: { type: apiKey, in: cookie, name: uniapp_sesion }
+  schemas:
+    Usuario:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        nombre_uso: { type: string }
+        rol: { type: string, enum: [escolar, apoderado, tutor, coordinador] }
+    Error:
+      type: object
+      properties:
+        codigo: { type: string }
+        mensaje: { type: string }
+        campos: { type: object, additionalProperties: { type: string } }
+paths:
+  /api/auth/registro:
+    post:
+      summary: Registro público (escolar, apoderado, tutor). Coordinación no se autoasigna.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email, nombre_uso, clave, rol], properties: { email: {type: string}, nombre_uso: {type: string}, clave: {type: string}, rol: {type: string, enum: [escolar, apoderado, tutor]} } } } }
+      responses:
+        '201': { description: Creado, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
+        '403': { description: Rol no permitido }
+        '409': { description: Correo en uso }
+        '422': { description: Validación por campo, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/auth/ingreso:
+    post:
+      summary: Abre sesión (cookie HttpOnly, SameSite=Strict, 12 h)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
+        '401': { description: Credenciales incorrectas (mensaje genérico) }
+        '429': { description: 5 fallos seguidos; bloqueo de 15 min }
+  /api/auth/salida:
+    post: { security: [{ sesion: [] }], summary: Cierra sesión, responses: { '204': { description: OK }, '401': { description: Sin sesión } } }
+  /api/auth/yo:
+    get: { security: [{ sesion: [] }], summary: Usuario de la sesión, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }, '401': { description: Sin sesión } } }
+  /api/auth/recuperar:
+    post: { summary: Solicita enlace (respuesta idéntica exista o no el correo), responses: { '202': { description: Aceptado } } }
+  /api/auth/restablecer:
+    post:
+      summary: Cambia la clave con token de un solo uso (vence en 1 h) y cierra todas las sesiones
+      responses: { '200': { description: OK }, '400': { description: Token inválido o vencido }, '422': { description: Clave no cumple la política del rol } }
+  /api/coordinacion/panel:
+    get:
+      security: [{ sesion: [] }]
+      summary: Zona de coordinación (permiso coordinacion:acceder)
+      responses: { '200': { description: OK }, '401': { description: Sin sesión }, '403': { description: Rol sin permiso (p. ej. escolar) } }
+  /api/tutor/salud:
+    get: { tags: [B-tutor], summary: Esqueleto. Miguel añade aquí su contrato., responses: { '200': { description: OK } } }
+  /api/oferta/salud:
+    get: { tags: [C-oferta], summary: Esqueleto. Mateo añade aquí su contrato., responses: { '200': { description: OK } } }
+  /api/reserva/salud:
+    get: { tags: [D-reserva], summary: Esqueleto. Jhon añade aquí su contrato., responses: { '200': { description: OK } } }
+  /api/sesion/salud:
+    get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
