@@ -8,8 +8,27 @@
 | Protección de main | Pendiente de configurar y capturar en GitHub |
 | PR de registro al laboratorio | Pendiente |
 | Issue → PR → revisión → merge → Done | Pendiente de colaboración real |
+| E01: encaje institucional y límites del piloto | Consulta institucional pendiente (responsable: Marco); sin promesa de crédito |
 
 Plataforma académica de tutorías solidarias entre estudiantes UNI y escolares. Propuesta independiente, sin reconocimiento institucional presumido. El MVP es virtual y utiliza datos sintéticos hasta contar con las validaciones necesarias.
+
+## E01 · Encaje institucional y límites del piloto
+
+- Estado de consulta a instancia competente: **Pendiente**
+- Responsable de seguimiento: **Marco**
+
+### Evidencia real
+
+- A la fecha, no se cuenta con respuesta oficial registrada de la instancia competente.
+
+### Hipótesis de trabajo
+
+- Si la instancia competente confirma encaje institucional, se actualizará este registro con la evidencia correspondiente.
+- Si no existe encaje institucional, el piloto se mantiene como iniciativa independiente.
+
+### Límite explícito del piloto
+
+- UniApp **no promete créditos académicos** ni reconocimiento institucional mientras no exista confirmación oficial documentada.
 
 ## Organización
 
