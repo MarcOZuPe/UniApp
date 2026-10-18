@@ -1,0 +1,43 @@
+name: Board Automation
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  move-project-card:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+      PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Update linked issues without checking out PR code
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, subprocess
+          def gh(*args):
+              return json.loads(subprocess.check_output(['gh',*args],text=True))
+          with open(os.environ['GITHUB_EVENT_PATH']) as f: event=json.load(f)
+          pr=event['pull_request']; action=event['action']
+          if action=='closed' and not pr['merged']: raise SystemExit(0)
+          status='Done' if action=='closed' else ('In progress' if pr['draft'] else 'In review')
+          for key in ['GH_TOKEN','PROJECT_OWNER','PROJECT_NUMBER']:
+              if not os.environ.get(key): raise SystemExit('Falta configurar '+key)
+          owner=os.environ['PROJECT_OWNER']; number=os.environ['PROJECT_NUMBER']
+          project=gh('project','view',number,'--owner',owner,'--format','json')
+          fields=gh('project','field-list',number,'--owner',owner,'--limit','100','--format','json')['fields']
+          field=next(f for f in fields if f['name']=='Status')
+          option=next(o for o in field['options'] if o['name']==status)
+          issues=gh('pr','view',str(pr['number']),'--repo',os.environ['GH_REPO'],'--json','closingIssuesReferences')['closingIssuesReferences']
+          if not issues: print('Sin issues vinculados; usar Closes #N.')
+          for issue in issues:
+              item=gh('project','item-add',number,'--owner',owner,'--url',issue['url'],'--format','json')
+              subprocess.run(['gh','project','item-edit','--project-id',project['id'],'--id',item['id'],'--field-id',field['id'],'--single-select-option-id',option['id']],check=True)
+              print(issue['url']+' -> '+status)
+          PY
