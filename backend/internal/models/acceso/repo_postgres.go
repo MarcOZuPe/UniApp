@@ -1,0 +1,122 @@
+package acceso
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+
+	"github.com/lib/pq"
+)
+
+type RepositorioPostgres struct{ DB *sql.DB }
+
+var idPorRol = map[Rol]int{RolEscolar: 1, RolApoderado: 2, RolTutor: 3, RolCoordinador: 4}
+
+const consultaUsuario = `SELECT u.id, u.email, u.nombre_uso, u.clave_hash, r.nombre, u.activo, u.creado_en, u.ultimo_ingreso
+	FROM usuarios u JOIN roles r ON r.id = u.rol_id `
+
+func (r RepositorioPostgres) CrearUsuario(ctx context.Context, usuario *Usuario) (*Usuario, error) {
+	registrado := *usuario
+	err := r.DB.QueryRowContext(ctx,
+		`INSERT INTO usuarios (email, nombre_uso, clave_hash, rol_id) VALUES ($1,$2,$3,$4) RETURNING id, creado_en`,
+		usuario.Email, usuario.NombreUso, usuario.ClaveHash, idPorRol[usuario.Rol]).Scan(&registrado.ID, &registrado.CreadoEn)
+	var errorPostgres *pq.Error
+	if errors.As(err, &errorPostgres) && errorPostgres.Code == "23505" {
+		return nil, ErrEmailEnUso
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &registrado, nil
+}
+
+func (r RepositorioPostgres) UsuarioPorEmail(ctx context.Context, email string) (*Usuario, error) {
+	return escanearUsuario(r.DB.QueryRowContext(ctx, consultaUsuario+`WHERE u.email = $1`, email))
+}
+
+func (r RepositorioPostgres) UsuarioPorID(ctx context.Context, id string) (*Usuario, error) {
+	return escanearUsuario(r.DB.QueryRowContext(ctx, consultaUsuario+`WHERE u.id = $1`, id))
+}
+
+func (r RepositorioPostgres) ActualizarClave(ctx context.Context, id, claveHash string) error {
+	_, err := r.DB.ExecContext(ctx, `UPDATE usuarios SET clave_hash=$2 WHERE id=$1`, id, claveHash)
+	return err
+}
+
+func (r RepositorioPostgres) RegistrarIngreso(ctx context.Context, id string, momento time.Time) error {
+	_, err := r.DB.ExecContext(ctx, `UPDATE usuarios SET ultimo_ingreso=$2 WHERE id=$1`, id, momento)
+	return err
+}
+
+func (r RepositorioPostgres) GuardarSesion(ctx context.Context, sesion Sesion) error {
+	_, err := r.DB.ExecContext(ctx, `INSERT INTO sesiones (token_hash, usuario_id, expira_en) VALUES ($1,$2,$3)`,
+		sesion.TokenHash, sesion.UsuarioID, sesion.ExpiraEn)
+	return err
+}
+
+func (r RepositorioPostgres) SesionPorHash(ctx context.Context, tokenHash []byte) (*Sesion, error) {
+	var sesion Sesion
+	err := r.DB.QueryRowContext(ctx, `SELECT token_hash, usuario_id, expira_en FROM sesiones WHERE token_hash=$1`, tokenHash).
+		Scan(&sesion.TokenHash, &sesion.UsuarioID, &sesion.ExpiraEn)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNoEncontrado
+	}
+	return &sesion, err
+}
+
+func (r RepositorioPostgres) EliminarSesion(ctx context.Context, tokenHash []byte) error {
+	_, err := r.DB.ExecContext(ctx, `DELETE FROM sesiones WHERE token_hash=$1`, tokenHash)
+	return err
+}
+
+func (r RepositorioPostgres) EliminarSesionesDeUsuario(ctx context.Context, id string) error {
+	_, err := r.DB.ExecContext(ctx, `DELETE FROM sesiones WHERE usuario_id=$1`, id)
+	return err
+}
+
+func (r RepositorioPostgres) GuardarTokenRecuperacion(ctx context.Context, token TokenRecuperacion) error {
+	_, err := r.DB.ExecContext(ctx, `INSERT INTO tokens_recuperacion (token_hash, usuario_id, expira_en) VALUES ($1,$2,$3)`,
+		token.TokenHash, token.UsuarioID, token.ExpiraEn)
+	return err
+}
+
+func (r RepositorioPostgres) ConsumirTokenRecuperacion(ctx context.Context, tokenHash []byte, ahora time.Time) (string, error) {
+	var id string
+	err := r.DB.QueryRowContext(ctx,
+		`UPDATE tokens_recuperacion SET usado_en=$2 WHERE token_hash=$1 AND usado_en IS NULL AND expira_en > $2 RETURNING usuario_id`,
+		tokenHash, ahora).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrTokenInvalido
+	}
+	return id, err
+}
+
+func (r RepositorioPostgres) UsuarioDeTokenRecuperacion(ctx context.Context, tokenHash []byte, ahora time.Time) (string, error) {
+	var id string
+	err := r.DB.QueryRowContext(ctx,
+		`SELECT usuario_id FROM tokens_recuperacion WHERE token_hash=$1 AND usado_en IS NULL AND expira_en > $2`, tokenHash, ahora).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrTokenInvalido
+	}
+	return id, err
+}
+
+func escanearUsuario(fila *sql.Row) (*Usuario, error) {
+	var usuario Usuario
+	var nombreRol string
+	var ultimoIngreso sql.NullTime
+	if err := fila.Scan(&usuario.ID, &usuario.Email, &usuario.NombreUso, &usuario.ClaveHash, &nombreRol,
+		&usuario.Activo, &usuario.CreadoEn, &ultimoIngreso); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoEncontrado
+		}
+		return nil, err
+	}
+	usuario.Rol = Rol(nombreRol)
+	if ultimoIngreso.Valid {
+		momento := ultimoIngreso.Time
+		usuario.UltimoIngreso = &momento
+	}
+	return &usuario, nil
+}
