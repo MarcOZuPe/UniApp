@@ -36,6 +36,16 @@ python3 scripts/test_hooks.py
 Ramas permitidas: `main`, `feature/kebab-case`, `bugfix/kebab-case`.
 Commits: `feat`, `fix`, `docs`, `test`, `refactor`, `style`, `chore`, `build`, `ci`, `perf`; título de hasta 72 caracteres.
 
+Cada colaborador copia `.env.example` a `.env` (que no se versiona) para
+ejecutar en su máquina; para el correo de recuperación en desarrollo puede usar
+un buzón local (Mailpit) y así no compartir credenciales.
+
+## Despliegue en el VPS
+
+`APP_ENV=prod` exige que `FRONTEND_ORIGIN` sea la URL pública, y la clave SMTP se
+monta como Docker secret (`SMTP_PASSWORD_FILE`) en vez de viajar como variable de
+entorno. Pasos completos: [docs/despliegue-vps.md](docs/despliegue-vps.md).
+
 ## GitHub y tablero
 
 El administrador crea issues y gestiona el tablero. Los colaboradores implementan issues asignados y abren PR con `Closes #N`. Para pasar por revisión, abrir el PR como borrador y después marcarlo listo para revisar. Una aprobación y resolución de conversaciones preceden al merge.

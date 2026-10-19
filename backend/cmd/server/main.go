@@ -36,6 +36,7 @@ func main() {
 	if err != nil {
 		registro.Fatal(err)
 	}
+	registro.Printf("frontend de enlaces: %s (APP_ENV=%s)", configuracion.OrigenFrontend, configuracion.Entorno)
 	ctx := context.Background()
 	baseDatos, err := db.Abrir(configuracion.DatabaseURL)
 	if err != nil {
