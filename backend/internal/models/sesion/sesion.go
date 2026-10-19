@@ -1,85 +1,155 @@
 package sesion
 
 import (
-    "errors"
-    "time"
+	"errors"
+	"time"
 )
 
 var (
-    ErrSesionInvalida = errors.New("sesion invalida")
-    ErrNoAutorizado = errors.New("participante no autorizado")
-    ErrAsistenciaDuplicada = errors.New("asistencia ya declarada")
+	ErrSesionInvalida      = errors.New("sesion invalida")
+	ErrNoAutorizado        = errors.New("participante no autorizado")
+	ErrAsistenciaDuplicada = errors.New("asistencia ya declarada")
 )
 
 type Rol string
 
 const (
-    RolTutor Rol = "tutor"
-    RolEscolar Rol = "escolar"
+	RolTutor   Rol = "tutor"
+	RolEscolar Rol = "escolar"
 )
 
 type Asistencia struct {
-    UsuarioID string
-    Rol Rol
-    DeclaradaEn time.Time
+	usuarioID   string
+	rol         Rol
+	declaradaEn time.Time
+}
+
+func (a Asistencia) UsuarioID() string {
+	return a.usuarioID
+}
+
+func (a Asistencia) Rol() Rol {
+	return a.rol
+}
+
+func (a Asistencia) DeclaradaEn() time.Time {
+	return a.declaradaEn
 }
 
 type Sesion struct {
-    ID string
-    ReservaID string
-    TutorID string
-    EscolarID string
-    Inicio time.Time
-    Fin time.Time
-    Asistencias []Asistencia
+	id          string
+	reservaID   string
+	tutorID     string
+	escolarID   string
+	inicio      time.Time
+	fin         time.Time
+	asistencias []Asistencia
+}
+
+func NuevaSesion(
+	id string,
+	reservaID string,
+	tutorID string,
+	escolarID string,
+	inicio time.Time,
+	fin time.Time,
+) (*Sesion, error) {
+	s := &Sesion{
+		id:        id,
+		reservaID: reservaID,
+		tutorID:   tutorID,
+		escolarID: escolarID,
+		inicio:    inicio.UTC(),
+		fin:       fin.UTC(),
+	}
+
+	if err := s.Validar(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 func (s *Sesion) Validar() error {
-    if s.ID == "" || s.ReservaID == "" ||
-        s.TutorID == "" || s.EscolarID == "" ||
-        s.TutorID == s.EscolarID ||
-        s.Inicio.IsZero() || s.Fin.IsZero() ||
-        !s.Fin.After(s.Inicio) {
-        return ErrSesionInvalida
-    }
+	if s == nil ||
+		s.id == "" ||
+		s.reservaID == "" ||
+		s.tutorID == "" ||
+		s.escolarID == "" ||
+		s.tutorID == s.escolarID ||
+		s.inicio.IsZero() ||
+		s.fin.IsZero() ||
+		!s.fin.After(s.inicio) {
+		return ErrSesionInvalida
+	}
 
-    return nil
+	return nil
+}
+
+func (s *Sesion) ID() string {
+	return s.id
+}
+
+func (s *Sesion) ReservaID() string {
+	return s.reservaID
+}
+
+func (s *Sesion) TutorID() string {
+	return s.tutorID
+}
+
+func (s *Sesion) EscolarID() string {
+	return s.escolarID
+}
+
+func (s *Sesion) Inicio() time.Time {
+	return s.inicio
+}
+
+func (s *Sesion) Fin() time.Time {
+	return s.fin
+}
+
+func (s *Sesion) Asistencias() []Asistencia {
+	resultado := make([]Asistencia, len(s.asistencias))
+	copy(resultado, s.asistencias)
+	return resultado
 }
 
 func (s *Sesion) DeclararAsistencia(
-    usuarioID string,
-    ahora time.Time,
+	usuarioID string,
+	ahora time.Time,
 ) error {
-    if err := s.Validar(); err != nil {
-        return err
-    }
+	if err := s.Validar(); err != nil {
+		return err
+	}
 
-    if ahora.IsZero() {
-        return ErrSesionInvalida
-    }
+	if ahora.IsZero() {
+		return ErrSesionInvalida
+	}
 
-    var rol Rol
+	var rol Rol
 
-    switch usuarioID {
-    case s.TutorID:
-        rol = RolTutor
-    case s.EscolarID:
-        rol = RolEscolar
-    default:
-        return ErrNoAutorizado
-    }
+	switch usuarioID {
+	case s.tutorID:
+		rol = RolTutor
+	case s.escolarID:
+		rol = RolEscolar
+	default:
+		return ErrNoAutorizado
+	}
 
-    for _, asistencia := range s.Asistencias {
-        if asistencia.UsuarioID == usuarioID {
-            return ErrAsistenciaDuplicada
-        }
-    }
+	for _, asistencia := range s.asistencias {
+		if asistencia.usuarioID == usuarioID {
+			return ErrAsistenciaDuplicada
+		}
+	}
 
-    s.Asistencias = append(s.Asistencias, Asistencia{
-        UsuarioID: usuarioID,
-        Rol: rol,
-        DeclaradaEn: ahora.UTC(),
-    })
+	s.asistencias = append(s.asistencias, Asistencia{
+		usuarioID:   usuarioID,
+		rol:         rol,
+		declaradaEn: ahora.UTC(),
+	})
 
-    return nil
+	return nil
 }

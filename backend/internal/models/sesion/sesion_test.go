@@ -1,97 +1,162 @@
 package sesion
 
 import (
-    "errors"
-    "testing"
-    "time"
+	"errors"
+	"testing"
+	"time"
 )
 
-func nuevaSesionPrueba() Sesion {
-    inicio := time.Date(
-        2026, 10, 20, 15, 0, 0, 0, time.UTC,
-    )
+func nuevaSesionPrueba(t *testing.T) *Sesion {
+	t.Helper()
 
-    return Sesion{
-        ID: "sesion-001",
-        ReservaID: "reserva-sintetica-001",
-        TutorID: "tutor-001",
-        EscolarID: "escolar-001",
-        Inicio: inicio,
-        Fin: inicio.Add(time.Hour),
-    }
+	inicio := time.Date(
+		2026, 10, 20, 15, 0, 0, 0, time.UTC,
+	)
+
+	s, err := NuevaSesion(
+		"sesion-001",
+		"reserva-sintetica-001",
+		"tutor-001",
+		"escolar-001",
+		inicio,
+		inicio.Add(time.Hour),
+	)
+
+	if err != nil {
+		t.Fatalf("No se pudo crear la sesion: %v", err)
+	}
+
+	return s
+}
+
+func TestNuevaSesion(t *testing.T) {
+	sesion := nuevaSesionPrueba(t)
+
+	if sesion.ID() != "sesion-001" {
+		t.Fatal("Identificador incorrecto")
+	}
+
+	if sesion.ReservaID() != "reserva-sintetica-001" {
+		t.Fatal("Reserva incorrecta")
+	}
 }
 
 func TestDeclararAsistencia(t *testing.T) {
-    sesion := nuevaSesionPrueba()
+	sesion := nuevaSesionPrueba(t)
 
-    err := sesion.DeclararAsistencia(
-        "escolar-001",
-        sesion.Inicio,
-    )
+	err := sesion.DeclararAsistencia(
+		"escolar-001",
+		sesion.Inicio(),
+	)
 
-    if err != nil {
-        t.Fatalf("No deberia fallar: %v", err)
-    }
+	if err != nil {
+		t.Fatalf("No deberia fallar: %v", err)
+	}
 
-    if len(sesion.Asistencias) != 1 {
-        t.Fatal("Se esperaba una declaracion")
-    }
+	asistencias := sesion.Asistencias()
 
-    if sesion.Asistencias[0].Rol != RolEscolar {
-        t.Fatal("El rol registrado es incorrecto")
-    }
+	if len(asistencias) != 1 {
+		t.Fatal("Se esperaba una declaracion")
+	}
+
+	if asistencias[0].Rol() != RolEscolar {
+		t.Fatal("Rol incorrecto")
+	}
 }
 
 func TestRechazarParticipanteAjeno(t *testing.T) {
-    sesion := nuevaSesionPrueba()
+	sesion := nuevaSesionPrueba(t)
 
-    err := sesion.DeclararAsistencia(
-        "usuario-ajeno",
-        sesion.Inicio,
-    )
+	err := sesion.DeclararAsistencia(
+		"usuario-ajeno",
+		sesion.Inicio(),
+	)
 
-    if !errors.Is(err, ErrNoAutorizado) {
-        t.Fatalf("Se esperaba acceso denegado: %v", err)
-    }
+	if !errors.Is(err, ErrNoAutorizado) {
+		t.Fatalf("Se esperaba acceso denegado: %v", err)
+	}
 
-    if len(sesion.Asistencias) != 0 {
-        t.Fatal("No debe registrar al usuario ajeno")
-    }
+	if len(sesion.Asistencias()) != 0 {
+		t.Fatal("No debe registrarse el usuario ajeno")
+	}
 }
 
-func TestRechazarAsistenciaDuplicada(t *testing.T) {
-    sesion := nuevaSesionPrueba()
+func TestRechazarDuplicado(t *testing.T) {
+	sesion := nuevaSesionPrueba(t)
 
-    if err := sesion.DeclararAsistencia(
-        "tutor-001", sesion.Inicio,
-    ); err != nil {
-        t.Fatal(err)
-    }
+	if err := sesion.DeclararAsistencia(
+		"tutor-001",
+		sesion.Inicio(),
+	); err != nil {
+		t.Fatal(err)
+	}
 
-    err := sesion.DeclararAsistencia(
-        "tutor-001",
-        sesion.Inicio.Add(time.Minute),
-    )
+	err := sesion.DeclararAsistencia(
+		"tutor-001",
+		sesion.Inicio().Add(time.Minute),
+	)
 
-    if !errors.Is(err, ErrAsistenciaDuplicada) {
-        t.Fatalf("Se esperaba duplicado: %v", err)
-    }
+	if !errors.Is(err, ErrAsistenciaDuplicada) {
+		t.Fatalf("Se esperaba duplicado: %v", err)
+	}
 
-    if len(sesion.Asistencias) != 1 {
-        t.Fatal("No debe duplicar declaraciones")
-    }
+	if len(sesion.Asistencias()) != 1 {
+		t.Fatal("No debe duplicar declaraciones")
+	}
+}
+
+func TestAmbosParticipantes(t *testing.T) {
+	sesion := nuevaSesionPrueba(t)
+
+	if err := sesion.DeclararAsistencia(
+		"tutor-001", sesion.Inicio(),
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sesion.DeclararAsistencia(
+		"escolar-001", sesion.Inicio(),
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(sesion.Asistencias()) != 2 {
+		t.Fatal("Se esperaban dos declaraciones independientes")
+	}
+}
+
+func TestAsistenciasDevuelveCopia(t *testing.T) {
+	sesion := nuevaSesionPrueba(t)
+
+	if err := sesion.DeclararAsistencia(
+		"tutor-001", sesion.Inicio(),
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	copia := sesion.Asistencias()
+	copia[0] = Asistencia{}
+
+	if sesion.Asistencias()[0].UsuarioID() != "tutor-001" {
+		t.Fatal("La coleccion interna fue modificada")
+	}
 }
 
 func TestRechazarSesionInvalida(t *testing.T) {
-    sesion := nuevaSesionPrueba()
-    sesion.Fin = sesion.Inicio
+	inicio := time.Date(
+		2026, 10, 20, 15, 0, 0, 0, time.UTC,
+	)
 
-    err := sesion.DeclararAsistencia(
-        "tutor-001",
-        sesion.Inicio,
-    )
+	_, err := NuevaSesion(
+		"sesion-001",
+		"reserva-001",
+		"tutor-001",
+		"escolar-001",
+		inicio,
+		inicio,
+	)
 
-    if !errors.Is(err, ErrSesionInvalida) {
-        t.Fatalf("Se esperaba sesion invalida: %v", err)
-    }
+	if !errors.Is(err, ErrSesionInvalida) {
+		t.Fatalf("Se esperaba sesion invalida: %v", err)
+	}
 }
