@@ -27,6 +27,26 @@ components:
         codigo: { type: string }
         mensaje: { type: string }
         campos: { type: object, additionalProperties: { type: string } }
+    SesionI05:
+      type: object
+      required: [id, reserva_id, inicio, fin, asistencias]
+      properties:
+        id: { type: string }
+        reserva_id: { type: string }
+        inicio: { type: string, format: date-time }
+        fin: { type: string, format: date-time }
+        asistencias:
+          type: array
+          items:
+            $ref: '#/components/schemas/AsistenciaI05'
+
+    AsistenciaI05:
+      type: object
+      required: [rol, declarada_en]
+      properties:
+        rol: { type: string, enum: [tutor, escolar] }
+        declarada_en: { type: string, format: date-time }
+
 paths:
   /api/auth/registro:
     post:
@@ -67,5 +87,59 @@ paths:
     get: { tags: [C-oferta], summary: Esqueleto. Mateo añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/reserva/salud:
     get: { tags: [D-reserva], summary: Esqueleto. Jhon añade aquí su contrato., responses: { '200': { description: OK } } }
+
   /api/sesion/salud:
     get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
+
+  /api/sesion/{id}:
+    get:
+      tags: [E-sesion]
+      summary: Consultar una sesion
+      description: >
+        Permite consultar una sesion asociada a una reserva.
+        Solo sus participantes autorizados pueden acceder.
+        Durante I05 se utilizan reservas sinteticas.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Sesion encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionI05'
+        '401': { description: Usuario no autenticado }
+        '403': { description: Acceso no autorizado }
+        '404': { description: Sesion inexistente }
+
+  /api/sesion/{id}/asistencias:
+    post:
+      tags: [E-sesion]
+      summary: Declarar asistencia propia
+      description: >
+        Registra la declaracion del participante autenticado.
+        La identidad se obtiene de la autenticacion del servidor,
+        nunca de un identificador enviado por el cliente.
+        Declarar asistencia no acredita minutos verificados.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Declaracion registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsistenciaI05'
+        '401': { description: Usuario no autenticado }
+        '403': { description: Acceso no autorizado }
+        '404': { description: Sesion inexistente }
+        '409': { description: Asistencia duplicada }
+        '422': { description: Declaracion invalida }
