@@ -160,3 +160,38 @@ func TestRechazarSesionInvalida(t *testing.T) {
 		t.Fatalf("Se esperaba sesion invalida: %v", err)
 	}
 }
+func TestRechazarSesionDe30Minutos(t *testing.T) {
+	inicio := time.Date(2026, 10, 19, 15, 0, 0, 0, time.UTC)
+	fin := inicio.Add(30 * time.Minute)
+
+	_, err := NuevaSesion(
+		"sesion-30",
+		"reserva-30",
+		"tutor-1",
+		"escolar-1",
+		inicio,
+		fin,
+	)
+
+	if !errors.Is(err, ErrSesionInvalida) {
+		t.Fatalf("se esperaba ErrSesionInvalida, se obtuvo %v", err)
+	}
+}
+
+func TestRechazarSesionDe90Minutos(t *testing.T) {
+	inicio := time.Date(2026, 10, 19, 15, 0, 0, 0, time.UTC)
+	fin := inicio.Add(90 * time.Minute)
+
+	_, err := NuevaSesion(
+		"sesion-90",
+		"reserva-90",
+		"tutor-1",
+		"escolar-1",
+		inicio,
+		fin,
+	)
+
+	if !errors.Is(err, ErrSesionInvalida) {
+		t.Fatalf("se esperaba ErrSesionInvalida, se obtuvo %v", err)
+	}
+}

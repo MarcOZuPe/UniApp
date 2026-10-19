@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const DuracionSesion = 60 * time.Minute
+
 var (
 	ErrSesionInvalida      = errors.New("sesion invalida")
 	ErrNoAutorizado        = errors.New("participante no autorizado")
@@ -79,7 +81,7 @@ func (s *Sesion) Validar() error {
 		s.tutorID == s.escolarID ||
 		s.inicio.IsZero() ||
 		s.fin.IsZero() ||
-		!s.fin.After(s.inicio) {
+		s.fin.Sub(s.inicio) != DuracionSesion {
 		return ErrSesionInvalida
 	}
 
