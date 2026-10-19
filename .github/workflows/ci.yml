@@ -1,0 +1,47 @@
+name: ci
+on:
+  pull_request:
+  push: { branches: [main] }
+jobs:
+  secretos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/verificar-secretos.sh
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: uniapp, POSTGRES_PASSWORD: ci-test, POSTGRES_DB: uniapp_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U uniapp" --health-interval 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://uniapp:ci-test@localhost:5432/uniapp_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.22" }
+      - name: Pruebas del backend
+        # Se omite mientras el backend no tenga módulo: el esqueleto (E02) no trae código aún.
+        run: |
+          if [ ! -f backend/go.mod ]; then
+            echo "Sin backend/go.mod todavía: se omite el backend."
+            exit 0
+          fi
+          cd backend && test -z "$(gofmt -l .)" && go vet ./... && go test -race ./...
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Pruebas del frontend
+        # Se omite mientras el frontend no tenga package.json.
+        run: |
+          if [ ! -f frontend/package.json ]; then
+            echo "Sin frontend/package.json todavía: se omite el frontend."
+            exit 0
+          fi
+          cd frontend && npm install && npm test && npm run build
