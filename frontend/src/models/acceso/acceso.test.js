@@ -13,7 +13,9 @@ describe('modelo: validadores (Strategy + Factory)', () => {
   it('tutor exige correo institucional', () => {
     const base = { nombre_uso: 'Tito', clave: 'Clave-Segura-2026!', confirmar: 'Clave-Segura-2026!', rol: 'tutor' };
     expect(validarRegistro({ ...base, email: 't@gmail.com' }).email).toBeTruthy();
+    expect(validarRegistro({ ...base, email: 't@uni.edu.pe.evil.com' }).email).toBeTruthy();
     expect(validarRegistro({ ...base, email: 't@uni.edu.pe' })).toEqual({});
+    expect(validarRegistro({ ...base, email: 't@uni.pe' })).toEqual({});
   });
   it('detecta contraseñas distintas', () => {
     const e = validarRegistro({ email: 'a@b.co', nombre_uso: 'Ana', clave: 'clave-larga-ok', confirmar: 'otra', rol: 'escolar' });

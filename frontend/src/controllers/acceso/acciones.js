@@ -36,3 +36,6 @@ export async function salir() {
     cerrarSesionLocal();
   }
 }
+
+export const recuperar = (email) => api.post('/api/auth/recuperar', { email });
+export const restablecer = (token, clave) => api.post('/api/auth/restablecer', { token, clave });

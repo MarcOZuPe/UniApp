@@ -15,12 +15,12 @@ type DatosRegistro struct {
 }
 
 type Fabrica struct {
-	hasher       adapters.PasswordHasher
-	dominioTutor string
+	hasher        adapters.PasswordHasher
+	dominiosTutor string
 }
 
-func NuevaFabrica(hasher adapters.PasswordHasher, dominioTutor string) *Fabrica {
-	return &Fabrica{hasher: hasher, dominioTutor: dominioTutor}
+func NuevaFabrica(hasher adapters.PasswordHasher, dominiosTutor string) *Fabrica {
+	return &Fabrica{hasher: hasher, dominiosTutor: dominiosTutor}
 }
 
 func (f *Fabrica) PoliticaPara(rol Rol) PoliticaClave {
@@ -54,7 +54,7 @@ func (f *Fabrica) CrearInterno(datos DatosRegistro) (*Usuario, error) {
 }
 
 func (f *Fabrica) perfilDe(rol Rol) (PerfilRol, error) {
-	return ObtenerPerfil(rol, f.dominioTutor)
+	return ObtenerPerfil(rol, f.dominiosTutor)
 }
 
 func (f *Fabrica) construirValidado(datos DatosRegistro, perfil PerfilRol) (*Usuario, error) {

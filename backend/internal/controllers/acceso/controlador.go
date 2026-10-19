@@ -28,6 +28,8 @@ func (c *Controlador) Rutas() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/auth/registro", c.registro)
 	mux.HandleFunc("POST /api/auth/ingreso", c.ingreso)
+	mux.HandleFunc("POST /api/auth/recuperar", c.recuperar)
+	mux.HandleFunc("POST /api/auth/restablecer", c.restablecer)
 	mux.Handle("POST /api/auth/salida", Encadenar(http.HandlerFunc(c.salida), c.Autenticar()))
 	mux.Handle("GET /api/auth/yo", Encadenar(http.HandlerFunc(c.yo), c.Autenticar()))
 	mux.HandleFunc("GET /api/salud", c.salud)

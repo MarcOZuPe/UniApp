@@ -105,6 +105,15 @@ func TestOrigenCruzadoRechazado(t *testing.T) {
 	}
 }
 
+func TestRecuperarNoRevelaExistencia(t *testing.T) {
+	h := servidor(t)
+	a := llamar(h, "POST", "/api/auth/recuperar", `{"email":"escolar.prueba@example.test"}`, nil)
+	b := llamar(h, "POST", "/api/auth/recuperar", `{"email":"no.existe@example.test"}`, nil)
+	if a.Code != 202 || b.Code != 202 || a.Body.String() != b.Body.String() {
+		t.Fatalf("respuestas distintas: %d/%d", a.Code, b.Code)
+	}
+}
+
 func TestIngresoFallidoMensajeGenerico(t *testing.T) {
 	h := servidor(t)
 	a := llamar(h, "POST", "/api/auth/ingreso", `{"email":"escolar.prueba@example.test","clave":"mala"}`, nil)

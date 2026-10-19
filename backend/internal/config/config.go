@@ -13,7 +13,7 @@ type Config struct {
 	DatabaseURL      string
 	OrigenFrontend   string
 	CookieSegura     bool
-	DominioTutor     string
+	DominiosTutor    string // uno o varios dominios institucionales separados por coma
 	SembrarSintetico bool
 	ClaveSemilla     string
 	SMTP             SMTP
@@ -31,7 +31,7 @@ func Cargar() (Config, error) {
 		Puerto:         variableEntorno("PORT", "8080"),
 		DatabaseURL:    os.Getenv("DATABASE_URL"),
 		OrigenFrontend: variableEntorno("FRONTEND_ORIGIN", "http://localhost:5173"),
-		DominioTutor:   variableEntorno("TUTOR_EMAIL_DOMAIN", "uni.edu.pe"),
+		DominiosTutor:  variableEntorno("TUTOR_EMAIL_DOMAIN", "uni.edu.pe,uni.pe"),
 		ClaveSemilla:   os.Getenv("SEED_PASSWORD"),
 	}
 	configuracion.CookieSegura, _ = strconv.ParseBool(variableEntorno("COOKIE_SECURE", "false"))

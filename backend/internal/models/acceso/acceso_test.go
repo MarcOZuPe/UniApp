@@ -33,14 +33,21 @@ func nuevo(t *testing.T) (*Servicio, *events.Bus, *time.Time, map[string]int) {
 }
 
 func TestFabricaPorRol(t *testing.T) {
-	f := NuevaFabrica(adapters.PBKDF2Hasher{Iteraciones: 1000}, "uni.edu.pe")
+	f := NuevaFabrica(adapters.PBKDF2Hasher{Iteraciones: 1000}, "uni.edu.pe,uni.pe")
 	if _, err := f.CrearPublico(DatosRegistro{Email: "Ana@Example.com", NombreUso: "Ana", Clave: "una-clave-larga", Rol: RolEscolar}); err != nil {
 		t.Fatal(err)
 	}
+	for _, correo := range []string{"t@uni.edu.pe", "t@uni.pe"} {
+		if _, err := f.CrearPublico(DatosRegistro{Email: correo, NombreUso: "Tito", Clave: claveOK, Rol: RolTutor}); err != nil {
+			t.Fatalf("tutor con %s debe registrarse: %v", correo, err)
+		}
+	}
 	var ev ErrValidacion
-	_, err := f.CrearPublico(DatosRegistro{Email: "t@gmail.com", NombreUso: "Tito", Clave: claveOK, Rol: RolTutor})
-	if !errors.As(err, &ev) || ev.Campos["email"] == "" {
-		t.Fatalf("tutor sin correo institucional debe fallar: %v", err)
+	for _, correo := range []string{"t@gmail.com", "t@uni.edu.pe.evil.com"} {
+		_, err := f.CrearPublico(DatosRegistro{Email: correo, NombreUso: "Tito", Clave: claveOK, Rol: RolTutor})
+		if !errors.As(err, &ev) || ev.Campos["email"] == "" {
+			t.Fatalf("tutor con %s no debe registrarse: %v", correo, err)
+		}
 	}
 	if _, err := f.CrearPublico(DatosRegistro{Email: "c@example.com", NombreUso: "Coord", Clave: claveOK, Rol: RolCoordinador}); !errors.Is(err, ErrRolNoPermitido) {
 		t.Fatalf("coordinador no se registra desde la web: %v", err)
@@ -110,9 +117,47 @@ func TestBloqueoPorIntentos(t *testing.T) {
 	}
 }
 
+func TestRecuperacion(t *testing.T) {
+	s, bus, ahora, _ := nuevo(t)
+	ctx := context.Background()
+	var token string
+	bus.Registrar(events.RecuperacionSolicitada, events.NuevoObservadorFunc("captura-token", func(e events.Event) { token, _ = e.Payload["token"].(string) }))
+	_, _ = s.Registrar(ctx, DatosRegistro{Email: "e@example.com", NombreUso: "Eli", Clave: "clave-larga-ok", Rol: RolEscolar})
+	sesion, _, _ := s.Ingresar(ctx, "e@example.com", "clave-larga-ok")
+
+	if err := s.SolicitarRecuperacion(ctx, "nadie@example.com"); err != nil || token != "" {
+		t.Fatal("correo inexistente: sin error y sin token")
+	}
+	_ = s.SolicitarRecuperacion(ctx, "e@example.com")
+	if token == "" {
+		t.Fatal("debía emitirse token")
+	}
+	var ev ErrValidacion
+	if err := s.RestablecerClave(ctx, token, "corta"); !errors.As(err, &ev) {
+		t.Fatalf("clave débil: %v", err)
+	}
+	if err := s.RestablecerClave(ctx, token, "nueva-clave-larga"); err != nil {
+		t.Fatalf("la clave débil no debía gastar el token: %v", err)
+	}
+	if err := s.RestablecerClave(ctx, token, "otra-clave-larga"); !errors.Is(err, ErrTokenInvalido) {
+		t.Fatal("el token es de un solo uso")
+	}
+	if _, err := s.UsuarioDeSesion(ctx, sesion); err == nil {
+		t.Fatal("restablecer cierra las sesiones previas")
+	}
+	if _, _, err := s.Ingresar(ctx, "e@example.com", "nueva-clave-larga"); err != nil {
+		t.Fatal(err)
+	}
+	_ = s.SolicitarRecuperacion(ctx, "e@example.com")
+	*ahora = ahora.Add(2 * time.Hour)
+	if err := s.RestablecerClave(ctx, token, "tercera-clave-larga"); !errors.Is(err, ErrTokenInvalido) {
+		t.Fatal("token vencido")
+	}
+}
+
 func TestObtenerPerfilFabricaSimple(t *testing.T) {
 	for _, r := range []Rol{RolEscolar, RolApoderado, RolTutor, RolCoordinador} {
-		p, err := ObtenerPerfil(r, "uni.edu.pe")
+		p, err := ObtenerPerfil(r, "uni.edu.pe,uni.pe")
 		if err != nil || p.Rol() != r {
 			t.Fatalf("rol %s: %v", r, err)
 		}

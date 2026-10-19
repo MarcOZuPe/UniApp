@@ -20,7 +20,14 @@ import (
 	"uniapp/internal/db"
 	"uniapp/internal/events"
 	modelo "uniapp/internal/models/acceso"
+	"uniapp/internal/observers"
 	"uniapp/migrations"
+)
+
+const (
+	limiteDeEnvio     = 10 * time.Second
+	intentosDeEnvio   = 3
+	esperaEntreEnvios = 2 * time.Second
 )
 
 func main() {
@@ -44,21 +51,45 @@ func main() {
 }
 
 func construirServicio(ctx context.Context, registro *log.Logger, configuracion config.Config, baseDatos *sql.DB) *modelo.Servicio {
+	mailer := construirMailer(configuracion)
+	bus := construirBus(registro, mailer, configuracion)
 	hasher := adapters.NuevoHasher()
-	fabrica := modelo.NuevaFabrica(hasher, configuracion.DominioTutor)
+	fabrica := modelo.NuevaFabrica(hasher, configuracion.DominiosTutor)
 	servicio := modelo.NuevoServicio(modelo.Dependencias{
 		Repositorio: modelo.RepositorioPostgres{DB: baseDatos},
 		Fabrica:     fabrica,
 		Hasher:      hasher,
-		Bus:         events.NuevoBus(),
+		Bus:         bus,
 	})
 	if configuracion.SembrarSintetico {
-		if err := modelo.Sembrar(ctx, servicio, modelo.OpcionesSiembra{DominioTutor: configuracion.DominioTutor, Clave: configuracion.ClaveSemilla}); err != nil {
+		if err := modelo.Sembrar(ctx, servicio, modelo.OpcionesSiembra{DominioTutor: configuracion.DominiosTutor, Clave: configuracion.ClaveSemilla}); err != nil {
 			registro.Fatalf("semilla: %v", err)
 		}
 		registro.Println("cuentas sintéticas de prueba listas")
 	}
 	return servicio
+}
+
+func construirMailer(configuracion config.Config) adapters.Mailer {
+	var mailer adapters.Mailer = adapters.LogMailer{MostrarCuerpo: !configuracion.CookieSegura}
+	if configuracion.SMTP.Host != "" {
+		mailer = adapters.SMTPMailer{
+			Host: configuracion.SMTP.Host, Puerto: configuracion.SMTP.Puerto,
+			Usuario: configuracion.SMTP.Usuario, Clave: configuracion.SMTP.Clave,
+			Remitente: configuracion.SMTP.Remitente,
+		}
+	}
+	return adapters.NuevoReintentoMailer(adapters.NuevoTiempoLimiteMailer(mailer, limiteDeEnvio), intentosDeEnvio, esperaEntreEnvios)
+}
+
+func construirBus(registro *log.Logger, mailer adapters.Mailer, configuracion config.Config) *events.Bus {
+	bus := events.NuevoBus()
+	auditoria := observers.NuevaAuditoria(registro)
+	for _, nombre := range []string{events.UsuarioRegistrado, events.IngresoExitoso, events.IngresoFallido, events.ClaveRestablecida, events.RecuperacionSolicitada} {
+		bus.Registrar(nombre, auditoria)
+	}
+	bus.Registrar(events.RecuperacionSolicitada, observers.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
+	return bus
 }
 
 func construirManejador(controlador *ctrl.Controlador, registro *log.Logger, configuracion config.Config) http.Handler {
