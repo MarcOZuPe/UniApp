@@ -30,6 +30,8 @@ func (c *Controlador) Rutas() http.Handler {
 	mux.HandleFunc("POST /api/auth/ingreso", c.ingreso)
 	mux.HandleFunc("POST /api/auth/recuperar", c.recuperar)
 	mux.HandleFunc("POST /api/auth/restablecer", c.restablecer)
+	mux.HandleFunc("POST /api/auth/confirmar", c.confirmar)
+	mux.HandleFunc("POST /api/auth/reenviar-confirmacion", c.reenviarConfirmacion)
 	mux.Handle("POST /api/auth/salida", Encadenar(http.HandlerFunc(c.salida), c.Autenticar()))
 	mux.Handle("GET /api/auth/yo", Encadenar(http.HandlerFunc(c.yo), c.Autenticar()))
 	mux.HandleFunc("GET /api/salud", c.salud)

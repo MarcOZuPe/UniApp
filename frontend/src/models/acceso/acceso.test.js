@@ -61,3 +61,24 @@ describe('controlador: cliente (Adapter + Decorator)', () => {
     expect(alExpirar).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('controlador: acciones de confirmación (Adapter)', () => {
+  it('envía el token y el correo a los endpoints correctos', async () => {
+    const llamadas = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, opciones) => {
+      llamadas.push({ url, opciones });
+      return { ok: true, status: 200, text: async () => JSON.stringify({ mensaje: 'ok' }) };
+    }));
+    const { confirmar, reenviarConfirmacion } = await import('../../controllers/acceso/acciones.js');
+    await confirmar('tok-123');
+    await reenviarConfirmacion('ana@uni.pe');
+    vi.unstubAllGlobals();
+    expect(llamadas.map((llamada) => llamada.url)).toEqual([
+      '/api/auth/confirmar',
+      '/api/auth/reenviar-confirmacion',
+    ]);
+    expect(JSON.parse(llamadas[0].opciones.body)).toEqual({ token: 'tok-123' });
+    expect(JSON.parse(llamadas[1].opciones.body)).toEqual({ email: 'ana@uni.pe' });
+    expect(llamadas[0].opciones.credentials).toBe('same-origin');
+  });
+});

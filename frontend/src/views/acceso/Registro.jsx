@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
-import { registrar } from '../../controllers/acceso/acciones.js';
+import { registrar, reenviarConfirmacion } from '../../controllers/acceso/acciones.js';
 import { ROLES, ROLES_REGISTRO } from '../../models/acceso/roles.js';
 import { correosInstitucionales, validarRegistro } from '../../models/acceso/validadores.js';
 
@@ -14,6 +14,8 @@ export default function Registro() {
   const [errores, setErrores] = useState({});
   const [mensaje, setMensaje] = useState('');
   const [creado, setCreado] = useState(false);
+  const [aviso, setAviso] = useState('');
+  const [enviando, setEnviando] = useState(false);
   const cambiarCampo = (campo) => (evento) =>
     setFormulario({ ...formulario, [campo]: evento.target.value });
 
@@ -32,11 +34,38 @@ export default function Registro() {
     }
   }
 
+  async function reenviar() {
+    setEnviando(true);
+    setAviso('');
+    try {
+      const respuesta = await reenviarConfirmacion(formulario.email.trim());
+      setAviso(respuesta.mensaje);
+    } catch (error) {
+      setAviso(error.message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   if (creado) {
     return (
       <main>
-        <h1>Cuenta creada</h1>
-        <p>Ya puedes <Link to="/ingreso">ingresar</Link>.</p>
+        <h1>Revisa tu correo</h1>
+        <p>
+          Te enviamos un enlace a <strong>{formulario.email}</strong> para confirmar la cuenta.
+          Ábrelo para poder ingresar.
+        </p>
+        <p>
+          El enlace vence en <strong>30 minutos</strong>. Si no lo confirmas, el correo
+          quedará libre y podrás registrarte de nuevo.
+        </p>
+        {aviso && <p role="status">{aviso}</p>}
+        <p>
+          <button type="button" onClick={reenviar} disabled={enviando}>
+            {enviando ? 'Enviando…' : 'Reenviar enlace'}
+          </button>
+        </p>
+        <p><Link to="/ingreso">Ya confirmé mi correo</Link></p>
       </main>
     );
   }
@@ -57,6 +86,7 @@ export default function Registro() {
         <Campo etiqueta="Contraseña" type="password" autoComplete="new-password" value={formulario.clave} onChange={cambiarCampo('clave')} error={errores.clave} />
         <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={formulario.confirmar} onChange={cambiarCampo('confirmar')} error={errores.confirmar} />
         {mensaje && <p className="error" role="alert">{mensaje}</p>}
+        <p><small>Te enviaremos un enlace de confirmación válido por 30 minutos.</small></p>
         <button>Crear cuenta</button>
       </form>
       <p>¿Ya tienes cuenta? <Link to="/ingreso">Ingresar</Link></p>

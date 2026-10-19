@@ -28,6 +28,7 @@ const (
 	limiteDeEnvio     = 10 * time.Second
 	intentosDeEnvio   = 3
 	esperaEntreEnvios = 2 * time.Second
+	intervaloLimpieza = time.Minute
 )
 
 func main() {
@@ -36,8 +37,9 @@ func main() {
 	if err != nil {
 		registro.Fatal(err)
 	}
-	registro.Printf("frontend de enlaces: %s (APP_ENV=%s)", configuracion.OrigenFrontend, configuracion.Entorno)
-	ctx := context.Background()
+	registro.Printf("frontend de enlaces: %s (APP_ENV=%s; orígenes permitidos: %v)", configuracion.OrigenFrontend, configuracion.Entorno, configuracion.OrigenesFrontend)
+	ctx, detener := context.WithCancel(context.Background())
+	defer detener()
 	baseDatos, err := db.Abrir(configuracion.DatabaseURL)
 	if err != nil {
 		registro.Fatalf("base de datos: %v", err)
@@ -46,6 +48,7 @@ func main() {
 		registro.Fatalf("migraciones: %v", err)
 	}
 	servicio := construirServicio(ctx, registro, configuracion, baseDatos)
+	go limpiarRegistrosVencidosPeriodicamente(ctx, registro, servicio)
 	controlador := ctrl.Nuevo(servicio, configuracion.CookieSegura)
 	servidor := nuevoServidor(configuracion.Puerto, construirManejador(controlador, registro, configuracion))
 	servirHastaSenalDeParada(registro, servidor, ctx)
@@ -62,6 +65,11 @@ func construirServicio(ctx context.Context, registro *log.Logger, configuracion 
 		Hasher:      hasher,
 		Bus:         bus,
 	})
+	if liberados, err := servicio.LimpiarRegistrosVencidos(ctx); err != nil {
+		registro.Printf("limpieza de registros sin confirmar: %v", err)
+	} else if liberados > 0 {
+		registro.Printf("registros sin confirmar vencidos liberados: %d", liberados)
+	}
 	if configuracion.SembrarSintetico {
 		if err := modelo.Sembrar(ctx, servicio, modelo.OpcionesSiembra{DominioTutor: configuracion.DominiosTutor, Clave: configuracion.ClaveSemilla}); err != nil {
 			registro.Fatalf("semilla: %v", err)
@@ -86,10 +94,11 @@ func construirMailer(configuracion config.Config) adapters.Mailer {
 func construirBus(registro *log.Logger, mailer adapters.Mailer, configuracion config.Config) *events.Bus {
 	bus := events.NuevoBus()
 	auditoria := observers.NuevaAuditoria(registro)
-	for _, nombre := range []string{events.UsuarioRegistrado, events.IngresoExitoso, events.IngresoFallido, events.ClaveRestablecida, events.RecuperacionSolicitada} {
+	for _, nombre := range []string{events.UsuarioRegistrado, events.IngresoExitoso, events.IngresoFallido, events.ClaveRestablecida, events.RecuperacionSolicitada, events.ConfirmacionSolicitada, events.CorreoConfirmado} {
 		bus.Registrar(nombre, auditoria)
 	}
 	bus.Registrar(events.RecuperacionSolicitada, observers.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(events.ConfirmacionSolicitada, observers.NuevoCorreoConfirmacion(mailer, configuracion.OrigenFrontend))
 	return bus
 }
 
@@ -102,7 +111,7 @@ func construirManejador(controlador *ctrl.Controlador, registro *log.Logger, con
 	raiz.Handle("/", controlador.Rutas())
 	return ctrl.Encadenar(raiz,
 		ctrl.Recuperar(registro), ctrl.Registro(registro), ctrl.CabecerasSeguras(),
-		ctrl.OrigenPermitido(configuracion.OrigenFrontend))
+		ctrl.OrigenPermitido(configuracion.OrigenesFrontend...))
 }
 
 func nuevoServidor(puerto string, manejador http.Handler) *http.Server {
@@ -112,6 +121,23 @@ func nuevoServidor(puerto string, manejador http.Handler) *http.Server {
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
+	}
+}
+
+func limpiarRegistrosVencidosPeriodicamente(ctx context.Context, registro *log.Logger, servicio *modelo.Servicio) {
+	ticker := time.NewTicker(intervaloLimpieza)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if liberados, err := servicio.LimpiarRegistrosVencidos(ctx); err != nil {
+				registro.Printf("limpieza de registros sin confirmar: %v", err)
+			} else if liberados > 0 {
+				registro.Printf("registros sin confirmar vencidos liberados: %d", liberados)
+			}
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 

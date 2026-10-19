@@ -71,6 +71,49 @@ func TestCargarEnDesarrolloPermiteLocalhost(t *testing.T) {
 	}
 }
 
+func TestCargarAceptaVariosOrigenes(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/uniapp?sslmode=disable")
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("FRONTEND_ORIGIN", " http://localhost:5173 , http://159.195.245.124:5173/ ")
+	configuracion, err := Cargar()
+	if err != nil {
+		t.Fatalf("Cargar no debía fallar: %v", err)
+	}
+	if configuracion.OrigenFrontend != "http://localhost:5173" {
+		t.Fatalf("el primer origen es el de los enlaces: %q", configuracion.OrigenFrontend)
+	}
+	if len(configuracion.OrigenesFrontend) != 2 || configuracion.OrigenesFrontend[1] != "http://159.195.245.124:5173" {
+		t.Fatalf("orígenes permitidos: %v", configuracion.OrigenesFrontend)
+	}
+}
+
+func TestCargarRechazaOrigenInvalidoEnLista(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/uniapp?sslmode=disable")
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("FRONTEND_ORIGIN", "http://localhost:5173,uniapp.uni.pe")
+	if _, err := Cargar(); err == nil {
+		t.Fatal("debía rechazar un origen sin esquema dentro de la lista")
+	}
+}
+
+func TestCargarRechazaLocalhostEnListaDeProduccion(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/uniapp?sslmode=disable")
+	t.Setenv("APP_ENV", "prod")
+	t.Setenv("FRONTEND_ORIGIN", "https://uniapp.uni.pe,http://localhost:5173")
+	if _, err := Cargar(); err == nil {
+		t.Fatal("con APP_ENV=prod ningún origen puede ser local")
+	}
+}
+
+func TestCargarRechazaListaVacia(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/uniapp?sslmode=disable")
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("FRONTEND_ORIGIN", " , ")
+	if _, err := Cargar(); err == nil {
+		t.Fatal("debía exigir al menos un origen")
+	}
+}
+
 func TestVariableSecretaDesdeArchivo(t *testing.T) {
 	ruta := filepath.Join(t.TempDir(), "smtp_password")
 	if err := os.WriteFile(ruta, []byte("clave-del-archivo\n"), 0o600); err != nil {

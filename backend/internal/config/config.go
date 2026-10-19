@@ -14,15 +14,15 @@ type Config struct {
 	Puerto           string
 	DatabaseURL      string
 	OrigenFrontend   string
+	OrigenesFrontend []string
 	Entorno          string
 	CookieSegura     bool
-	DominiosTutor    string // uno o varios dominios institucionales separados por coma
+	DominiosTutor    string
 	SembrarSintetico bool
 	ClaveSemilla     string
 	SMTP             SMTP
 }
 
-// EnProduccion indica que la configuración es de despliegue real (APP_ENV=prod).
 func (c Config) EnProduccion() bool {
 	switch strings.ToLower(strings.TrimSpace(c.Entorno)) {
 	case "prod", "production", "produccion", "producción":
@@ -31,9 +31,6 @@ func (c Config) EnProduccion() bool {
 	return false
 }
 
-// validarOrigen exige que FRONTEND_ORIGIN sea una URL absoluta http(s) y, en
-// producción, que no apunte a la máquina local: los enlaces de recuperación
-// viajan por correo y deben resolverse desde el navegador del usuario.
 func validarOrigen(origen string, produccion bool) error {
 	u, err := url.Parse(origen)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
@@ -50,6 +47,30 @@ func hostLocal(host string) bool {
 	return h == "localhost" || strings.HasSuffix(h, ".localhost") || h == "127.0.0.1" || h == "::1"
 }
 
+func origenesDe(texto string) []string {
+	origenes := make([]string, 0, 2)
+	for _, parte := range strings.Split(texto, ",") {
+		origen := strings.TrimSpace(parte)
+		if origen == "" {
+			continue
+		}
+		origenes = append(origenes, strings.TrimRight(origen, "/"))
+	}
+	return origenes
+}
+
+func validarOrigenes(origenes []string, produccion bool) error {
+	if len(origenes) == 0 {
+		return fmt.Errorf("FRONTEND_ORIGIN debe indicar al menos un origen")
+	}
+	for _, origen := range origenes {
+		if err := validarOrigen(origen, produccion); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func variableEntorno(clave, porDefecto string) string {
 	if valor := os.Getenv(clave); valor != "" {
 		return valor
@@ -57,9 +78,6 @@ func variableEntorno(clave, porDefecto string) string {
 	return porDefecto
 }
 
-// variableSecreta lee un secreto de la variable directa o, para Docker secrets
-// y gestores equivalentes, del archivo indicado por <CLAVE>_FILE. El archivo
-// tiene prioridad y se le quita el salto de línea final.
 func variableSecreta(clave string) (string, error) {
 	ruta := os.Getenv(clave + "_FILE")
 	if ruta == "" {
@@ -74,13 +92,13 @@ func variableSecreta(clave string) (string, error) {
 
 func Cargar() (Config, error) {
 	configuracion := Config{
-		Puerto:         variableEntorno("PORT", "8080"),
-		DatabaseURL:    os.Getenv("DATABASE_URL"),
-		OrigenFrontend: variableEntorno("FRONTEND_ORIGIN", "http://localhost:5173"),
-		Entorno:        variableEntorno("APP_ENV", "dev"),
-		DominiosTutor:  variableEntorno("TUTOR_EMAIL_DOMAIN", "uni.edu.pe,uni.pe"),
-		ClaveSemilla:   os.Getenv("SEED_PASSWORD"),
+		Puerto:        variableEntorno("PORT", "8080"),
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		Entorno:       variableEntorno("APP_ENV", "dev"),
+		DominiosTutor: variableEntorno("TUTOR_EMAIL_DOMAIN", "uni.edu.pe,uni.pe"),
+		ClaveSemilla:  os.Getenv("SEED_PASSWORD"),
 	}
+	origenes := origenesDe(variableEntorno("FRONTEND_ORIGIN", "http://localhost:5173"))
 	configuracion.CookieSegura, _ = strconv.ParseBool(variableEntorno("COOKIE_SECURE", "false"))
 	configuracion.SembrarSintetico, _ = strconv.ParseBool(variableEntorno("SEED_SYNTHETIC", "false"))
 	claveSMTP, err := variableSecreta("SMTP_PASSWORD")
@@ -98,8 +116,10 @@ func Cargar() (Config, error) {
 	if configuracion.SembrarSintetico && configuracion.ClaveSemilla == "" {
 		return configuracion, fmt.Errorf("SEED_PASSWORD es obligatoria con SEED_SYNTHETIC=true")
 	}
-	if err := validarOrigen(configuracion.OrigenFrontend, configuracion.EnProduccion()); err != nil {
+	if err := validarOrigenes(origenes, configuracion.EnProduccion()); err != nil {
 		return configuracion, err
 	}
+	configuracion.OrigenesFrontend = origenes
+	configuracion.OrigenFrontend = origenes[0]
 	return configuracion, nil
 }

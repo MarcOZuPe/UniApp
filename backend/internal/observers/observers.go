@@ -47,3 +47,29 @@ func (c *CorreoRecuperacion) Actualizar(evento events.Event) {
 		log.Printf("correo de recuperación no enviado: %v", err)
 	}
 }
+
+type CorreoConfirmacion struct {
+	mailer adapters.Mailer
+	origen string
+}
+
+func NuevoCorreoConfirmacion(mailer adapters.Mailer, origenFrontend string) *CorreoConfirmacion {
+	return &CorreoConfirmacion{mailer: mailer, origen: origenFrontend}
+}
+
+func (c *CorreoConfirmacion) ID() string { return "correo-confirmacion" }
+
+func (c *CorreoConfirmacion) Actualizar(evento events.Event) {
+	contexto, cancelar := context.WithTimeout(context.Background(), tiempoLimiteEnvio)
+	defer cancelar()
+	enlace := fmt.Sprintf("%s/confirmar?token=%v", c.origen, evento.Payload["token"])
+	err := c.mailer.Enviar(contexto, adapters.Mensaje{
+		Para:   fmt.Sprint(evento.Payload["email"]),
+		Asunto: "UniApp · confirma tu correo",
+		Cuerpo: "Para activar tu cuenta abre este enlace (vence en 30 minutos):\n" + enlace +
+			"\nSi no creaste esta cuenta, ignora este mensaje.",
+	})
+	if err != nil {
+		log.Printf("correo de confirmación no enviado: %v", err)
+	}
+}

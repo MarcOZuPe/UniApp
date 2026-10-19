@@ -39,3 +39,6 @@ export async function salir() {
 
 export const recuperar = (email) => api.post('/api/auth/recuperar', { email });
 export const restablecer = (token, clave) => api.post('/api/auth/restablecer', { token, clave });
+export const confirmar = (token) => api.post('/api/auth/confirmar', { token });
+export const reenviarConfirmacion = (email) =>
+  api.post('/api/auth/reenviar-confirmacion', { email });

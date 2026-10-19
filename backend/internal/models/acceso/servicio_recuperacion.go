@@ -14,7 +14,7 @@ const duracionRestablecimiento = time.Hour
 func (s *Servicio) SolicitarRecuperacion(ctx context.Context, email string) error {
 	email = normalizarEmail(email)
 	usuario, err := s.repositorio.UsuarioPorEmail(ctx, email)
-	if errors.Is(err, ErrNoEncontrado) || (err == nil && !usuario.Activo) {
+	if errors.Is(err, ErrNoEncontrado) || (err == nil && (!usuario.Activo || !usuario.EmailConfirmado)) {
 		return nil
 	}
 	if err != nil {

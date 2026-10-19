@@ -8,14 +8,18 @@ import (
 )
 
 type UsuarioJSON struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	NombreUso string `json:"nombre_uso"`
-	Rol       string `json:"rol"`
+	ID               string `json:"id"`
+	Email            string `json:"email"`
+	NombreUso        string `json:"nombre_uso"`
+	Rol              string `json:"rol"`
+	CorreoConfirmado bool   `json:"correo_confirmado"`
 }
 
 func PresentarUsuario(usuario *modelo.Usuario) UsuarioJSON {
-	return UsuarioJSON{ID: usuario.ID, Email: usuario.Email, NombreUso: usuario.NombreUso, Rol: string(usuario.Rol)}
+	return UsuarioJSON{
+		ID: usuario.ID, Email: usuario.Email, NombreUso: usuario.NombreUso,
+		Rol: string(usuario.Rol), CorreoConfirmado: usuario.EmailConfirmado,
+	}
 }
 
 type ErrorJSON struct {

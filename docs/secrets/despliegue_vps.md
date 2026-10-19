@@ -30,7 +30,13 @@ SMTP_FROM=vcadillog@uni.pe
 SMTP_PASSWORD=                              # vacío: la clave va en el secreto
 ```
 
-Con `APP_ENV=prod` el arranque falla si `FRONTEND_ORIGIN` apunta a `localhost`
+`FRONTEND_ORIGIN` admite varios orígenes separados por coma; el **primero** es
+el que va en los enlaces de correo y todos se aceptan en la comprobación de
+`Origin`. En desarrollo puedes usar
+`FRONTEND_ORIGIN=http://localhost:5173,http://IP_DEL_VPS:5173`; en el servidor
+deja solo la URL pública.
+
+Con `APP_ENV=prod` el arranque falla si algún origen apunta a `localhost`
 (evita el problema de INC-02: enlaces de recuperación irresolubles).
 
 ## 2. Crear el secreto

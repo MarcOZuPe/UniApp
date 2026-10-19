@@ -13,14 +13,15 @@ type RepositorioPostgres struct{ DB *sql.DB }
 
 var idPorRol = map[Rol]int{RolEscolar: 1, RolApoderado: 2, RolTutor: 3, RolCoordinador: 4}
 
-const consultaUsuario = `SELECT u.id, u.email, u.nombre_uso, u.clave_hash, r.nombre, u.activo, u.creado_en, u.ultimo_ingreso
+const consultaUsuario = `SELECT u.id, u.email, u.nombre_uso, u.clave_hash, r.nombre, u.activo, u.correo_confirmado, u.creado_en, u.ultimo_ingreso
 	FROM usuarios u JOIN roles r ON r.id = u.rol_id `
 
 func (r RepositorioPostgres) CrearUsuario(ctx context.Context, usuario *Usuario) (*Usuario, error) {
 	registrado := *usuario
 	err := r.DB.QueryRowContext(ctx,
-		`INSERT INTO usuarios (email, nombre_uso, clave_hash, rol_id) VALUES ($1,$2,$3,$4) RETURNING id, creado_en`,
-		usuario.Email, usuario.NombreUso, usuario.ClaveHash, idPorRol[usuario.Rol]).Scan(&registrado.ID, &registrado.CreadoEn)
+		`INSERT INTO usuarios (email, nombre_uso, clave_hash, rol_id, correo_confirmado) VALUES ($1,$2,$3,$4,$5) RETURNING id, creado_en`,
+		usuario.Email, usuario.NombreUso, usuario.ClaveHash, idPorRol[usuario.Rol], usuario.EmailConfirmado).
+		Scan(&registrado.ID, &registrado.CreadoEn)
 	var errorPostgres *pq.Error
 	if errors.As(err, &errorPostgres) && errorPostgres.Code == "23505" {
 		return nil, ErrEmailEnUso
@@ -41,6 +42,11 @@ func (r RepositorioPostgres) UsuarioPorID(ctx context.Context, id string) (*Usua
 
 func (r RepositorioPostgres) ActualizarClave(ctx context.Context, id, claveHash string) error {
 	_, err := r.DB.ExecContext(ctx, `UPDATE usuarios SET clave_hash=$2 WHERE id=$1`, id, claveHash)
+	return err
+}
+
+func (r RepositorioPostgres) MarcarCorreoConfirmado(ctx context.Context, id string) error {
+	_, err := r.DB.ExecContext(ctx, `UPDATE usuarios SET correo_confirmado=TRUE WHERE id=$1`, id)
 	return err
 }
 
@@ -102,12 +108,43 @@ func (r RepositorioPostgres) UsuarioDeTokenRecuperacion(ctx context.Context, tok
 	return id, err
 }
 
+func (r RepositorioPostgres) GuardarTokenConfirmacion(ctx context.Context, token TokenConfirmacion) error {
+	_, err := r.DB.ExecContext(ctx, `INSERT INTO tokens_confirmacion (token_hash, usuario_id, expira_en) VALUES ($1,$2,$3)`,
+		token.TokenHash, token.UsuarioID, token.ExpiraEn)
+	return err
+}
+
+func (r RepositorioPostgres) ConsumirTokenConfirmacion(ctx context.Context, tokenHash []byte, ahora time.Time) (string, error) {
+	var id string
+	err := r.DB.QueryRowContext(ctx,
+		`UPDATE tokens_confirmacion SET usado_en=$2 WHERE token_hash=$1 AND usado_en IS NULL AND expira_en > $2 RETURNING usuario_id`,
+		tokenHash, ahora).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrTokenInvalido
+	}
+	return id, err
+}
+
+// EliminarUsuariosSinConfirmar libera los correos de registros que nunca
+// confirmaron: solo conserva las cuentas sin confirmar con algún enlace vivo.
+func (r RepositorioPostgres) EliminarUsuariosSinConfirmar(ctx context.Context, ahora time.Time) (int64, error) {
+	resultado, err := r.DB.ExecContext(ctx, `DELETE FROM usuarios u
+		WHERE NOT u.correo_confirmado AND NOT EXISTS (
+			SELECT 1 FROM tokens_confirmacion t
+			WHERE t.usuario_id = u.id AND t.usado_en IS NULL AND t.expira_en > $1
+		)`, ahora)
+	if err != nil {
+		return 0, err
+	}
+	return resultado.RowsAffected()
+}
+
 func escanearUsuario(fila *sql.Row) (*Usuario, error) {
 	var usuario Usuario
 	var nombreRol string
 	var ultimoIngreso sql.NullTime
 	if err := fila.Scan(&usuario.ID, &usuario.Email, &usuario.NombreUso, &usuario.ClaveHash, &nombreRol,
-		&usuario.Activo, &usuario.CreadoEn, &ultimoIngreso); err != nil {
+		&usuario.Activo, &usuario.EmailConfirmado, &usuario.CreadoEn, &ultimoIngreso); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoEncontrado
 		}

@@ -35,7 +35,7 @@ func (s *Servicio) autenticar(ctx context.Context, email, clave string) (*Usuari
 		hash = usuario.ClaveHash
 	}
 	credencialesValidas := s.hasher.Verify(clave, hash)
-	if err != nil || !credencialesValidas || !usuario.Activo {
+	if err != nil || !credencialesValidas || !usuario.Activo || !usuario.EmailConfirmado {
 		s.registrarFallo(email)
 		s.bus.Notificar(events.Event{Nombre: events.IngresoFallido, Payload: map[string]any{"usuario_id": "-", "rol": "-"}})
 		return nil, ErrCredenciales

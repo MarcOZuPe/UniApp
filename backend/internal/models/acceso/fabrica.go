@@ -42,7 +42,7 @@ func (f *Fabrica) CrearPublico(datos DatosRegistro) (*Usuario, error) {
 	if !perfil.EsPublico() {
 		return nil, ErrRolNoPermitido
 	}
-	return f.construirValidado(datos, perfil)
+	return f.construirValidado(datos, perfil, false)
 }
 
 func (f *Fabrica) CrearInterno(datos DatosRegistro) (*Usuario, error) {
@@ -50,19 +50,19 @@ func (f *Fabrica) CrearInterno(datos DatosRegistro) (*Usuario, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f.construirValidado(datos, perfil)
+	return f.construirValidado(datos, perfil, true)
 }
 
 func (f *Fabrica) perfilDe(rol Rol) (PerfilRol, error) {
 	return ObtenerPerfil(rol, f.dominiosTutor)
 }
 
-func (f *Fabrica) construirValidado(datos DatosRegistro, perfil PerfilRol) (*Usuario, error) {
+func (f *Fabrica) construirValidado(datos DatosRegistro, perfil PerfilRol, confirmado bool) (*Usuario, error) {
 	datos = normalizarRegistro(datos)
 	if errores := validarRegistro(datos, perfil); len(errores) > 0 {
 		return nil, ErrValidacion{Campos: errores}
 	}
-	return f.construirUsuario(datos)
+	return f.construirUsuario(datos, confirmado)
 }
 
 func normalizarRegistro(datos DatosRegistro) DatosRegistro {
@@ -95,17 +95,18 @@ func correoValido(email string) bool {
 	return err == nil && direccion.Address == email && len(email) <= 254
 }
 
-func (f *Fabrica) construirUsuario(datos DatosRegistro) (*Usuario, error) {
+func (f *Fabrica) construirUsuario(datos DatosRegistro, confirmado bool) (*Usuario, error) {
 	claveHash, err := f.hasher.Hash(datos.Clave)
 	if err != nil {
 		return nil, err
 	}
 	return &Usuario{
-		Email:     datos.Email,
-		NombreUso: datos.NombreUso,
-		ClaveHash: claveHash,
-		Rol:       datos.Rol,
-		Activo:    true,
-		CreadoEn:  time.Now().UTC(),
+		Email:           datos.Email,
+		NombreUso:       datos.NombreUso,
+		ClaveHash:       claveHash,
+		Rol:             datos.Rol,
+		Activo:          true,
+		EmailConfirmado: confirmado,
+		CreadoEn:        time.Now().UTC(),
 	}, nil
 }

@@ -11,6 +11,8 @@ const (
 	IngresoFallido         = "ingreso.fallido"
 	RecuperacionSolicitada = "clave.recuperacion_solicitada"
 	ClaveRestablecida      = "clave.restablecida"
+	ConfirmacionSolicitada = "correo.confirmacion_solicitada"
+	CorreoConfirmado       = "correo.confirmado"
 )
 
 type Event struct {
