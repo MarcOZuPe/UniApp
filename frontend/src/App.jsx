@@ -6,6 +6,7 @@ import Inicio from './views/acceso/Inicio.jsx';
 import Ingreso from './views/acceso/Ingreso.jsx';
 import NoAutorizado from './views/acceso/NoAutorizado.jsx';
 import Registro from './views/acceso/Registro.jsx';
+import DetalleSesion from './views/sesion/DetalleSesion.jsx';
 
 export default function App() {
   useEffect(() => { cargarSesion(); }, []);
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/registro" element={<Registro />} />
         <Route path="/no-autorizado" element={<NoAutorizado />} />
         <Route path="/" element={<RutaProtegida><Inicio /></RutaProtegida>} />
+        <Route path="/sesiones/:id"element={ <RutaProtegida roles={['tutor', 'escolar']}> <DetalleSesion /> </RutaProtegida>}/>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

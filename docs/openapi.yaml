@@ -29,23 +29,26 @@ components:
         campos: { type: object, additionalProperties: { type: string } }
     SesionI05:
       type: object
-      required: [id, reserva_id, inicio, fin, asistencias]
+      required: [id, reserva_id, tutor_id, escolar_id, inicio, fin, asistencias]
       properties:
         id: { type: string }
         reserva_id: { type: string }
+        tutor_id: { type: string }
+        escolar_id: { type: string }
         inicio: { type: string, format: date-time }
         fin: { type: string, format: date-time }
         asistencias:
           type: array
           items:
             $ref: '#/components/schemas/AsistenciaI05'
-
     AsistenciaI05:
       type: object
-      required: [rol, declarada_en]
+      required: [usuario_id, rol, declarada_en]
       properties:
+        usuario_id: { type: string }
         rol: { type: string, enum: [tutor, escolar] }
         declarada_en: { type: string, format: date-time }
+
 
 paths:
   /api/auth/registro:

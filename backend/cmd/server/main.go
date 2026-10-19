@@ -20,6 +20,7 @@ import (
 	"uniapp/internal/db"
 	"uniapp/internal/events"
 	modelo "uniapp/internal/models/acceso"
+	modeloSesion "uniapp/internal/models/sesion"
 	"uniapp/migrations"
 )
 
@@ -38,8 +39,26 @@ func main() {
 		registro.Fatalf("migraciones: %v", err)
 	}
 	servicio := construirServicio(ctx, registro, configuracion, baseDatos)
+
+	if configuracion.SembrarSintetico {
+		repoSesion := modeloSesion.RepositorioPostgres{
+			DB: baseDatos,
+		}
+
+		if err := modeloSesion.SembrarSintetico(
+			ctx,
+			baseDatos,
+			repoSesion,
+			configuracion.DominioTutor,
+		); err != nil {
+			registro.Fatalf("semilla I05: %v", err)
+		}
+
+		registro.Println("sesion sintetica I05 lista")
+	}
+
 	controlador := ctrl.Nuevo(servicio, configuracion.CookieSegura)
-	servidor := nuevoServidor(configuracion.Puerto, construirManejador(controlador, registro, configuracion))
+	servidor := nuevoServidor(configuracion.Puerto, construirManejador(controlador, registro, configuracion, baseDatos))
 	servirHastaSenalDeParada(registro, servidor, ctx)
 }
 
@@ -61,16 +80,37 @@ func construirServicio(ctx context.Context, registro *log.Logger, configuracion 
 	return servicio
 }
 
-func construirManejador(controlador *ctrl.Controlador, registro *log.Logger, configuracion config.Config) http.Handler {
+func construirManejador(
+	controlador *ctrl.Controlador,
+	registro *log.Logger,
+	configuracion config.Config,
+	baseDatos *sql.DB,
+) http.Handler {
 	raiz := http.NewServeMux()
+
 	raiz.Handle("/api/tutor/", ctrlTutor.Rutas())
 	raiz.Handle("/api/oferta/", ctrlOferta.Rutas())
 	raiz.Handle("/api/reserva/", ctrlReserva.Rutas())
-	raiz.Handle("/api/sesion/", ctrlSesion.Rutas())
+
+	repositorioSesion := modeloSesion.RepositorioPostgres{
+		DB: baseDatos,
+	}
+
+	raiz.Handle("/api/sesion/", ctrlSesion.Rutas(
+		repositorioSesion,
+		controlador.Autenticar(),
+		configuracion.OrigenFrontend,
+	))
+
 	raiz.Handle("/", controlador.Rutas())
-	return ctrl.Encadenar(raiz,
-		ctrl.Recuperar(registro), ctrl.Registro(registro), ctrl.CabecerasSeguras(),
-		ctrl.OrigenPermitido(configuracion.OrigenFrontend))
+
+	return ctrl.Encadenar(
+		raiz,
+		ctrl.Recuperar(registro),
+		ctrl.Registro(registro),
+		ctrl.CabecerasSeguras(),
+		ctrl.OrigenPermitido(configuracion.OrigenFrontend),
+	)
 }
 
 func nuevoServidor(puerto string, manejador http.Handler) *http.Server {
