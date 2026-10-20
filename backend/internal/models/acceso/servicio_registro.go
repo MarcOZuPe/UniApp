@@ -7,6 +7,9 @@ import (
 )
 
 func (s *Servicio) Registrar(ctx context.Context, datos DatosRegistro) (*Usuario, error) {
+	if _, err := s.LimpiarRegistrosVencidos(ctx); err != nil {
+		return nil, err
+	}
 	usuario, err := s.fabrica.CrearPublico(datos)
 	if err != nil {
 		return nil, err
@@ -16,6 +19,9 @@ func (s *Servicio) Registrar(ctx context.Context, datos DatosRegistro) (*Usuario
 		return nil, err
 	}
 	s.bus.Notificar(eventoDeUsuario(events.UsuarioRegistrado, registrado))
+	if err := s.SolicitarConfirmacion(ctx, registrado); err != nil {
+		return nil, err
+	}
 	return registrado, nil
 }
 

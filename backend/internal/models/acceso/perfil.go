@@ -37,21 +37,45 @@ func nuevoPerfilApoderado() PerfilRol {
 
 type perfilTutor struct {
 	perfilBase
-	sufijo string
+	sufijos []string
 }
 
-func nuevoPerfilTutor(dominio string) PerfilRol {
+func nuevoPerfilTutor(dominios string) PerfilRol {
 	return &perfilTutor{
 		perfilBase: perfilBase{rol: RolTutor, politica: PoliticaEstricta{Min: 12}, publico: true},
-		sufijo:     "@" + strings.ToLower(dominio),
+		sufijos:    sufijosDeDominios(dominios),
 	}
 }
 
 func (p *perfilTutor) ValidarExtra(d DatosRegistro) map[string]string {
-	if !strings.HasSuffix(d.Email, p.sufijo) {
-		return map[string]string{"email": "los tutores usan su correo institucional (" + p.sufijo + ")"}
+	for _, sufijo := range p.sufijos {
+		if strings.HasSuffix(d.Email, sufijo) {
+			return nil
+		}
 	}
-	return nil
+	if len(p.sufijos) == 0 {
+		return map[string]string{"email": "los tutores usan su correo institucional"}
+	}
+	return map[string]string{"email": "los tutores usan su correo institucional (" + strings.Join(p.sufijos, " o ") + ")"}
+}
+
+func dominiosDe(texto string) []string {
+	dominios := make([]string, 0, 2)
+	for _, parte := range strings.Split(texto, ",") {
+		if dominio := strings.ToLower(strings.TrimSpace(parte)); dominio != "" {
+			dominios = append(dominios, dominio)
+		}
+	}
+	return dominios
+}
+
+func sufijosDeDominios(texto string) []string {
+	dominios := dominiosDe(texto)
+	sufijos := make([]string, 0, len(dominios))
+	for _, dominio := range dominios {
+		sufijos = append(sufijos, "@"+dominio)
+	}
+	return sufijos
 }
 
 type perfilCoordinador struct{ perfilBase }
@@ -60,14 +84,14 @@ func nuevoPerfilCoordinador() PerfilRol {
 	return &perfilCoordinador{perfilBase{rol: RolCoordinador, politica: PoliticaEstricta{Min: 12}, publico: false}}
 }
 
-func ObtenerPerfil(rol Rol, dominioTutor string) (PerfilRol, error) {
+func ObtenerPerfil(rol Rol, dominiosTutor string) (PerfilRol, error) {
 	switch rol {
 	case RolEscolar:
 		return nuevoPerfilEscolar(), nil
 	case RolApoderado:
 		return nuevoPerfilApoderado(), nil
 	case RolTutor:
-		return nuevoPerfilTutor(dominioTutor), nil
+		return nuevoPerfilTutor(dominiosTutor), nil
 	case RolCoordinador:
 		return nuevoPerfilCoordinador(), nil
 	}

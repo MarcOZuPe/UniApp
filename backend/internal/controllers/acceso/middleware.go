@@ -37,15 +37,21 @@ func CabecerasSeguras() Middleware {
 	}
 }
 
-func OrigenPermitido(permitido string) Middleware {
+func OrigenPermitido(permitidos ...string) Middleware {
 	return func(siguiente http.Handler) http.Handler {
-		return &decoradorOrigen{siguiente: siguiente, permitido: permitido}
+		return &decoradorOrigen{siguiente: siguiente, permitidos: permitidos}
 	}
 }
 
 func (c *Controlador) Autenticar() Middleware {
 	return func(siguiente http.Handler) http.Handler {
 		return &decoradorAutenticar{siguiente: siguiente, controlador: c}
+	}
+}
+
+func RequierePermiso(requeridos ...modelo.Permiso) Middleware {
+	return func(siguiente http.Handler) http.Handler {
+		return &decoradorPermiso{siguiente: siguiente, requeridos: requeridos}
 	}
 }
 
@@ -96,18 +102,27 @@ func (d *decoradorCabeceras) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type decoradorOrigen struct {
-	siguiente http.Handler
-	permitido string
+	siguiente  http.Handler
+	permitidos []string
 }
 
 func (d *decoradorOrigen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if cambiaEstado(r.Method) {
-		if origen := r.Header.Get("Origin"); origen != "" && origen != d.permitido {
+		if origen := r.Header.Get("Origin"); origen != "" && !d.permite(origen) {
 			vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusForbidden, Codigo: "origen_no_permitido", Mensaje: "Origen no permitido."})
 			return
 		}
 	}
 	d.siguiente.ServeHTTP(w, r)
+}
+
+func (d *decoradorOrigen) permite(origen string) bool {
+	for _, permitido := range d.permitidos {
+		if origen == permitido {
+			return true
+		}
+	}
+	return false
 }
 
 func cambiaEstado(metodo string) bool {
@@ -140,4 +155,24 @@ func (d *decoradorAutenticar) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	d.siguiente.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), claveContexto{}, usuario)))
+}
+
+type decoradorPermiso struct {
+	siguiente  http.Handler
+	requeridos []modelo.Permiso
+}
+
+func (d *decoradorPermiso) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	usuario := UsuarioDe(r.Context())
+	if usuario == nil {
+		vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusUnauthorized, Codigo: "no_autenticado", Mensaje: "Debes iniciar sesión."})
+		return
+	}
+	for _, requerido := range d.requeridos {
+		if !usuario.Rol.TienePermiso(requerido) {
+			vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusForbidden, Codigo: "sin_permiso", Mensaje: "Tu rol no tiene acceso a esta sección."})
+			return
+		}
+	}
+	d.siguiente.ServeHTTP(w, r)
 }

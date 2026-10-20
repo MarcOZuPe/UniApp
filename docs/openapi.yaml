@@ -1,15 +1,15 @@
 openapi: 3.0.3
 info:
-  title: UniApp ┬À Flujo A (Acceso) ┬À I01
+  title: UniApp · Flujo A (Acceso) · I01
   version: 0.1.0
-  description: Contrato de cuentas, sesi├│n y roles. Los dem├ís flujos lo consumen v├¡a API (nunca por tablas).
+  description: Contrato de cuentas, sesión y roles. Los demás flujos lo consumen vía API (nunca por tablas).
 servers: [{ url: http://localhost:8080 }]
 tags:
-  - { name: A-acceso, description: "Flujo A ┬À V├¡ctor ┬À implementado en I01" }
-  - { name: B-tutor, description: "Flujo B ┬À Miguel ┬À esqueleto (I02)" }
-  - { name: C-oferta, description: "Flujo C ┬À Mateo ┬À esqueleto (I03)" }
-  - { name: D-reserva, description: "Flujo D ┬À Jhon ┬À esqueleto (I04)" }
-  - { name: E-sesion, description: "Flujo E ┬À Marco ┬À esqueleto (I05)" }
+  - { name: A-acceso, description: "Flujo A · Víctor · implementado en I01" }
+  - { name: B-tutor, description: "Flujo B · Miguel · esqueleto (I02)" }
+  - { name: C-oferta, description: "Flujo C · Mateo · esqueleto (I03)" }
+  - { name: D-reserva, description: "Flujo D · Jhon · esqueleto (I04)" }
+  - { name: E-sesion, description: "Flujo E · Marco · esqueleto (I05)" }
 components:
   securitySchemes:
     sesion: { type: apiKey, in: cookie, name: uniapp_sesion }
@@ -21,6 +21,7 @@ components:
         email: { type: string }
         nombre_uso: { type: string }
         rol: { type: string, enum: [escolar, apoderado, tutor, coordinador] }
+        correo_confirmado: { type: boolean, description: "false hasta que se usa el enlace de confirmación" }
     Error:
       type: object
       properties:
@@ -29,7 +30,7 @@ components:
         campos: { type: object, additionalProperties: { type: string } }
     SlotReserva:
       type: object
-      description: Horario publicado por el flujo C. En I04 proviene de una oferta sint├®tica.
+      description: Horario publicado por el flujo C. En I04 proviene de una oferta sintética.
       properties:
         id: { type: string }
         tutor_id: { type: string }
@@ -40,7 +41,7 @@ components:
         inicio_lima: { type: string, description: "America/Lima, por ejemplo 2026-10-22 15:00" }
         fin_lima: { type: string }
         disponible: { type: boolean, description: falso si no cumple 48 h, horizonte o cupo }
-        motivo: { type: string, description: por qu├® no est├í disponible }
+        motivo: { type: string, description: por qué no está disponible }
     AdjuntoReserva:
       type: object
       description: Metadatos del adjunto. El archivo no se guarda en la base (I09).
@@ -106,51 +107,66 @@ components:
 paths:
   /api/auth/registro:
     post:
-      summary: Registro p├║blico (escolar, apoderado, tutor). Coordinaci├│n no se autoasigna.
+      summary: Registro público (escolar, apoderado, tutor). Coordinación no se autoasigna.
+      description: La cuenta nace sin confirmar y se envía un enlace de un solo uso (30 min) al correo. Si no se confirma en ese plazo, la cuenta se borra y el correo queda libre. Un correo admite un solo registro.
       requestBody:
         required: true
         content: { application/json: { schema: { type: object, required: [email, nombre_uso, clave, rol], properties: { email: {type: string}, nombre_uso: {type: string}, clave: {type: string}, rol: {type: string, enum: [escolar, apoderado, tutor]} } } } }
       responses:
-        '201': { description: Creado, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
+        '201': { description: Creado sin confirmar; se envió un enlace al correo, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
         '403': { description: Rol no permitido }
-        '409': { description: Correo en uso }
-        '422': { description: Validaci├│n por campo, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: Correo en uso (un correo, un registro) }
+        '422': { description: Validación por campo, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/auth/ingreso:
     post:
-      summary: Abre sesi├│n (cookie HttpOnly, SameSite=Strict, 12 h)
+      summary: Abre sesión (cookie HttpOnly, SameSite=Strict, 12 h)
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
-        '401': { description: Credenciales incorrectas (mensaje gen├®rico) }
+        '401': { description: Credenciales incorrectas (mensaje genérico; también cubre cuentas sin confirmar) }
         '429': { description: 5 fallos seguidos; bloqueo de 15 min }
   /api/auth/salida:
-    post: { security: [{ sesion: [] }], summary: Cierra sesi├│n, responses: { '204': { description: OK }, '401': { description: Sin sesi├│n } } }
+    post: { security: [{ sesion: [] }], summary: Cierra sesión, responses: { '204': { description: OK }, '401': { description: Sin sesión } } }
   /api/auth/yo:
-    get: { security: [{ sesion: [] }], summary: Usuario de la sesi├│n, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }, '401': { description: Sin sesi├│n } } }
+    get: { security: [{ sesion: [] }], summary: Usuario de la sesión, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }, '401': { description: Sin sesión } } }
   /api/auth/recuperar:
-    post: { summary: Solicita enlace (respuesta id├®ntica exista o no el correo), responses: { '202': { description: Aceptado } } }
+    post: { summary: Solicita enlace (respuesta idéntica exista o no el correo), responses: { '202': { description: Aceptado } } }
   /api/auth/restablecer:
     post:
       summary: Cambia la clave con token de un solo uso (vence en 1 h) y cierra todas las sesiones
-      responses: { '200': { description: OK }, '400': { description: Token inv├ílido o vencido }, '422': { description: Clave no cumple la pol├¡tica del rol } }
+      responses: { '200': { description: OK }, '400': { description: Token inválido o vencido }, '422': { description: Clave no cumple la política del rol } }
+  /api/auth/confirmar:
+    post:
+      summary: Confirma el correo con el token del enlace (un solo uso, vence en 30 min)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [token], properties: { token: { type: string } } } } }
+      responses: { '200': { description: Correo confirmado }, '400': { description: Token inválido, vencido o ya usado } }
+  /api/auth/reenviar-confirmacion:
+    post:
+      summary: Reenvía el enlace (renueva 30 min; respuesta idéntica exista o no el correo, para no revelar registros)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email], properties: { email: { type: string } } } } }
+      responses: { '202': { description: Aceptado } }
   /api/coordinacion/panel:
     get:
       security: [{ sesion: [] }]
-      summary: Zona de coordinaci├│n (permiso coordinacion:acceder)
-      responses: { '200': { description: OK }, '401': { description: Sin sesi├│n }, '403': { description: Rol sin permiso (p. ej. escolar) } }
+      summary: Zona de coordinación (permiso coordinacion:acceder)
+      responses: { '200': { description: OK }, '401': { description: Sin sesión }, '403': { description: Rol sin permiso (p. ej. escolar) } }
   /api/tutor/salud:
-    get: { tags: [B-tutor], summary: Esqueleto. Miguel a├▒ade aqu├¡ su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [B-tutor], summary: Esqueleto. Miguel añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/oferta/salud:
-    get: { tags: [C-oferta], summary: Esqueleto. Mateo a├▒ade aqu├¡ su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [C-oferta], summary: Esqueleto. Mateo añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/reserva/salud:
     get: { tags: [D-reserva], summary: Estado del flujo D, responses: { '200': { description: OK } } }
   /api/reserva/slots:
     get:
       tags: [D-reserva]
-      summary: Oferta disponible para reservar (I04, sint├®tica)
+      summary: Oferta disponible para reservar (I04, sintética)
       description: >
         Devuelve los horarios con la marca disponible y el motivo del rechazo cuando no
-        cumple las 48 horas (RN-03), el horizonte de 28 d├¡as (D06) o ya est├í reservado.
-        La regla se eval├║a en el modelo con la hora del servidor.
+        cumple las 48 horas (RN-03), el horizonte de 28 días (D06) o ya está reservado.
+        La regla se evalúa en el modelo con la hora del servidor.
       security: [{ sesion: [] }]
       responses:
         '200':
@@ -163,15 +179,15 @@ paths:
                   slots:
                     type: array
                     items: { $ref: '#/components/schemas/SlotReserva' }
-        '401': { description: Sin sesi├│n }
+        '401': { description: Sin sesión }
   /api/reserva:
     post:
       tags: [D-reserva]
       summary: Crear una reserva confirmada (I04)
       description: >
         Formulario con tema, objetivo y adjuntos opcionales sobre un horario publicado.
-        El escolar se toma de la sesi├│n, nunca del cuerpo. Aplica RN-03 (48 h exactas),
-        RN-07 (longitudes) y D06 (60 minutos y horizonte de 28 d├¡as). Sin pruebas de
+        El escolar se toma de la sesión, nunca del cuerpo. Aplica RN-03 (48 h exactas),
+        RN-07 (longitudes) y D06 (60 minutos y horizonte de 28 días). Sin pruebas de
         concurrencia: eso es I09.
       security: [{ sesion: [] }]
       requestBody:
@@ -185,17 +201,17 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReservaD' }
-        '400': { description: Cuerpo inv├ílido }
-        '401': { description: Sin sesi├│n }
+        '400': { description: Cuerpo inválido }
+        '401': { description: Sin sesión }
         '403': { description: La cuenta no es de escolar }
         '404': { description: El horario no existe }
-        '409': { description: El horario ya fue reservado o venci├│ }
-        '422': { description: "Validaci├│n (c├│digos: validacion, anticipacion_insuficiente, horizonte_excedido)" }
+        '409': { description: El horario ya fue reservado o venció }
+        '422': { description: "Validación (códigos: validacion, anticipacion_insuficiente, horizonte_excedido)" }
   /api/reserva/{id}:
     get:
       tags: [D-reserva]
       summary: Consultar una reserva propia
-      description: Solo el escolar due├▒o de la reserva recibe los datos; cualquier otra cuenta recibe 403.
+      description: Solo el escolar dueño de la reserva recibe los datos; cualquier otra cuenta recibe 403.
       security: [{ sesion: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -205,11 +221,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReservaD' }
-        '401': { description: Sin sesi├│n }
+        '401': { description: Sin sesión }
         '403': { description: La reserva es de otra persona }
         '404': { description: La reserva no existe }
   /api/sesion/salud:
-    get: { tags: [E-sesion], summary: Esqueleto. Marco a├▒ade aqu├¡ su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/sesion/{id}:
     get:
       tags: [E-sesion]
@@ -262,3 +278,4 @@ paths:
         '404': { description: Sesion inexistente }
         '409': { description: Asistencia duplicada }
         '422': { description: Declaracion invalida }
+

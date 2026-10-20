@@ -18,9 +18,10 @@ código y a las pruebas: estas demuestran que el sistema funciona, el registro g
 | id | tipo | fecha | título | descripción | impacto | causa raíz | acción / resolución | estado |
 |---|---|---|---|---|---|---|---|---|
 | INC-01 | defecto | 2026-10-18 | Falta la base `uniapp_test` | `TestRepositorioPostgresFlujoCompleto` fallaba con `pq: database "uniapp_test" does not exist`. | **medio**: prueba de integración en rojo | La prueba no crea su base de datos ni hay script que la prepare | `CREATE DATABASE uniapp_test` en el contenedor. *Deuda:* automatizarlo (script/`Makefile`) | resuelto |
+| INC-02 | riesgo | 2026-10-19 | FRONTEND_ORIGIN apunta a localhost | Al desplegar en el VPS el frontend no apunta a la dirección IP. | **alta**: el enlace de recuperación que llega por correo no resuelve desde el navegador | El origen público del frontend está fijado al valor de desarrollo y no se exigía ni se validaba en el despliegue (`FRONTEND_ORIGIN`, usado por `backend/internal/observers/observers.go` para armar el enlace) | Se añadió `APP_ENV` + `config.validarOrigen`: `FRONTEND_ORIGIN` debe ser URL absoluta http(s) y con `APP_ENV=prod` el arranque falla si es local. Evidencia: `TestValidarOrigen`, `TestCargarRechazaOrigenLocalEnProduccion` y `APP_ENV=prod FRONTEND_ORIGIN=http://localhost:5173 go run ./cmd/server` → `FRONTEND_ORIGIN apunta a localhost; con APP_ENV=prod debe ser la URL pública del frontend` (exit 1). En el arranque se registra `frontend de enlaces: … (APP_ENV=…)`. En el VPS: `APP_ENV=prod` y `FRONTEND_ORIGIN=http://IP:5173` | resuelto |
 
 ### Notas
-- Incidentes resueltos: 1 · abiertos: 0 · severidad alta: 0.
+- Incidentes resueltos: 2 · abiertos: 0 · severidad alta: 0.
 
 ## Plantilla para nuevas entradas
 

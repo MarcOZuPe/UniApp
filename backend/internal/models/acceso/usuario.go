@@ -6,14 +6,15 @@ import (
 )
 
 type Usuario struct {
-	ID            string
-	Email         string
-	NombreUso     string
-	ClaveHash     string
-	Rol           Rol
-	Activo        bool
-	CreadoEn      time.Time
-	UltimoIngreso *time.Time
+	ID              string
+	Email           string
+	NombreUso       string
+	ClaveHash       string
+	Rol             Rol
+	Activo          bool
+	EmailConfirmado bool
+	CreadoEn        time.Time
+	UltimoIngreso   *time.Time
 }
 
 type Sesion struct {
@@ -23,6 +24,12 @@ type Sesion struct {
 }
 
 type TokenRecuperacion struct {
+	TokenHash []byte
+	UsuarioID string
+	ExpiraEn  time.Time
+}
+
+type TokenConfirmacion struct {
 	TokenHash []byte
 	UsuarioID string
 	ExpiraEn  time.Time

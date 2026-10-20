@@ -8,11 +8,12 @@ import (
 )
 
 type RepositorioMemoria struct {
-	mu          sync.Mutex
-	secuenciaID int
-	usuarios    map[string]*Usuario
-	sesiones    map[string]Sesion
-	tokens      map[string]*tokenMem
+	mu                 sync.Mutex
+	secuenciaID        int
+	usuarios           map[string]*Usuario
+	sesiones           map[string]Sesion
+	tokens             map[string]*tokenMem
+	tokensConfirmacion map[string]*tokenConfirmacionMem
 }
 
 type tokenMem struct {
@@ -20,8 +21,18 @@ type tokenMem struct {
 	usado bool
 }
 
+type tokenConfirmacionMem struct {
+	TokenConfirmacion
+	usado bool
+}
+
 func NuevoRepositorioMemoria() *RepositorioMemoria {
-	return &RepositorioMemoria{usuarios: map[string]*Usuario{}, sesiones: map[string]Sesion{}, tokens: map[string]*tokenMem{}}
+	return &RepositorioMemoria{
+		usuarios:           map[string]*Usuario{},
+		sesiones:           map[string]Sesion{},
+		tokens:             map[string]*tokenMem{},
+		tokensConfirmacion: map[string]*tokenConfirmacionMem{},
+	}
 }
 
 func (r *RepositorioMemoria) CrearUsuario(_ context.Context, usuario *Usuario) (*Usuario, error) {
@@ -67,6 +78,16 @@ func (r *RepositorioMemoria) ActualizarClave(_ context.Context, id, claveHash st
 	defer r.mu.Unlock()
 	if usuario, ok := r.usuarios[id]; ok {
 		usuario.ClaveHash = claveHash
+		return nil
+	}
+	return ErrNoEncontrado
+}
+
+func (r *RepositorioMemoria) MarcarCorreoConfirmado(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if usuario, ok := r.usuarios[id]; ok {
+		usuario.EmailConfirmado = true
 		return nil
 	}
 	return ErrNoEncontrado
@@ -141,6 +162,54 @@ func (r *RepositorioMemoria) UsuarioDeTokenRecuperacion(_ context.Context, token
 		return "", ErrTokenInvalido
 	}
 	return token.UsuarioID, nil
+}
+
+func (r *RepositorioMemoria) GuardarTokenConfirmacion(_ context.Context, token TokenConfirmacion) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.tokensConfirmacion[string(token.TokenHash)] = &tokenConfirmacionMem{TokenConfirmacion: token}
+	return nil
+}
+
+func (r *RepositorioMemoria) ConsumirTokenConfirmacion(_ context.Context, tokenHash []byte, ahora time.Time) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	token := r.tokensConfirmacion[string(tokenHash)]
+	if token == nil || token.usado || !ahora.Before(token.ExpiraEn) {
+		return "", ErrTokenInvalido
+	}
+	token.usado = true
+	return token.UsuarioID, nil
+}
+
+// EliminarUsuariosSinConfirmar libera los correos de registros que nunca
+// confirmaron: solo conserva las cuentas sin confirmar con algún enlace vivo.
+func (r *RepositorioMemoria) EliminarUsuariosSinConfirmar(_ context.Context, ahora time.Time) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var liberados int64
+	for id, usuario := range r.usuarios {
+		if usuario.EmailConfirmado || r.tieneEnlaceVigente(id, ahora) {
+			continue
+		}
+		for clave, token := range r.tokensConfirmacion {
+			if token.UsuarioID == id {
+				delete(r.tokensConfirmacion, clave)
+			}
+		}
+		delete(r.usuarios, id)
+		liberados++
+	}
+	return liberados, nil
+}
+
+func (r *RepositorioMemoria) tieneEnlaceVigente(usuarioID string, ahora time.Time) bool {
+	for _, token := range r.tokensConfirmacion {
+		if token.UsuarioID == usuarioID && !token.usado && ahora.Before(token.ExpiraEn) {
+			return true
+		}
+	}
+	return false
 }
 
 func tokenVigente(token *tokenMem, ahora time.Time) bool {

@@ -13,7 +13,9 @@ describe('modelo: validadores (Strategy + Factory)', () => {
   it('tutor exige correo institucional', () => {
     const base = { nombre_uso: 'Tito', clave: 'Clave-Segura-2026!', confirmar: 'Clave-Segura-2026!', rol: 'tutor' };
     expect(validarRegistro({ ...base, email: 't@gmail.com' }).email).toBeTruthy();
+    expect(validarRegistro({ ...base, email: 't@uni.edu.pe.evil.com' }).email).toBeTruthy();
     expect(validarRegistro({ ...base, email: 't@uni.edu.pe' })).toEqual({});
+    expect(validarRegistro({ ...base, email: 't@uni.pe' })).toEqual({});
   });
   it('detecta contraseñas distintas', () => {
     const e = validarRegistro({ email: 'a@b.co', nombre_uso: 'Ana', clave: 'clave-larga-ok', confirmar: 'otra', rol: 'escolar' });
@@ -57,5 +59,43 @@ describe('controlador: cliente (Adapter + Decorator)', () => {
     expect(alExpirar).toHaveBeenCalledTimes(1);
     await expect(c.post('/api/auth/ingreso', {})).rejects.toBeInstanceOf(ErrorApi);
     expect(alExpirar).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('controlador: acciones de confirmación (Adapter)', () => {
+  it('envía el token y el correo a los endpoints correctos', async () => {
+    const llamadas = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, opciones) => {
+      llamadas.push({ url, opciones });
+      return { ok: true, status: 200, text: async () => JSON.stringify({ mensaje: 'ok' }) };
+    }));
+    const { confirmar, reenviarConfirmacion } = await import('../../controllers/acceso/acciones.js');
+    await confirmar('tok-123');
+    await reenviarConfirmacion('ana@uni.pe');
+    vi.unstubAllGlobals();
+    expect(llamadas.map((llamada) => llamada.url)).toEqual([
+      '/api/auth/confirmar',
+      '/api/auth/reenviar-confirmacion',
+    ]);
+    expect(JSON.parse(llamadas[0].opciones.body)).toEqual({ token: 'tok-123' });
+    expect(JSON.parse(llamadas[1].opciones.body)).toEqual({ email: 'ana@uni.pe' });
+    expect(llamadas[0].opciones.credentials).toBe('same-origin');
+  });
+});
+
+describe('controlador: panel de coordinación (Adapter)', () => {
+  it('consulta el endpoint del panel con la sesión', async () => {
+    const llamadas = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, opciones) => {
+      llamadas.push({ url, opciones });
+      return { ok: true, status: 200, text: async () => JSON.stringify({ mensaje: 'Panel de coordinación' }) };
+    }));
+    const { panelCoordinacion } = await import('../../controllers/acceso/acciones.js');
+    await panelCoordinacion();
+    vi.unstubAllGlobals();
+    expect(llamadas).toHaveLength(1);
+    expect(llamadas[0].url).toBe('/api/coordinacion/panel');
+    expect(llamadas[0].opciones.method).toBe('GET');
+    expect(llamadas[0].opciones.credentials).toBe('same-origin');
   });
 });
