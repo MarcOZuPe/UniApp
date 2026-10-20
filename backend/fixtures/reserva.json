@@ -1,0 +1,38 @@
+{
+  "_nota": "Datos SINTÉTICOS del flujo D (I04) para que otros flujos integren sin esperar la oferta real del flujo C (I03/I08).",
+  "ofertas_sinteticas": {
+    "origen": "models/reserva/oferta.go · NuevaOfertaSintetica (se calcula al arrancar el servidor)",
+    "tutor_id": "tutor-sintetico-i04",
+    "tutor_nombre": "Tutor Prueba (sintético)",
+    "duracion_minutos": 60,
+    "slots": [
+      { "slot_id": "slot-i04-01", "curso": "Álgebra", "inicio_lima": "arranque + 3 días 15:00", "reservable": true },
+      { "slot_id": "slot-i04-02", "curso": "Aritmética", "inicio_lima": "arranque + 4 días 10:00", "reservable": true },
+      { "slot_id": "slot-i04-03", "curso": "Geometría", "inicio_lima": "arranque + 4 días 16:00", "reservable": true },
+      { "slot_id": "slot-i04-04", "curso": "Trigonometría", "inicio_lima": "arranque + 6 días 11:00", "reservable": true },
+      { "slot_id": "slot-i04-cercano", "curso": "Álgebra", "inicio_lima": "arranque + 1 día 09:00", "reservable": false, "motivo": "faltan menos de 48 horas" },
+      { "slot_id": "slot-i04-lejano", "curso": "Geometría", "inicio_lima": "arranque + 30 días 15:00", "reservable": false, "motivo": "fuera del horizonte de 28 días" }
+    ]
+  },
+  "ejemplo_reserva": {
+    "slot_id": "slot-i04-01",
+    "tema": "Repaso de factorización",
+    "objetivo": "Resolver ejercicios de factorización de trinomios sin ayuda del tutor.",
+    "grado": "5to de secundaria",
+    "adjuntos": [
+      { "nombre": "practica-3.pdf", "tipo": "application/pdf", "tamano_bytes": 18240 }
+    ]
+  },
+  "contrato_para_otros_flujos": {
+    "listar_slots": "GET /api/reserva/slots (sesión) -> { slots: [{ id, tutor_id, curso, inicio, inicio_lima, disponible, motivo }] }",
+    "crear": "POST /api/reserva (sesión de escolar) -> 201 Reserva; el escolar sale de la cookie, nunca del cuerpo",
+    "consultar": "GET /api/reserva/{id} -> 200 Reserva solo para su escolar; 403 para cualquier otra cuenta",
+    "reglas": {
+      "anticipacion": "RN-03: inicio >= ahora + 48 h exactas (servidor)",
+      "horizonte": "D06: hasta 28 días",
+      "datos": "RN-07: tema 10-200, objetivo 20-1000, grado obligatorio, adjuntos opcionales",
+      "confirmacion": "D05/RN-06: la reserva válida queda confirmada de inmediato",
+      "fuera_de_alcance": "I09: concurrencia, idempotencia, cuarentena de adjuntos; I16: cancelación"
+    }
+  }
+}

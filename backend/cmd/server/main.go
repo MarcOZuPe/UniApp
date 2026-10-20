@@ -20,6 +20,7 @@ import (
 	"uniapp/internal/db"
 	"uniapp/internal/events"
 	modelo "uniapp/internal/models/acceso"
+	modeloReserva "uniapp/internal/models/reserva"
 	modeloSesion "uniapp/internal/models/sesion"
 	"uniapp/migrations"
 )
@@ -43,17 +44,10 @@ func main() {
 		registro.Fatalf("migraciones: %v", err)
 	}
 
-	servicio := construirServicio(
-		ctx,
-		registro,
-		configuracion,
-		baseDatos,
-	)
+	servicio := construirServicio(ctx, registro, configuracion, baseDatos)
 
 	if configuracion.SembrarSintetico {
-		repoSesion := modeloSesion.RepositorioPostgres{
-			DB: baseDatos,
-		}
+		repoSesion := modeloSesion.RepositorioPostgres{DB: baseDatos}
 
 		if err := modeloSesion.SembrarSintetico(
 			ctx,
@@ -67,28 +61,22 @@ func main() {
 		registro.Println("sesion sintetica I05 lista")
 	}
 
-	controlador := ctrl.Nuevo(
-		servicio,
-		configuracion.CookieSegura,
-	)
+	controlador := ctrl.Nuevo(servicio, configuracion.CookieSegura)
 
+	// Servicio del flujo D: reservas.
+	reservas := construirServicioReserva(baseDatos)
+
+	// Extensión del flujo E: sesiones y asistencias.
 	manejador := construirManejadorConSesion(
 		controlador,
+		reservas,
 		registro,
 		configuracion,
 		baseDatos,
 	)
 
-	servidor := nuevoServidor(
-		configuracion.Puerto,
-		manejador,
-	)
-
-	servirHastaSenalDeParada(
-		registro,
-		servidor,
-		ctx,
-	)
+	servidor := nuevoServidor(configuracion.Puerto, manejador)
+	servirHastaSenalDeParada(registro, servidor, ctx)
 }
 
 func construirServicio(
@@ -98,74 +86,63 @@ func construirServicio(
 	baseDatos *sql.DB,
 ) *modelo.Servicio {
 	hasher := adapters.NuevoHasher()
+	fabrica := modelo.NuevaFabrica(hasher, configuracion.DominioTutor)
 
-	fabrica := modelo.NuevaFabrica(
-		hasher,
-		configuracion.DominioTutor,
-	)
-
-	servicio := modelo.NuevoServicio(
-		modelo.Dependencias{
-			Repositorio: modelo.RepositorioPostgres{
-				DB: baseDatos,
-			},
-			Fabrica: fabrica,
-			Hasher:  hasher,
-			Bus:     events.NuevoBus(),
-		},
-	)
+	servicio := modelo.NuevoServicio(modelo.Dependencias{
+		Repositorio: modelo.RepositorioPostgres{DB: baseDatos},
+		Fabrica:     fabrica,
+		Hasher:      hasher,
+		Bus:         events.NuevoBus(),
+	})
 
 	if configuracion.SembrarSintetico {
-		err := modelo.Sembrar(
+		if err := modelo.Sembrar(
 			ctx,
 			servicio,
 			modelo.OpcionesSiembra{
 				DominioTutor: configuracion.DominioTutor,
 				Clave:        configuracion.ClaveSemilla,
 			},
-		)
-
-		if err != nil {
+		); err != nil {
 			registro.Fatalf("semilla: %v", err)
 		}
 
-		registro.Println(
-			"cuentas sintéticas de prueba listas",
-		)
+		registro.Println("cuentas sintéticas de prueba listas")
 	}
 
 	return servicio
 }
 
-// Mantiene la firma original de tres parámetros.
-// Las funcionalidades existentes continúan utilizando
-// este manejador sin depender de la base de datos.
+// Servicio del flujo D, conservado desde main.
+func construirServicioReserva(baseDatos *sql.DB) *modeloReserva.Servicio {
+	return modeloReserva.NuevoServicio(modeloReserva.Dependencias{
+		Repositorio: modeloReserva.RepositorioPostgres{DB: baseDatos},
+		Oferta:      modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
+	})
+}
+
+// Manejador principal: conserva las rutas de acceso y reservas.
 func construirManejador(
 	controlador *ctrl.Controlador,
+	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
 ) http.Handler {
 	raiz := http.NewServeMux()
 
-	raiz.Handle(
-		"/api/tutor/",
-		ctrlTutor.Rutas(),
-	)
+	raiz.Handle("/api/tutor/", ctrlTutor.Rutas())
+	raiz.Handle("/api/oferta/", ctrlOferta.Rutas())
 
-	raiz.Handle(
-		"/api/oferta/",
-		ctrlOferta.Rutas(),
-	)
+	// Ambos patrones son necesarios para el flujo de reservas.
+	manejadorReserva := ctrlReserva.Nuevo(
+		reservas,
+		controlador.Autenticar(),
+	).Rutas()
 
-	raiz.Handle(
-		"/api/reserva/",
-		ctrlReserva.Rutas(),
-	)
+	raiz.Handle("/api/reserva", manejadorReserva)
+	raiz.Handle("/api/reserva/", manejadorReserva)
 
-	raiz.Handle(
-		"/",
-		controlador.Rutas(),
-	)
+	raiz.Handle("/", controlador.Rutas())
 
 	return ctrl.Encadenar(
 		raiz,
@@ -176,10 +153,10 @@ func construirManejador(
 	)
 }
 
-// Extensión específica para incorporar las sesiones de I05.
-// No modifica la firma de construirManejador.
+// Extensión I05: agrega sesiones sin sustituir el flujo D.
 func construirManejadorConSesion(
 	controlador *ctrl.Controlador,
+	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
 	baseDatos *sql.DB,
@@ -196,8 +173,6 @@ func construirManejadorConSesion(
 
 	raiz := http.NewServeMux()
 
-	// Las rutas de sesiones utilizan los middlewares
-	// compartidos de seguridad, registro y origen.
 	raiz.Handle(
 		"/api/sesion/",
 		ctrl.Encadenar(
@@ -209,11 +184,11 @@ func construirManejadorConSesion(
 		),
 	)
 
-	// Las demás rutas mantienen el manejador existente.
 	raiz.Handle(
 		"/",
 		construirManejador(
 			controlador,
+			reservas,
 			registro,
 			configuracion,
 		),
@@ -222,10 +197,7 @@ func construirManejadorConSesion(
 	return raiz
 }
 
-func nuevoServidor(
-	puerto string,
-	manejador http.Handler,
-) *http.Server {
+func nuevoServidor(puerto string, manejador http.Handler) *http.Server {
 	return &http.Server{
 		Addr:              ":" + puerto,
 		Handler:           manejador,
@@ -241,10 +213,7 @@ func servirHastaSenalDeParada(
 	ctx context.Context,
 ) {
 	go func() {
-		registro.Printf(
-			"API escuchando en %s",
-			servidor.Addr,
-		)
+		registro.Printf("API escuchando en %s", servidor.Addr)
 
 		if err := servidor.ListenAndServe(); err != nil &&
 			err != http.ErrServerClosed {
@@ -253,12 +222,7 @@ func servirHastaSenalDeParada(
 	}()
 
 	senalDeParada := make(chan os.Signal, 1)
-
-	signal.Notify(
-		senalDeParada,
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
+	signal.Notify(senalDeParada, os.Interrupt, syscall.SIGTERM)
 
 	<-senalDeParada
 
