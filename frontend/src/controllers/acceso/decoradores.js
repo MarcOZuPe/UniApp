@@ -11,5 +11,10 @@ export function conSesionExpirada(cliente, alExpirar) {
       throw error;
     }
   };
-  return { get: vigilar(cliente.get), post: vigilar(cliente.post) };
+  return {
+    get: vigilar(cliente.get),
+    post: vigilar(cliente.post),
+    put: vigilar(cliente.put),
+    delete: vigilar(cliente.delete),
+  };
 }

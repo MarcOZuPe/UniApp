@@ -13,6 +13,7 @@ import Restablecer from './views/acceso/Restablecer.jsx';
 import Confirmar from './views/acceso/Confirmar.jsx';
 import Coordinacion from './views/acceso/Coordinacion.jsx';
 
+import Disponibilidad from './views/oferta/Disponibilidad.jsx';
 import FormularioReserva from './views/reserva/FormularioReserva.jsx';
 import DetalleSesion from './views/sesion/DetalleSesion.jsx';
 
@@ -36,6 +37,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador']}>
                             <Coordinacion />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/tutor/disponibilidad"
+                    element={
+                        <RutaProtegida roles={['tutor']}>
+                            <Disponibilidad />
                         </RutaProtegida>
                     }
                 />

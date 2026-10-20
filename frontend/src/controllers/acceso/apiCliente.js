@@ -45,5 +45,10 @@ export function crearClienteHttp(implementacionFetch = (...argumentos) => fetch(
     if (!respuesta.ok) throw new ErrorApi(respuesta.status, datos);
     return datos;
   }
-  return { get: (ruta) => pedir('GET', ruta), post: (ruta, cuerpo) => pedir('POST', ruta, cuerpo) };
+  return {
+    get: (ruta) => pedir('GET', ruta),
+    post: (ruta, cuerpo) => pedir('POST', ruta, cuerpo),
+    put: (ruta, cuerpo) => pedir('PUT', ruta, cuerpo),
+    delete: (ruta) => pedir('DELETE', ruta),
+  };
 }
