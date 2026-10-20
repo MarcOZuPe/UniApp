@@ -20,6 +20,7 @@ export default function FormularioReserva() {
   const [cargandoSlots, setCargandoSlots] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [confirmada, setConfirmada] = useState(null);
+  const noDisponibles = slots.filter((slot) => !slot.disponible);
 
   useEffect(() => {
     let activo = true;
@@ -131,6 +132,16 @@ export default function FormularioReserva() {
             <small id="slot-ayuda">Los horarios que no cumplen las 48 horas aparecen deshabilitados.</small>
           )}
           {errores.slot_id && <small id="slot-error" className="error" role="alert">{errores.slot_id}</small>}
+          {!cargandoSlots && noDisponibles.length > 0 && (
+            <details className="no-disponibles">
+              <summary>{noDisponibles.length} horario(s) no disponible(s)</summary>
+              <ul>
+                {noDisponibles.map((slot) => (
+                  <li key={slot.id}>{slot.curso} · {slot.inicio_lima}: {slot.motivo}</li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
 
         <div className="campo">
