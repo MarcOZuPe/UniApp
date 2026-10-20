@@ -173,3 +173,22 @@ func TestIngresoFallidoMensajeGenerico(t *testing.T) {
 		t.Fatal("el mensaje no debe distinguir correo inexistente de clave errónea")
 	}
 }
+
+func TestPA01PanelCoordinacionSoloCoordinador(t *testing.T) {
+	h, _ := servidor(t)
+
+	escolar := ingresar(t, h, "escolar.prueba@example.test")
+	if w := llamar(h, "GET", "/api/coordinacion/panel", "", escolar); w.Code != http.StatusForbidden {
+		t.Fatalf("PA-01: escolar debe recibir 403, obtuvo %d %s", w.Code, w.Body)
+	}
+
+	coordinador := ingresar(t, h, "coord.prueba@example.test")
+	w := llamar(h, "GET", "/api/coordinacion/panel", "", coordinador)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"rol":"coordinador"`) {
+		t.Fatalf("PA-01: coordinador debe recibir 200, obtuvo %d %s", w.Code, w.Body)
+	}
+
+	if w := llamar(h, "GET", "/api/coordinacion/panel", "", nil); w.Code != http.StatusUnauthorized {
+		t.Fatalf("PA-01: sin sesión debe recibir 401, obtuvo %d %s", w.Code, w.Body)
+	}
+}

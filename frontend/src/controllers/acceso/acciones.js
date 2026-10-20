@@ -42,3 +42,4 @@ export const restablecer = (token, clave) => api.post('/api/auth/restablecer', {
 export const confirmar = (token) => api.post('/api/auth/confirmar', { token });
 export const reenviarConfirmacion = (email) =>
   api.post('/api/auth/reenviar-confirmacion', { email });
+export const panelCoordinacion = () => api.get('/api/coordinacion/panel');

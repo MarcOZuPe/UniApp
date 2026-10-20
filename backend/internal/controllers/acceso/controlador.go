@@ -34,6 +34,7 @@ func (c *Controlador) Rutas() http.Handler {
 	mux.HandleFunc("POST /api/auth/reenviar-confirmacion", c.reenviarConfirmacion)
 	mux.Handle("POST /api/auth/salida", Encadenar(http.HandlerFunc(c.salida), c.Autenticar()))
 	mux.Handle("GET /api/auth/yo", Encadenar(http.HandlerFunc(c.yo), c.Autenticar()))
+	mux.Handle("GET /api/coordinacion/panel", Encadenar(http.HandlerFunc(c.panelCoordinacion), c.Autenticar(), RequierePermiso(modelo.PermisoCoordinacionAcceder)))
 	mux.HandleFunc("GET /api/salud", c.salud)
 	return mux
 }

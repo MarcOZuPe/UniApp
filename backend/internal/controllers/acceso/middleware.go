@@ -49,6 +49,12 @@ func (c *Controlador) Autenticar() Middleware {
 	}
 }
 
+func RequierePermiso(requeridos ...modelo.Permiso) Middleware {
+	return func(siguiente http.Handler) http.Handler {
+		return &decoradorPermiso{siguiente: siguiente, requeridos: requeridos}
+	}
+}
+
 type escritorEstado struct {
 	http.ResponseWriter
 	estado int
@@ -149,4 +155,24 @@ func (d *decoradorAutenticar) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	d.siguiente.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), claveContexto{}, usuario)))
+}
+
+type decoradorPermiso struct {
+	siguiente  http.Handler
+	requeridos []modelo.Permiso
+}
+
+func (d *decoradorPermiso) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	usuario := UsuarioDe(r.Context())
+	if usuario == nil {
+		vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusUnauthorized, Codigo: "no_autenticado", Mensaje: "Debes iniciar sesión."})
+		return
+	}
+	for _, requerido := range d.requeridos {
+		if !usuario.Rol.TienePermiso(requerido) {
+			vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusForbidden, Codigo: "sin_permiso", Mensaje: "Tu rol no tiene acceso a esta sección."})
+			return
+		}
+	}
+	d.siguiente.ServeHTTP(w, r)
 }

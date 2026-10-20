@@ -22,6 +22,18 @@ func PresentarUsuario(usuario *modelo.Usuario) UsuarioJSON {
 	}
 }
 
+type PanelCoordinacionJSON struct {
+	Mensaje string      `json:"mensaje"`
+	Usuario UsuarioJSON `json:"usuario"`
+}
+
+func PresentarPanelCoordinacion(usuario *modelo.Usuario) PanelCoordinacionJSON {
+	return PanelCoordinacionJSON{
+		Mensaje: "Panel de coordinación",
+		Usuario: PresentarUsuario(usuario),
+	}
+}
+
 type ErrorJSON struct {
 	Codigo  string            `json:"codigo"`
 	Mensaje string            `json:"mensaje"`

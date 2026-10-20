@@ -82,3 +82,20 @@ describe('controlador: acciones de confirmación (Adapter)', () => {
     expect(llamadas[0].opciones.credentials).toBe('same-origin');
   });
 });
+
+describe('controlador: panel de coordinación (Adapter)', () => {
+  it('consulta el endpoint del panel con la sesión', async () => {
+    const llamadas = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, opciones) => {
+      llamadas.push({ url, opciones });
+      return { ok: true, status: 200, text: async () => JSON.stringify({ mensaje: 'Panel de coordinación' }) };
+    }));
+    const { panelCoordinacion } = await import('../../controllers/acceso/acciones.js');
+    await panelCoordinacion();
+    vi.unstubAllGlobals();
+    expect(llamadas).toHaveLength(1);
+    expect(llamadas[0].url).toBe('/api/coordinacion/panel');
+    expect(llamadas[0].opciones.method).toBe('GET');
+    expect(llamadas[0].opciones.credentials).toBe('same-origin');
+  });
+});
