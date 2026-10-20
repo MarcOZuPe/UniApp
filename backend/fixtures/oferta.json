@@ -1,0 +1,18 @@
+{
+  "_nota": "Disponibilidad SINTÉTICA del flujo C. Usa la cuenta tutor.prueba@uni.edu.pe de acceso.json y la clave definida en SEED_PASSWORD.",
+  "tutor_email": "tutor.prueba@uni.edu.pe",
+  "zona_horaria": "America/Lima",
+  "cupo_semanal_minutos": 180,
+  "slots": [
+    { "dia_semana": 1, "inicio": "09:00", "fin": "10:00" },
+    { "dia_semana": 3, "inicio": "09:00", "fin": "10:00" },
+    { "dia_semana": 5, "inicio": "09:00", "fin": "10:00" }
+  ],
+  "contrato_para_integracion": {
+    "consultar": "GET /api/oferta/slots",
+    "agregar": "POST /api/oferta/slots con {\"slots\":[{\"dia_semana\":1,\"inicio\":\"09:00\",\"fin\":\"10:00\"}]}",
+    "eliminar": "DELETE /api/oferta/slots/{id}",
+    "cambiar_cupo": "PUT /api/oferta/cupo con {\"minutos\":240}",
+    "dias_semana": "0=domingo, 1=lunes, ..., 6=sábado"
+  }
+}
