@@ -47,6 +47,11 @@
    manejador: sin el patrón exacto, el `ServeMux` responde 301 y el navegador convertiría el POST
    en GET.
 
+## Evidencia del recorrido
+
+Capturas del recorrido completo (ingreso, formulario con motivos, confirmación y horario ocupado) en
+[evidencia-i04.md](evidencia-i04.md), con la tabla de horarios y el texto de confirmación.
+
 ## Pruebas
 
 ```bash
