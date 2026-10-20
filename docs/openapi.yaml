@@ -28,6 +28,82 @@ components:
         codigo: { type: string }
         mensaje: { type: string }
         campos: { type: object, additionalProperties: { type: string } }
+    SlotReserva:
+      type: object
+      description: Horario publicado por el flujo C. En I04 proviene de una oferta sintética.
+      properties:
+        id: { type: string }
+        tutor_id: { type: string }
+        tutor_nombre: { type: string }
+        curso: { type: string }
+        inicio: { type: string, format: date-time, description: UTC }
+        fin: { type: string, format: date-time, description: UTC }
+        inicio_lima: { type: string, description: "America/Lima, por ejemplo 2026-10-22 15:00" }
+        fin_lima: { type: string }
+        disponible: { type: boolean, description: falso si no cumple 48 h, horizonte o cupo }
+        motivo: { type: string, description: por qué no está disponible }
+    AdjuntoReserva:
+      type: object
+      description: Metadatos del adjunto. El archivo no se guarda en la base (I09).
+      required: [nombre, tamano_bytes]
+      properties:
+        nombre: { type: string }
+        tipo: { type: string }
+        tamano_bytes: { type: integer, format: int64 }
+    ReservaEntrada:
+      type: object
+      required: [slot_id, tema, objetivo, grado]
+      properties:
+        slot_id: { type: string }
+        tema: { type: string, minLength: 10, maxLength: 200 }
+        objetivo: { type: string, minLength: 20, maxLength: 1000 }
+        grado: { type: string, maxLength: 80 }
+        adjuntos:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/AdjuntoReserva' }
+    ReservaD:
+      type: object
+      description: Reserva confirmada de inmediato (D05, RN-06).
+      properties:
+        id: { type: string, format: uuid }
+        slot_id: { type: string }
+        tutor_id: { type: string }
+        tutor_nombre: { type: string }
+        curso: { type: string }
+        grado: { type: string }
+        tema: { type: string }
+        objetivo: { type: string }
+        estado: { type: string, enum: [confirmada] }
+        inicio: { type: string, format: date-time }
+        fin: { type: string, format: date-time }
+        inicio_lima: { type: string }
+        fin_lima: { type: string }
+        creada_en: { type: string, format: date-time }
+        adjuntos:
+          type: array
+          items: { $ref: '#/components/schemas/AdjuntoReserva' }
+    SesionI05:
+      type: object
+      required: [id, reserva_id, tutor_id, escolar_id, inicio, fin, asistencias]
+      properties:
+        id: { type: string }
+        reserva_id: { type: string }
+        tutor_id: { type: string }
+        escolar_id: { type: string }
+        inicio: { type: string, format: date-time }
+        fin: { type: string, format: date-time }
+        asistencias:
+          type: array
+          items:
+            $ref: '#/components/schemas/AsistenciaI05'
+    AsistenciaI05:
+      type: object
+      required: [usuario_id, rol, declarada_en]
+      properties:
+        usuario_id: { type: string }
+        rol: { type: string, enum: [tutor, escolar] }
+        declarada_en: { type: string, format: date-time }
 paths:
   /api/auth/registro:
     post:
@@ -82,6 +158,124 @@ paths:
   /api/oferta/salud:
     get: { tags: [C-oferta], summary: Esqueleto. Mateo añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/reserva/salud:
-    get: { tags: [D-reserva], summary: Esqueleto. Jhon añade aquí su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [D-reserva], summary: Estado del flujo D, responses: { '200': { description: OK } } }
+  /api/reserva/slots:
+    get:
+      tags: [D-reserva]
+      summary: Oferta disponible para reservar (I04, sintética)
+      description: >
+        Devuelve los horarios con la marca disponible y el motivo del rechazo cuando no
+        cumple las 48 horas (RN-03), el horizonte de 28 días (D06) o ya está reservado.
+        La regla se evalúa en el modelo con la hora del servidor.
+      security: [{ sesion: [] }]
+      responses:
+        '200':
+          description: Lista de horarios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  slots:
+                    type: array
+                    items: { $ref: '#/components/schemas/SlotReserva' }
+        '401': { description: Sin sesión }
+  /api/reserva:
+    post:
+      tags: [D-reserva]
+      summary: Crear una reserva confirmada (I04)
+      description: >
+        Formulario con tema, objetivo y adjuntos opcionales sobre un horario publicado.
+        El escolar se toma de la sesión, nunca del cuerpo. Aplica RN-03 (48 h exactas),
+        RN-07 (longitudes) y D06 (60 minutos y horizonte de 28 días). Sin pruebas de
+        concurrencia: eso es I09.
+      security: [{ sesion: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReservaEntrada' }
+      responses:
+        '201':
+          description: Reserva confirmada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservaD' }
+        '400': { description: Cuerpo inválido }
+        '401': { description: Sin sesión }
+        '403': { description: La cuenta no es de escolar }
+        '404': { description: El horario no existe }
+        '409': { description: El horario ya fue reservado o venció }
+        '422': { description: "Validación (códigos: validacion, anticipacion_insuficiente, horizonte_excedido)" }
+  /api/reserva/{id}:
+    get:
+      tags: [D-reserva]
+      summary: Consultar una reserva propia
+      description: Solo el escolar dueño de la reserva recibe los datos; cualquier otra cuenta recibe 403.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Reserva
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservaD' }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva es de otra persona }
+        '404': { description: La reserva no existe }
   /api/sesion/salud:
     get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
+  /api/sesion/{id}:
+    get:
+      tags: [E-sesion]
+      summary: Consultar una sesion
+      description: >
+        Permite consultar una sesion asociada a una reserva.
+        Solo sus participantes autorizados pueden acceder.
+        Durante I05 se utilizan reservas sinteticas.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Sesion encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionI05'
+        '401': { description: Usuario no autenticado }
+        '403': { description: Acceso no autorizado }
+        '404': { description: Sesion inexistente }
+
+  /api/sesion/{id}/asistencias:
+    post:
+      tags: [E-sesion]
+      summary: Declarar asistencia propia
+      description: >
+        Registra la declaracion del participante autenticado.
+        La identidad se obtiene de la autenticacion del servidor,
+        nunca de un identificador enviado por el cliente.
+        Declarar asistencia no acredita minutos verificados.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Declaracion registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsistenciaI05'
+        '401': { description: Usuario no autenticado }
+        '403': { description: Acceso no autorizado }
+        '404': { description: Sesion inexistente }
+        '409': { description: Asistencia duplicada }
+        '422': { description: Declaracion invalida }
+
