@@ -44,7 +44,7 @@ un buzón local (Mailpit) y así no compartir credenciales.
 
 `APP_ENV=prod` exige que `FRONTEND_ORIGIN` sea la URL pública, y la clave SMTP se
 monta como Docker secret (`SMTP_PASSWORD_FILE`) en vez de viajar como variable de
-entorno. Pasos completos: [docs/secrets/despliegue_vps.md](docs/secrets/despliegue_vps.md).
+entorno. El detalle de cada variable está en `.env.example`.
 
 ## GitHub y tablero
 
