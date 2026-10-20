@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS slots;
+DROP TABLE IF EXISTS cupos_semanales;
