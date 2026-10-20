@@ -88,12 +88,6 @@ func (c *Controlador) declarar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Proteccion inicial contra CSRF para peticiones del navegador.
-	if c.origenPermitido == "" || r.Header.Get("Origin") != c.origenPermitido {
-		responderError(w, http.StatusForbidden, "origen_no_permitido", "Origen no permitido.")
-		return
-	}
-
 	// Este endpoint no recibe un identificador de usuario del cliente.
 	if r.Body != nil && r.Body != http.NoBody {
 		responderError(w, http.StatusBadRequest, "solicitud_invalida", "No se admite un cuerpo.")

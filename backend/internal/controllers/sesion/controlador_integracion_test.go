@@ -307,13 +307,6 @@ func TestI05DeclaracionAsistencia(t *testing.T) {
 	)
 
 	comprobar(
-		"origen ausente",
-		tutor,
-		"",
-		http.StatusForbidden,
-	)
-
-	comprobar(
 		"origen no permitido",
 		tutor,
 		"https://otro.example",
@@ -377,6 +370,32 @@ func TestI05DeclaracionAsistencia(t *testing.T) {
 		t.Fatalf(
 			"se esperaban 2 asistencias, se obtuvieron %d",
 			len(resultado.Asistencias),
+		)
+	}
+}
+
+func TestI05DeclaracionSinOrigin(t *testing.T) {
+	entorno := prepararEntornoI05(t)
+
+	tutor := iniciarSesionI05(
+		t,
+		entorno.handler,
+		"tutor.prueba@uni.edu.pe",
+	)
+
+	respuesta := solicitarI05(
+		entorno.handler,
+		http.MethodPost,
+		"/api/sesion/sesion-i05/asistencias",
+		tutor,
+		"",
+	)
+
+	if respuesta.Code != http.StatusCreated {
+		t.Fatalf(
+			"esperado 201 sin Origin, obtenido %d: %s",
+			respuesta.Code,
+			respuesta.Body.String(),
 		)
 	}
 }
