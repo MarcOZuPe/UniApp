@@ -20,6 +20,7 @@ import (
 	"uniapp/internal/db"
 	"uniapp/internal/events"
 	modelo "uniapp/internal/models/acceso"
+	modeloReserva "uniapp/internal/models/reserva"
 	"uniapp/migrations"
 )
 
@@ -39,7 +40,8 @@ func main() {
 	}
 	servicio := construirServicio(ctx, registro, configuracion, baseDatos)
 	controlador := ctrl.Nuevo(servicio, configuracion.CookieSegura)
-	servidor := nuevoServidor(configuracion.Puerto, construirManejador(controlador, registro, configuracion))
+	reservas := construirServicioReserva(baseDatos)
+	servidor := nuevoServidor(configuracion.Puerto, construirManejador(controlador, reservas, registro, configuracion))
 	servirHastaSenalDeParada(registro, servidor, ctx)
 }
 
@@ -61,11 +63,29 @@ func construirServicio(ctx context.Context, registro *log.Logger, configuracion 
 	return servicio
 }
 
-func construirManejador(controlador *ctrl.Controlador, registro *log.Logger, configuracion config.Config) http.Handler {
+// construirServicioReserva arma el flujo D. La oferta es sintética hasta que I03/I08
+// publiquen el catálogo real; solo cambia la implementación de PuertoOferta.
+func construirServicioReserva(baseDatos *sql.DB) *modeloReserva.Servicio {
+	return modeloReserva.NuevoServicio(modeloReserva.Dependencias{
+		Repositorio: modeloReserva.RepositorioPostgres{DB: baseDatos},
+		Oferta:      modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
+	})
+}
+
+func construirManejador(
+	controlador *ctrl.Controlador,
+	reservas *modeloReserva.Servicio,
+	registro *log.Logger,
+	configuracion config.Config,
+) http.Handler {
 	raiz := http.NewServeMux()
 	raiz.Handle("/api/tutor/", ctrlTutor.Rutas())
 	raiz.Handle("/api/oferta/", ctrlOferta.Rutas())
-	raiz.Handle("/api/reserva/", ctrlReserva.Rutas())
+	// Se registran el prefijo exacto y el subárbol: sin el exacto, POST /api/reserva
+	// recibiría un 301 a /api/reserva/ y el navegador lo convertiría en GET.
+	manejadorReserva := ctrlReserva.Nuevo(reservas, controlador.Autenticar()).Rutas()
+	raiz.Handle("/api/reserva", manejadorReserva)
+	raiz.Handle("/api/reserva/", manejadorReserva)
 	raiz.Handle("/api/sesion/", ctrlSesion.Rutas())
 	raiz.Handle("/", controlador.Rutas())
 	return ctrl.Encadenar(raiz,
