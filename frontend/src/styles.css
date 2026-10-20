@@ -3,11 +3,13 @@
 body { margin:0; background:var(--bg); color:var(--fg); }
 main { max-width:26rem; margin:3rem auto; padding:0 1rem; }
 .campo { display:flex; flex-direction:column; gap:.25rem; margin-bottom:1rem; }
-input, select { padding:.55rem; border:1px solid var(--borde); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+input, select, textarea { padding:.55rem; border:1px solid var(--borde); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
 input[aria-invalid="true"] { border-color:var(--err); }
 button { padding:.6rem 1rem; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
 button:disabled { opacity:.6; }
 a { color:var(--accent); }
 small { color:var(--muted); }
 .error { color:var(--err); }
+.no-disponibles { margin-top:.4rem; }
+.no-disponibles ul { margin:.4rem 0 0; padding-left:1.2rem; color:var(--muted); }
 :focus-visible { outline:3px solid var(--accent); outline-offset:2px; }

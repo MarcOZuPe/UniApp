@@ -11,7 +11,7 @@ export default function Inicio() {
       <p>Rol: <strong>{ROLES[usuario.rol]}</strong></p>
       <ul>
         {usuario.rol === 'coordinador' && <li><Link to="/coordinacion">Zona de coordinación</Link></li>}
-        {usuario.rol === 'escolar' && <li>Próximamente: buscar tutorías (flujos C y D)</li>}
+        {usuario.rol === 'escolar' && <li><Link to="/reservar">Reservar una tutoría</Link></li>}
         {usuario.rol === 'tutor' && <li>Próximamente: expediente y disponibilidad (flujos B y C)</li>}
         {usuario.rol === 'apoderado' && <li>Próximamente: autorización del menor (I06)</li>}
       </ul>

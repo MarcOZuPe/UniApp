@@ -6,6 +6,7 @@ import Inicio from './views/acceso/Inicio.jsx';
 import Ingreso from './views/acceso/Ingreso.jsx';
 import NoAutorizado from './views/acceso/NoAutorizado.jsx';
 import Registro from './views/acceso/Registro.jsx';
+import FormularioReserva from './views/reserva/FormularioReserva.jsx';
 
 export default function App() {
   useEffect(() => { cargarSesion(); }, []);
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/ingreso" element={<Ingreso />} />
         <Route path="/registro" element={<Registro />} />
         <Route path="/no-autorizado" element={<NoAutorizado />} />
+        <Route path="/reservar" element={<RutaProtegida roles={['escolar']}><FormularioReserva /></RutaProtegida>} />
         <Route path="/" element={<RutaProtegida><Inicio /></RutaProtegida>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
