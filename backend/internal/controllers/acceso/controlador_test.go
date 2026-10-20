@@ -142,8 +142,8 @@ func TestOrigenCruzadoRechazado(t *testing.T) {
 
 func TestOrigenPermitidoAceptaVarios(t *testing.T) {
 	base := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
-	h := Encadenar(base, OrigenPermitido("http://localhost:5173", "http://159.195.245.124:5173"))
-	for _, origen := range []string{"http://localhost:5173", "http://159.195.245.124:5173"} {
+	h := Encadenar(base, OrigenPermitido("http://localhost:5173", "http://203.0.113.10:5173"))
+	for _, origen := range []string{"http://localhost:5173", "http://203.0.113.10:5173"} {
 		if w := llamar(h, "POST", "/x", "", nil, "Origin", origen); w.Code != http.StatusNoContent {
 			t.Fatalf("origen permitido %s: %d", origen, w.Code)
 		}

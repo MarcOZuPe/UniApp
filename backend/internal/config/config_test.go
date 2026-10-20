@@ -74,7 +74,7 @@ func TestCargarEnDesarrolloPermiteLocalhost(t *testing.T) {
 func TestCargarAceptaVariosOrigenes(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/uniapp?sslmode=disable")
 	t.Setenv("APP_ENV", "dev")
-	t.Setenv("FRONTEND_ORIGIN", " http://localhost:5173 , http://159.195.245.124:5173/ ")
+	t.Setenv("FRONTEND_ORIGIN", " http://localhost:5173 , http://203.0.113.10:5173/ ")
 	configuracion, err := Cargar()
 	if err != nil {
 		t.Fatalf("Cargar no debía fallar: %v", err)
@@ -82,7 +82,7 @@ func TestCargarAceptaVariosOrigenes(t *testing.T) {
 	if configuracion.OrigenFrontend != "http://localhost:5173" {
 		t.Fatalf("el primer origen es el de los enlaces: %q", configuracion.OrigenFrontend)
 	}
-	if len(configuracion.OrigenesFrontend) != 2 || configuracion.OrigenesFrontend[1] != "http://159.195.245.124:5173" {
+	if len(configuracion.OrigenesFrontend) != 2 || configuracion.OrigenesFrontend[1] != "http://203.0.113.10:5173" {
 		t.Fatalf("orígenes permitidos: %v", configuracion.OrigenesFrontend)
 	}
 }
