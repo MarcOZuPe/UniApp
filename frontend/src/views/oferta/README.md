@@ -1,1 +1,1 @@
-Flujo oferta: capa views. Ver CONTRIBUTING.md (sin reglas de negocio en views; datos de otros flujos solo por su API).
+Flujo oferta: `Disponibilidad.jsx` presenta el calendario semanal y comunica acciones mediante `controllers/oferta/ofertaService.js`. Las reglas de negocio siguen en el backend. El modo demo se activa con `VITE_OFERTA_MOCK=true`; excepciones y metadatos del canal privado requieren soporte de API.
