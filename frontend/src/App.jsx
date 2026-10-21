@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import RutaProtegida from './components/RutaProtegida.jsx';
+import RutaProtegidaConRetorno from './components/RutaProtegidaConRetorno.jsx';
 import { cargarSesion } from './controllers/acceso/acciones.js';
 
 import Inicio from './views/acceso/Inicio.jsx';
@@ -15,6 +16,9 @@ import Coordinacion from './views/acceso/Coordinacion.jsx';
 
 import FormularioReserva from './views/reserva/FormularioReserva.jsx';
 import DetalleSesion from './views/sesion/DetalleSesion.jsx';
+import VincularEscolar from './views/apoderado/VincularEscolar.jsx';
+import AceptarVinculacion from './views/apoderado/AceptarVinculacion.jsx';
+import MiApoderado from './views/apoderado/MiApoderado.jsx';
 
 export default function App() {
     useEffect(() => {
@@ -54,6 +58,33 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['tutor', 'escolar']}>
                             <DetalleSesion />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/apoderado/vincular"
+                    element={
+                        <RutaProtegida roles={['apoderado']}>
+                            <VincularEscolar />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/vinculacion/aceptar"
+                    element={
+                        <RutaProtegidaConRetorno roles={['escolar']}>
+                            <AceptarVinculacion />
+                        </RutaProtegidaConRetorno>
+                    }
+                />
+
+                <Route
+                    path="/mi-apoderado"
+                    element={
+                        <RutaProtegida roles={['escolar']}>
+                            <MiApoderado />
                         </RutaProtegida>
                     }
                 />

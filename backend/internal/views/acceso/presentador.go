@@ -3,6 +3,7 @@ package acceso
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	modelo "uniapp/internal/models/acceso"
 )
@@ -58,4 +59,47 @@ func EscribirJSON(w http.ResponseWriter, estado int, valor any) {
 
 func EscribirError(w http.ResponseWriter, respuesta RespuestaError) {
 	EscribirJSON(w, respuesta.Estado, ErrorJSON{Codigo: respuesta.Codigo, Mensaje: respuesta.Mensaje, Campos: respuesta.Campos})
+}
+
+type VinculacionUsuarioJSON struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	NombreUso string `json:"nombre_uso"`
+	Rol       string `json:"rol"`
+}
+
+type VinculacionJSON struct {
+	ID         string                 `json:"id"`
+	Estado     string                 `json:"estado"`
+	Apoderado  VinculacionUsuarioJSON `json:"apoderado"`
+	Escolar    VinculacionUsuarioJSON `json:"escolar"`
+	CreadaEn   time.Time              `json:"creada_en"`
+	AceptadaEn *time.Time             `json:"aceptada_en,omitempty"`
+	ExpiraEn   time.Time              `json:"expira_en"`
+}
+
+func PresentarVinculacion(vinculacion *modelo.Vinculacion) VinculacionJSON {
+	return VinculacionJSON{
+		ID:     vinculacion.ID,
+		Estado: string(vinculacion.Estado),
+		Apoderado: VinculacionUsuarioJSON{
+			ID: vinculacion.ApoderadoID, Email: vinculacion.ApoderadoEmail,
+			NombreUso: vinculacion.ApoderadoNombre, Rol: string(modelo.RolApoderado),
+		},
+		Escolar: VinculacionUsuarioJSON{
+			ID: vinculacion.EscolarID, Email: vinculacion.EscolarEmail,
+			NombreUso: vinculacion.EscolarNombre, Rol: string(modelo.RolEscolar),
+		},
+		CreadaEn:   vinculacion.CreadaEn,
+		AceptadaEn: vinculacion.AceptadaEn,
+		ExpiraEn:   vinculacion.ExpiraEn,
+	}
+}
+
+func PresentarVinculaciones(vinculaciones []modelo.Vinculacion) []VinculacionJSON {
+	presentadas := make([]VinculacionJSON, 0, len(vinculaciones))
+	for i := range vinculaciones {
+		presentadas = append(presentadas, PresentarVinculacion(&vinculaciones[i]))
+	}
+	return presentadas
 }

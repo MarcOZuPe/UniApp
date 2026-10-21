@@ -103,3 +103,82 @@ func TestRepositorioPostgresFlujoCompleto(t *testing.T) {
 		t.Fatalf("no debe borrar cuentas confirmadas: %v", err)
 	}
 }
+
+func TestRepositorioPostgresVinculacion(t *testing.T) {
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL no definida")
+	}
+	ctx := context.Background()
+	d, err := migrations.Abrir(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := migrations.Migrar(ctx, d, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = d.Exec(`TRUNCATE usuarios CASCADE`)
+
+	h := modelo.PBKDF2Hasher{Iteraciones: 1000}
+	bus := modelo.NuevoBus()
+	var tokenVinculacion string
+	bus.Registrar(modelo.VinculacionSolicitada, modelo.NuevoObservadorFunc("captura-vinculacion-pg", func(e modelo.Event) {
+		tokenVinculacion, _ = e.Payload["token"].(string)
+	}))
+	s := modelo.NuevoServicio(modelo.Dependencias{
+		Repositorio: modelo.RepositorioPostgres{DB: d},
+		Fabrica:     modelo.NuevaFabrica(h, "uni.edu.pe"),
+		Hasher:      h,
+		Bus:         bus,
+	})
+	apoderado, err := s.CrearAdministrado(ctx, modelo.DatosRegistro{
+		Email: "apoderado.pg@example.com", NombreUso: "Apoderado PG", Clave: "clave-larga-ok", Rol: modelo.RolApoderado,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	escolar, err := s.CrearAdministrado(ctx, modelo.DatosRegistro{
+		Email: "escolar.pg@example.com", NombreUso: "Escolar PG", Clave: "clave-larga-ok", Rol: modelo.RolEscolar,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	creada, err := s.SolicitarVinculacion(ctx, apoderado, escolar.Email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if creada.Estado != modelo.EstadoVinculacionPendiente || tokenVinculacion == "" {
+		t.Fatalf("solicitud: %+v", creada)
+	}
+	consultada, err := s.ConsultarVinculacion(ctx, escolar, tokenVinculacion)
+	if err != nil || consultada.ApoderadoEmail != apoderado.Email {
+		t.Fatalf("consulta: %+v (%v)", consultada, err)
+	}
+	aceptada, err := s.AceptarVinculacion(ctx, escolar, tokenVinculacion)
+	if err != nil || aceptada.Estado != modelo.EstadoVinculacionAceptada || aceptada.AceptadaEn == nil {
+		t.Fatalf("aceptar: %+v (%v)", aceptada, err)
+	}
+	if _, err := s.AceptarVinculacion(ctx, escolar, tokenVinculacion); !errors.Is(err, modelo.ErrTokenInvalido) {
+		t.Fatalf("un solo uso: %v", err)
+	}
+
+	actual, err := s.VinculacionDeEscolar(ctx, escolar)
+	if err != nil || actual == nil || actual.ApoderadoID != apoderado.ID {
+		t.Fatalf("vínculo: %+v (%v)", actual, err)
+	}
+	otro, err := s.CrearAdministrado(ctx, modelo.DatosRegistro{
+		Email: "otro.pg@example.com", NombreUso: "Otro PG", Clave: "clave-larga-ok", Rol: modelo.RolApoderado,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SolicitarVinculacion(ctx, otro, escolar.Email); !errors.Is(err, modelo.ErrYaVinculado) {
+		t.Fatalf("escolar ya vinculado: %v", err)
+	}
+	vinculaciones, err := s.VinculacionesDeApoderado(ctx, apoderado)
+	if err != nil || len(vinculaciones) != 1 {
+		t.Fatalf("listado: %+v (%v)", vinculaciones, err)
+	}
+}

@@ -3,6 +3,7 @@ package acceso
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -14,6 +15,7 @@ type RepositorioMemoria struct {
 	sesiones           map[string]Sesion
 	tokens             map[string]*tokenMem
 	tokensConfirmacion map[string]*tokenConfirmacionMem
+	vinculaciones      map[string]*Vinculacion
 }
 
 type tokenMem struct {
@@ -32,6 +34,7 @@ func NuevoRepositorioMemoria() *RepositorioMemoria {
 		sesiones:           map[string]Sesion{},
 		tokens:             map[string]*tokenMem{},
 		tokensConfirmacion: map[string]*tokenConfirmacionMem{},
+		vinculaciones:      map[string]*Vinculacion{},
 	}
 }
 
@@ -214,4 +217,122 @@ func (r *RepositorioMemoria) tieneEnlaceVigente(usuarioID string, ahora time.Tim
 
 func tokenVigente(token *tokenMem, ahora time.Time) bool {
 	return token != nil && !token.usado && ahora.Before(token.ExpiraEn)
+}
+
+func (r *RepositorioMemoria) GuardarSolicitudVinculacion(_ context.Context, vinculacion Vinculacion) (*Vinculacion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	registrada := vinculacion
+	r.secuenciaID++
+	registrada.ID = fmt.Sprintf("v-%d", r.secuenciaID)
+	if registrada.CreadaEn.IsZero() {
+		registrada.CreadaEn = time.Now().UTC()
+	}
+	r.vinculaciones[registrada.ID] = &registrada
+	return r.copiarVinculacion(&registrada), nil
+}
+
+func (r *RepositorioMemoria) SolicitudPendienteDeEscolar(_ context.Context, escolarID string, ahora time.Time) (*Vinculacion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var encontrada *Vinculacion
+	for _, vinculacion := range r.vinculaciones {
+		if vinculacion.EscolarID != escolarID || vinculacion.Estado != EstadoVinculacionPendiente || !ahora.Before(vinculacion.ExpiraEn) {
+			continue
+		}
+		if encontrada == nil || vinculacion.CreadaEn.After(encontrada.CreadaEn) {
+			encontrada = vinculacion
+		}
+	}
+	if encontrada == nil {
+		return nil, ErrNoEncontrado
+	}
+	return r.copiarVinculacion(encontrada), nil
+}
+
+func (r *RepositorioMemoria) VinculacionAceptadaDeEscolar(_ context.Context, escolarID string) (*Vinculacion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var encontrada *Vinculacion
+	for _, vinculacion := range r.vinculaciones {
+		if vinculacion.EscolarID != escolarID || vinculacion.Estado != EstadoVinculacionAceptada {
+			continue
+		}
+		if encontrada == nil || vinculacion.CreadaEn.After(encontrada.CreadaEn) {
+			encontrada = vinculacion
+		}
+	}
+	if encontrada == nil {
+		return nil, ErrNoEncontrado
+	}
+	return r.copiarVinculacion(encontrada), nil
+}
+
+func (r *RepositorioMemoria) ConsumirSolicitudVinculacion(_ context.Context, tokenHash []byte, escolarID string, ahora time.Time) (*Vinculacion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, vinculacion := range r.vinculaciones {
+		if vinculacion.EscolarID != escolarID || vinculacion.Estado != EstadoVinculacionPendiente ||
+			!ahora.Before(vinculacion.ExpiraEn) || string(vinculacion.TokenHash) != string(tokenHash) {
+			continue
+		}
+		vinculacion.Estado = EstadoVinculacionAceptada
+		momento := ahora
+		vinculacion.AceptadaEn = &momento
+		return r.copiarVinculacion(vinculacion), nil
+	}
+	return nil, ErrTokenInvalido
+}
+
+func (r *RepositorioMemoria) VinculacionesDeApoderado(_ context.Context, apoderadoID string, ahora time.Time) ([]Vinculacion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	vinculaciones := make([]Vinculacion, 0)
+	for _, vinculacion := range r.vinculaciones {
+		if vinculacion.ApoderadoID != apoderadoID {
+			continue
+		}
+		if vinculacion.Estado == EstadoVinculacionPendiente && !ahora.Before(vinculacion.ExpiraEn) {
+			continue
+		}
+		vinculaciones = append(vinculaciones, *r.copiarVinculacion(vinculacion))
+	}
+	sort.Slice(vinculaciones, func(i, j int) bool {
+		if vinculaciones[i].Estado != vinculaciones[j].Estado {
+			return vinculaciones[i].Estado == EstadoVinculacionAceptada
+		}
+		return vinculaciones[i].CreadaEn.After(vinculaciones[j].CreadaEn)
+	})
+	return vinculaciones, nil
+}
+
+func (r *RepositorioMemoria) copiarVinculacion(vinculacion *Vinculacion) *Vinculacion {
+	copia := *vinculacion
+	if usuario, ok := r.usuarios[copia.ApoderadoID]; ok {
+		copia.ApoderadoNombre = usuario.NombreUso
+		copia.ApoderadoEmail = usuario.Email
+	}
+	if usuario, ok := r.usuarios[copia.EscolarID]; ok {
+		copia.EscolarNombre = usuario.NombreUso
+		copia.EscolarEmail = usuario.Email
+	}
+	return &copia
+}
+
+func (r *RepositorioMemoria) SolicitudVinculacionPorToken(_ context.Context, tokenHash []byte, escolarID string, ahora time.Time) (*Vinculacion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, vinculacion := range r.vinculaciones {
+		if vinculacion.EscolarID == escolarID && vinculacion.Estado == EstadoVinculacionPendiente &&
+			ahora.Before(vinculacion.ExpiraEn) && string(vinculacion.TokenHash) == string(tokenHash) {
+			return r.copiarVinculacion(vinculacion), nil
+		}
+	}
+	return nil, ErrTokenInvalido
 }

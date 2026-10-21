@@ -1,0 +1,14 @@
+import { api } from '../acceso/acciones.js';
+
+export const solicitarVinculacion = (emailEscolar) =>
+  api.post('/api/apoderado/vinculaciones', { email_escolar: emailEscolar });
+
+export const listarVinculaciones = () => api.get('/api/apoderado/vinculaciones');
+
+export const consultarVinculacion = (token) =>
+  api.post('/api/escolar/vinculaciones/consultar', { token });
+
+export const aceptarVinculacion = (token) =>
+  api.post('/api/escolar/vinculaciones/aceptar', { token });
+
+export const miApoderado = () => api.get('/api/escolar/apoderado');

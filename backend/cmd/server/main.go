@@ -140,11 +140,12 @@ func construirMailer(configuracion config.Config) modelo.Mailer {
 func construirBus(registro *log.Logger, mailer modelo.Mailer, configuracion config.Config) *modelo.Bus {
 	bus := modelo.NuevoBus()
 	auditoria := modelo.NuevaAuditoria(registro)
-	for _, nombre := range []string{modelo.UsuarioRegistrado, modelo.IngresoExitoso, modelo.IngresoFallido, modelo.ClaveRestablecida, modelo.RecuperacionSolicitada, modelo.ConfirmacionSolicitada, modelo.CorreoConfirmado} {
+	for _, nombre := range []string{modelo.UsuarioRegistrado, modelo.IngresoExitoso, modelo.IngresoFallido, modelo.ClaveRestablecida, modelo.RecuperacionSolicitada, modelo.ConfirmacionSolicitada, modelo.CorreoConfirmado, modelo.VinculacionSolicitada, modelo.VinculacionAceptada} {
 		bus.Registrar(nombre, auditoria)
 	}
 	bus.Registrar(modelo.RecuperacionSolicitada, modelo.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
 	bus.Registrar(modelo.ConfirmacionSolicitada, modelo.NuevoCorreoConfirmacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(modelo.VinculacionSolicitada, modelo.NuevoCorreoVinculacion(mailer, configuracion.OrigenFrontend))
 	return bus
 }
 
