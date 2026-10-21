@@ -7,9 +7,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"uniapp/internal/adapters"
-	"uniapp/internal/events"
 )
 
 const DuracionSesion = 12 * time.Hour
@@ -17,8 +14,8 @@ const DuracionSesion = 12 * time.Hour
 type Servicio struct {
 	repositorio Repositorio
 	fabrica     *Fabrica
-	hasher      adapters.PasswordHasher
-	bus         events.Sujeto
+	hasher      PasswordHasher
+	bus         Sujeto
 	ahora       func() time.Time
 	hashSenuelo string
 
@@ -34,8 +31,8 @@ type registroFallos struct {
 type Dependencias struct {
 	Repositorio Repositorio
 	Fabrica     *Fabrica
-	Hasher      adapters.PasswordHasher
-	Bus         events.Sujeto
+	Hasher      PasswordHasher
+	Bus         Sujeto
 }
 
 func NuevoServicio(dependencias Dependencias) *Servicio {
@@ -56,8 +53,8 @@ func (s *Servicio) FijarReloj(f func() time.Time) { s.ahora = f }
 
 func normalizarEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
 
-func eventoDeUsuario(nombre string, usuario *Usuario) events.Event {
-	return events.Event{Nombre: nombre, Payload: map[string]any{"usuario_id": usuario.ID, "rol": string(usuario.Rol)}}
+func eventoDeUsuario(nombre string, usuario *Usuario) Event {
+	return Event{Nombre: nombre, Payload: map[string]any{"usuario_id": usuario.ID, "rol": string(usuario.Rol)}}
 }
 
 func nuevoToken() (string, []byte, error) {

@@ -3,8 +3,6 @@ package acceso
 import (
 	"context"
 	"time"
-
-	"uniapp/internal/events"
 )
 
 const (
@@ -37,7 +35,7 @@ func (s *Servicio) autenticar(ctx context.Context, email, clave string) (*Usuari
 	credencialesValidas := s.hasher.Verify(clave, hash)
 	if err != nil || !credencialesValidas || !usuario.Activo || !usuario.EmailConfirmado {
 		s.registrarFallo(email)
-		s.bus.Notificar(events.Event{Nombre: events.IngresoFallido, Payload: map[string]any{"usuario_id": "-", "rol": "-"}})
+		s.bus.Notificar(Event{Nombre: IngresoFallido, Payload: map[string]any{"usuario_id": "-", "rol": "-"}})
 		return nil, ErrCredenciales
 	}
 	s.limpiarFallos(email)
@@ -55,7 +53,7 @@ func (s *Servicio) abrirSesion(ctx context.Context, usuario *Usuario) (string, e
 		return "", err
 	}
 	_ = s.repositorio.RegistrarIngreso(ctx, usuario.ID, momento)
-	s.bus.Notificar(eventoDeUsuario(events.IngresoExitoso, usuario))
+	s.bus.Notificar(eventoDeUsuario(IngresoExitoso, usuario))
 	return token, nil
 }
 

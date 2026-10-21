@@ -5,8 +5,6 @@ import (
 	"errors"
 	"strings"
 	"time"
-
-	"uniapp/internal/events"
 )
 
 const duracionRestablecimiento = time.Hour
@@ -28,7 +26,7 @@ func (s *Servicio) SolicitarRecuperacion(ctx context.Context, email string) erro
 	if err := s.repositorio.GuardarTokenRecuperacion(ctx, tokenRecuperacion); err != nil {
 		return err
 	}
-	s.bus.Notificar(events.Event{Nombre: events.RecuperacionSolicitada, Payload: map[string]any{
+	s.bus.Notificar(Event{Nombre: RecuperacionSolicitada, Payload: map[string]any{
 		"usuario_id": usuario.ID, "rol": string(usuario.Rol), "email": usuario.Email, "token": token}})
 	return nil
 }
@@ -68,6 +66,6 @@ func (s *Servicio) consumirYAplicar(ctx context.Context, tokenHash []byte, usuar
 		return err
 	}
 	_ = s.repositorio.EliminarSesionesDeUsuario(ctx, usuario.ID)
-	s.bus.Notificar(eventoDeUsuario(events.ClaveRestablecida, usuario))
+	s.bus.Notificar(eventoDeUsuario(ClaveRestablecida, usuario))
 	return nil
 }

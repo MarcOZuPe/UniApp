@@ -11,19 +11,15 @@ import (
 	"syscall"
 	"time"
 
-	"uniapp/internal/adapters"
 	"uniapp/internal/config"
 	ctrl "uniapp/internal/controllers/acceso"
 	ctrlOferta "uniapp/internal/controllers/oferta"
 	ctrlReserva "uniapp/internal/controllers/reserva"
 	ctrlSesion "uniapp/internal/controllers/sesion"
 	ctrlTutor "uniapp/internal/controllers/tutor"
-	"uniapp/internal/db"
-	"uniapp/internal/events"
 	modelo "uniapp/internal/models/acceso"
 	modeloReserva "uniapp/internal/models/reserva"
 	modeloSesion "uniapp/internal/models/sesion"
-	"uniapp/internal/observers"
 	"uniapp/migrations"
 )
 
@@ -46,12 +42,12 @@ func main() {
 	ctx, detener := context.WithCancel(context.Background())
 	defer detener()
 
-	baseDatos, err := db.Abrir(configuracion.DatabaseURL)
+	baseDatos, err := migrations.Abrir(configuracion.DatabaseURL)
 	if err != nil {
 		registro.Fatalf("base de datos: %v", err)
 	}
 
-	if err := db.Migrar(ctx, baseDatos, migrations.FS); err != nil {
+	if err := migrations.Migrar(ctx, baseDatos, migrations.FS); err != nil {
 		registro.Fatalf("migraciones: %v", err)
 	}
 
@@ -94,7 +90,7 @@ func main() {
 func construirServicio(ctx context.Context, registro *log.Logger, configuracion config.Config, baseDatos *sql.DB) *modelo.Servicio {
 	mailer := construirMailer(configuracion)
 	bus := construirBus(registro, mailer, configuracion)
-	hasher := adapters.NuevoHasher()
+	hasher := modelo.NuevoHasher()
 	fabrica := modelo.NuevaFabrica(hasher, configuracion.DominiosTutor)
 
 	servicio := modelo.NuevoServicio(modelo.Dependencias{
@@ -129,26 +125,26 @@ func construirServicioReserva(baseDatos *sql.DB) *modeloReserva.Servicio {
 	})
 }
 
-func construirMailer(configuracion config.Config) adapters.Mailer {
-	var mailer adapters.Mailer = adapters.LogMailer{MostrarCuerpo: !configuracion.CookieSegura}
+func construirMailer(configuracion config.Config) modelo.Mailer {
+	var mailer modelo.Mailer = modelo.LogMailer{MostrarCuerpo: !configuracion.CookieSegura}
 	if configuracion.SMTP.Host != "" {
-		mailer = adapters.SMTPMailer{
+		mailer = modelo.SMTPMailer{
 			Host: configuracion.SMTP.Host, Puerto: configuracion.SMTP.Puerto,
 			Usuario: configuracion.SMTP.Usuario, Clave: configuracion.SMTP.Clave,
 			Remitente: configuracion.SMTP.Remitente,
 		}
 	}
-	return adapters.NuevoReintentoMailer(adapters.NuevoTiempoLimiteMailer(mailer, limiteDeEnvio), intentosDeEnvio, esperaEntreEnvios)
+	return modelo.NuevoReintentoMailer(modelo.NuevoTiempoLimiteMailer(mailer, limiteDeEnvio), intentosDeEnvio, esperaEntreEnvios)
 }
 
-func construirBus(registro *log.Logger, mailer adapters.Mailer, configuracion config.Config) *events.Bus {
-	bus := events.NuevoBus()
-	auditoria := observers.NuevaAuditoria(registro)
-	for _, nombre := range []string{events.UsuarioRegistrado, events.IngresoExitoso, events.IngresoFallido, events.ClaveRestablecida, events.RecuperacionSolicitada, events.ConfirmacionSolicitada, events.CorreoConfirmado} {
+func construirBus(registro *log.Logger, mailer modelo.Mailer, configuracion config.Config) *modelo.Bus {
+	bus := modelo.NuevoBus()
+	auditoria := modelo.NuevaAuditoria(registro)
+	for _, nombre := range []string{modelo.UsuarioRegistrado, modelo.IngresoExitoso, modelo.IngresoFallido, modelo.ClaveRestablecida, modelo.RecuperacionSolicitada, modelo.ConfirmacionSolicitada, modelo.CorreoConfirmado} {
 		bus.Registrar(nombre, auditoria)
 	}
-	bus.Registrar(events.RecuperacionSolicitada, observers.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
-	bus.Registrar(events.ConfirmacionSolicitada, observers.NuevoCorreoConfirmacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(modelo.RecuperacionSolicitada, modelo.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(modelo.ConfirmacionSolicitada, modelo.NuevoCorreoConfirmacion(mailer, configuracion.OrigenFrontend))
 	return bus
 }
 
