@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   aceptarVinculacion,
+  cambiarAutorizacion,
   consultarVinculacion,
   listarVinculaciones,
   miApoderado,
@@ -84,6 +85,21 @@ describe('I06: cliente API de vinculación', () => {
     expect(fetchSimulado).toHaveBeenCalledWith(
       '/api/escolar/apoderado',
       expect.objectContaining({ method: 'GET' })
+    );
+  });
+
+  it('cambia la autorización de un escolar', async () => {
+    const fetchSimulado = espiarFetch(200, { autorizacion: { estado: 'no_autorizado' } });
+
+    await cambiarAutorizacion('escolar-1', false);
+
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      '/api/apoderado/escolares/escolar-1/autorizacion',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'same-origin',
+        body: JSON.stringify({ autorizado: false }),
+      })
     );
   });
 

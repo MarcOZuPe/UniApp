@@ -1,6 +1,7 @@
 package acceso
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -49,6 +50,65 @@ func TestVinculacionApoderadoYEscolar(t *testing.T) {
 	w = llamar(h, "GET", "/api/apoderado/vinculaciones", "", apoderado)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "escolar.prueba@example.test") {
 		t.Fatalf("listado: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestAutorizacionDeNuevasReservas(t *testing.T) {
+	h, bus := servidor(t)
+	var token string
+	bus.Registrar(modelo.VinculacionSolicitada, modelo.NuevoObservadorFunc("captura-autorizacion-http", func(e modelo.Event) {
+		token, _ = e.Payload["token"].(string)
+	}))
+
+	apoderado := ingresar(t, h, "apoderado.prueba@example.test")
+	escolar := ingresar(t, h, "escolar.prueba@example.test")
+	tutor := ingresar(t, h, "tutor.prueba@uni.edu.pe")
+
+	if w := llamar(h, "POST", "/api/apoderado/vinculaciones", `{"email_escolar":"escolar.prueba@example.test"}`, apoderado); w.Code != http.StatusAccepted {
+		t.Fatalf("solicitud: %d %s", w.Code, w.Body)
+	}
+	if w := llamar(h, "POST", "/api/escolar/vinculaciones/aceptar", `{"token":"`+token+`"}`, escolar); w.Code != http.StatusOK {
+		t.Fatalf("aceptar: %d %s", w.Code, w.Body)
+	}
+
+	var vinculacion map[string]any
+	if err := json.Unmarshal(llamar(h, "GET", "/api/escolar/apoderado", "", escolar).Body.Bytes(), &vinculacion); err != nil {
+		t.Fatal(err)
+	}
+	escolarID := vinculacion["vinculacion"].(map[string]any)["escolar"].(map[string]any)["id"].(string)
+	ruta := "/api/apoderado/escolares/" + escolarID + "/autorizacion"
+
+	w := llamar(h, "POST", ruta, `{"autorizado":false}`, apoderado)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"estado":"no_autorizado"`) {
+		t.Fatalf("revocar: %d %s", w.Code, w.Body)
+	}
+	if !strings.Contains(w.Body.String(), `"creada_en"`) {
+		t.Fatalf("el cambio debe exponer fecha y hora: %s", w.Body)
+	}
+
+	w = llamar(h, "GET", "/api/escolar/apoderado", "", escolar)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"autorizado":false`) {
+		t.Fatalf("el escolar ve la revocación: %d %s", w.Code, w.Body)
+	}
+
+	w = llamar(h, "POST", ruta, `{"autorizado":true}`, apoderado)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"estado":"autorizado"`) {
+		t.Fatalf("autorizar: %d %s", w.Code, w.Body)
+	}
+	if w = llamar(h, "POST", ruta, `{}`, apoderado); w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), `"autorizado"`) {
+		t.Fatalf("falta el estado: %d %s", w.Code, w.Body)
+	}
+	if w = llamar(h, "POST", ruta, `{"autorizado":false}`, escolar); w.Code != http.StatusForbidden {
+		t.Fatalf("el escolar no cambia su autorización: %d %s", w.Code, w.Body)
+	}
+	if w = llamar(h, "POST", ruta, `{"autorizado":false}`, tutor); w.Code != http.StatusForbidden {
+		t.Fatalf("el tutor no cambia autorizaciones: %d %s", w.Code, w.Body)
+	}
+	if w = llamar(h, "POST", ruta, `{"autorizado":false}`, nil); w.Code != http.StatusUnauthorized {
+		t.Fatalf("sin sesión: %d %s", w.Code, w.Body)
+	}
+	if w = llamar(h, "POST", "/api/apoderado/escolares/00000000-0000-0000-0000-000000000000/autorizacion", `{"autorizado":false}`, apoderado); w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), `"sin_apoderado"`) {
+		t.Fatalf("escolar sin vínculo: %d %s", w.Code, w.Body)
 	}
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
 import {
+  cambiarAutorizacion,
   listarVinculaciones,
   solicitarVinculacion,
 } from '../../controllers/apoderado/apiApoderado.js';
@@ -15,6 +16,7 @@ export default function VincularEscolar() {
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
+  const [cambiando, setCambiando] = useState('');
 
   async function cargarVinculaciones() {
     try {
@@ -57,6 +59,21 @@ export default function VincularEscolar() {
     }
   }
 
+  async function alternarAutorizacion(vinculacion) {
+    const autorizado = vinculacion.autorizacion?.autorizado === true;
+    setCambiando(vinculacion.escolar.id);
+    setMensaje('');
+    try {
+      const respuesta = await cambiarAutorizacion(vinculacion.escolar.id, !autorizado);
+      setMensaje(respuesta.mensaje);
+      await cargarVinculaciones();
+    } catch (error) {
+      setMensaje(error.message);
+    } finally {
+      setCambiando('');
+    }
+  }
+
   return (
     <main>
       <h1>Vincular a un escolar</h1>
@@ -87,18 +104,43 @@ export default function VincularEscolar() {
         )}
         {!cargando && vinculaciones.length > 0 && (
           <ul>
-            {vinculaciones.map((vinculacion) => (
-              <li key={vinculacion.id}>
-                <strong>{vinculacion.escolar.nombre_uso}</strong>{' '}
-                <span>({vinculacion.escolar.email})</span>
-                <br />
-                <small>
-                  {vinculacion.estado === 'aceptada'
-                    ? 'Vinculación aceptada'
-                    : 'Pendiente de aceptación'}
-                </small>
-              </li>
-            ))}
+            {vinculaciones.map((vinculacion) => {
+              const autorizado = vinculacion.autorizacion?.autorizado === true;
+              return (
+                <li key={vinculacion.id}>
+                  <strong>{vinculacion.escolar.nombre_uso}</strong>{' '}
+                  <span>({vinculacion.escolar.email})</span>
+                  <br />
+                  <small>
+                    {vinculacion.estado === 'aceptada'
+                      ? 'Vinculación aceptada'
+                      : 'Pendiente de aceptación'}
+                  </small>
+                  {vinculacion.estado === 'aceptada' && (
+                    <>
+                      <br />
+                      <small>
+                        {autorizado
+                          ? 'Puede solicitar nuevas tutorías.'
+                          : 'No puede solicitar nuevas tutorías.'}
+                      </small>
+                      <br />
+                      <button
+                        type="button"
+                        onClick={() => alternarAutorizacion(vinculacion)}
+                        disabled={cambiando === vinculacion.escolar.id}
+                      >
+                        {cambiando === vinculacion.escolar.id
+                          ? 'Guardando…'
+                          : autorizado
+                            ? 'Revocar autorización'
+                            : 'Autorizar nuevas tutorías'}
+                      </button>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

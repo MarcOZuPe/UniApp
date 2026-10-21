@@ -32,6 +32,19 @@ export default function MiApoderado() {
           <p>
             La vinculación fue aceptada y no se puede desvincular.
           </p>
+          {vinculacion.autorizacion && (
+            <p role="status">
+              {vinculacion.autorizacion.autorizado
+                ? 'Tu apoderado autorizó la creación de nuevas tutorías.'
+                : 'Tu apoderado revocó la autorización para crear nuevas tutorías.'}
+              <br />
+              <small>
+                Estado registrado el{' '}
+                {new Date(vinculacion.autorizacion.creada_en).toLocaleString('es-PE')}.
+                Las tutorías ya confirmadas no se modifican.
+              </small>
+            </p>
+          )}
         </>
       )}
       <p><Link to="/">Volver al inicio</Link></p>

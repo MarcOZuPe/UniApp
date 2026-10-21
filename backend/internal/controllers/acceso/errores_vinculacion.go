@@ -27,4 +27,12 @@ func registrarErroresDeVinculacion(m *MapeadorDeErrores) {
 		func(err error) bool { return errors.Is(err, modelo.ErrSolicitudPendiente) },
 		respuestaConEstado(http.StatusConflict, "solicitud_pendiente"),
 	)
+	m.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrSinApoderado) },
+		respuestaConEstado(http.StatusConflict, "sin_apoderado"),
+	)
+	m.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrVinculacionAjena) },
+		respuestaConEstado(http.StatusForbidden, "no_autorizado"),
+	)
 }

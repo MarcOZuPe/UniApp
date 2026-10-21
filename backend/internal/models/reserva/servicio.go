@@ -2,28 +2,48 @@ package reserva
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
 // Servicio aplica las reglas del flujo D. El reloj es inyectable para probar las 48 horas
 // sin esperar: el servidor es la autoridad temporal (RN-03).
 type Servicio struct {
-	repositorio Repositorio
-	oferta      PuertoOferta
-	ahora       func() time.Time
+	repositorio  Repositorio
+	oferta       PuertoOferta
+	autorizacion PuertoAutorizacion
+	ahora        func() time.Time
+}
+
+type PuertoAutorizacion interface {
+	AutorizacionVigente(ctx context.Context, escolarID string) (bool, error)
 }
 
 type Dependencias struct {
-	Repositorio Repositorio
-	Oferta      PuertoOferta
+	Repositorio  Repositorio
+	Oferta       PuertoOferta
+	Autorizacion PuertoAutorizacion
 }
 
 func NuevoServicio(dependencias Dependencias) *Servicio {
-	return &Servicio{
-		repositorio: dependencias.Repositorio,
-		oferta:      dependencias.Oferta,
-		ahora:       func() time.Time { return time.Now().UTC() },
+	autorizacion := dependencias.Autorizacion
+	if autorizacion == nil {
+		// Sin un puerto inyectado no se puede demostrar autorización: se falla
+		// cerrado. El composition root siempre inyecta el flujo A.
+		autorizacion = autorizacionNula{}
 	}
+	return &Servicio{
+		repositorio:  dependencias.Repositorio,
+		oferta:       dependencias.Oferta,
+		autorizacion: autorizacion,
+		ahora:        func() time.Time { return time.Now().UTC() },
+	}
+}
+
+type autorizacionNula struct{}
+
+func (autorizacionNula) AutorizacionVigente(context.Context, string) (bool, error) {
+	return false, nil
 }
 
 func (s *Servicio) FijarReloj(f func() time.Time) { s.ahora = f }
@@ -56,6 +76,18 @@ func (s *Servicio) Slots(ctx context.Context) ([]Disposicion, error) {
 }
 
 func (s *Servicio) Reservar(ctx context.Context, escolarID string, datos DatosReserva) (*Reserva, error) {
+	if strings.TrimSpace(escolarID) == "" {
+		return nil, ErrNoAutorizado
+	}
+	// La autorización se comprueba solo al crear: las reservas ya confirmadas
+	// siguen vigentes aunque el apoderado revoque el permiso después.
+	autorizado, err := s.autorizacion.AutorizacionVigente(ctx, escolarID)
+	if err != nil {
+		return nil, err
+	}
+	if !autorizado {
+		return nil, ErrSinAutorizacion
+	}
 	slot, err := s.slotElegido(ctx, datos.SlotID)
 	if err != nil {
 		return nil, err

@@ -29,6 +29,10 @@ type Vinculacion struct {
 	ApoderadoEmail  string
 	EscolarNombre   string
 	EscolarEmail    string
+
+	// Autorizacion es el último estado registrado. Solo existe para vínculos
+	// aceptados; nil significa que todavía no hay una autorización registrada.
+	Autorizacion *Autorizacion
 }
 
 var (
@@ -38,4 +42,6 @@ var (
 	ErrEscolarNoValido     = errors.New("el usuario indicado no es un escolar activo y confirmado")
 	ErrYaVinculado         = errors.New("el escolar ya tiene un apoderado vinculado")
 	ErrSolicitudPendiente  = errors.New("el escolar ya tiene una solicitud de vinculación pendiente")
+	ErrSinApoderado        = errors.New("el escolar no tiene un apoderado vinculado")
+	ErrVinculacionAjena    = errors.New("la vinculación no pertenece al apoderado")
 )

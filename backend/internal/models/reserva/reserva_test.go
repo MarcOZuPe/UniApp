@@ -22,8 +22,9 @@ func datosValidos() DatosReserva {
 
 func servicioDePrueba(base time.Time) *Servicio {
 	s := NuevoServicio(Dependencias{
-		Repositorio: NuevoRepositorioMemoria(),
-		Oferta:      NuevaOfertaSintetica(base),
+		Repositorio:  NuevoRepositorioMemoria(),
+		Oferta:       NuevaOfertaSintetica(base),
+		Autorizacion: autorizacionFija(true),
 	})
 	s.FijarReloj(func() time.Time { return ahora })
 	return s
@@ -37,6 +38,24 @@ func slotEn(inicio time.Time) Slot {
 		Curso:       "Álgebra",
 		Inicio:      inicio,
 		Fin:         inicio.Add(DuracionSesion),
+	}
+}
+
+type autorizacionFija bool
+
+func (a autorizacionFija) AutorizacionVigente(context.Context, string) (bool, error) {
+	return bool(a), nil
+}
+
+func TestReservarSoloConAutorizacionVigente(t *testing.T) {
+	servicio := NuevoServicio(Dependencias{
+		Repositorio:  NuevoRepositorioMemoria(),
+		Oferta:       NuevaOfertaSintetica(ahora),
+		Autorizacion: autorizacionFija(false),
+	})
+	servicio.FijarReloj(func() time.Time { return ahora })
+	if _, err := servicio.Reservar(context.Background(), "escolar-1", datosValidos()); !errors.Is(err, ErrSinAutorizacion) {
+		t.Fatalf("sin autorización no se reserva: %v", err)
 	}
 }
 

@@ -2,7 +2,6 @@ package reserva
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	ctrlAcceso "uniapp/internal/controllers/acceso"
@@ -17,10 +16,13 @@ import (
 type Controlador struct {
 	servicio   *modelo.Servicio
 	autenticar func(http.Handler) http.Handler
+	errores    *ctrlAcceso.MapeadorDeErrores
 }
 
 func Nuevo(servicio *modelo.Servicio, autenticar func(http.Handler) http.Handler) *Controlador {
-	return &Controlador{servicio: servicio, autenticar: autenticar}
+	errores := ctrlAcceso.NuevoMapeadorDeErrores()
+	registrarErroresDeReserva(errores)
+	return &Controlador{servicio: servicio, autenticar: autenticar, errores: errores}
 }
 
 func (c *Controlador) Rutas() http.Handler {
@@ -119,47 +121,5 @@ func decodificarCuerpo(w http.ResponseWriter, r *http.Request, destino any) bool
 }
 
 func (c *Controlador) responderError(w http.ResponseWriter, err error) {
-	var errValidacion modelo.ErrValidacion
-	switch {
-	case errors.As(err, &errValidacion):
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusUnprocessableEntity, Codigo: "validacion",
-			Mensaje: "Revisa los datos de la reserva.", Campos: errValidacion.Campos,
-		})
-	case errors.Is(err, modelo.ErrAnticipacion):
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusUnprocessableEntity, Codigo: "anticipacion_insuficiente",
-			Mensaje: err.Error(), Campos: map[string]string{"slot_id": err.Error()},
-		})
-	case errors.Is(err, modelo.ErrHorizonte):
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusUnprocessableEntity, Codigo: "horizonte_excedido",
-			Mensaje: err.Error(), Campos: map[string]string{"slot_id": err.Error()},
-		})
-	case errors.Is(err, modelo.ErrSlotInexistente):
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusNotFound, Codigo: "slot_inexistente", Mensaje: err.Error(),
-		})
-	case errors.Is(err, modelo.ErrSlotVencido):
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusConflict, Codigo: "slot_vencido", Mensaje: err.Error(),
-		})
-	case errors.Is(err, modelo.ErrSlotOcupado):
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusConflict, Codigo: "slot_ocupado", Mensaje: err.Error(),
-			Campos: map[string]string{"slot_id": err.Error()},
-		})
-	case errors.Is(err, modelo.ErrReservaNoEncontrada):
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusNotFound, Codigo: "reserva_inexistente", Mensaje: err.Error(),
-		})
-	case errors.Is(err, modelo.ErrNoAutorizado):
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusForbidden, Codigo: "no_autorizado", Mensaje: "No puedes acceder a esta reserva.",
-		})
-	default:
-		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-			Estado: http.StatusInternalServerError, Codigo: "error_interno", Mensaje: "Ocurrió un error inesperado.",
-		})
-	}
+	c.errores.Escribir(w, err)
 }

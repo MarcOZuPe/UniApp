@@ -69,13 +69,33 @@ type VinculacionUsuarioJSON struct {
 }
 
 type VinculacionJSON struct {
-	ID         string                 `json:"id"`
-	Estado     string                 `json:"estado"`
-	Apoderado  VinculacionUsuarioJSON `json:"apoderado"`
-	Escolar    VinculacionUsuarioJSON `json:"escolar"`
-	CreadaEn   time.Time              `json:"creada_en"`
-	AceptadaEn *time.Time             `json:"aceptada_en,omitempty"`
-	ExpiraEn   time.Time              `json:"expira_en"`
+	ID           string                 `json:"id"`
+	Estado       string                 `json:"estado"`
+	Apoderado    VinculacionUsuarioJSON `json:"apoderado"`
+	Escolar      VinculacionUsuarioJSON `json:"escolar"`
+	Autorizacion *AutorizacionJSON      `json:"autorizacion,omitempty"`
+	CreadaEn     time.Time              `json:"creada_en"`
+	AceptadaEn   *time.Time             `json:"aceptada_en,omitempty"`
+	ExpiraEn     time.Time              `json:"expira_en"`
+}
+
+type AutorizacionJSON struct {
+	ID         string    `json:"id"`
+	Estado     string    `json:"estado"`
+	Autorizado bool      `json:"autorizado"`
+	CreadaEn   time.Time `json:"creada_en"`
+}
+
+func PresentarAutorizacion(autorizacion *modelo.Autorizacion) *AutorizacionJSON {
+	if autorizacion == nil {
+		return nil
+	}
+	return &AutorizacionJSON{
+		ID:         autorizacion.ID,
+		Estado:     string(autorizacion.Estado),
+		Autorizado: autorizacion.Vigente(),
+		CreadaEn:   autorizacion.CreadaEn,
+	}
 }
 
 func PresentarVinculacion(vinculacion *modelo.Vinculacion) VinculacionJSON {
@@ -90,9 +110,10 @@ func PresentarVinculacion(vinculacion *modelo.Vinculacion) VinculacionJSON {
 			ID: vinculacion.EscolarID, Email: vinculacion.EscolarEmail,
 			NombreUso: vinculacion.EscolarNombre, Rol: string(modelo.RolEscolar),
 		},
-		CreadaEn:   vinculacion.CreadaEn,
-		AceptadaEn: vinculacion.AceptadaEn,
-		ExpiraEn:   vinculacion.ExpiraEn,
+		CreadaEn:     vinculacion.CreadaEn,
+		AceptadaEn:   vinculacion.AceptadaEn,
+		ExpiraEn:     vinculacion.ExpiraEn,
+		Autorizacion: PresentarAutorizacion(vinculacion.Autorizacion),
 	}
 }
 

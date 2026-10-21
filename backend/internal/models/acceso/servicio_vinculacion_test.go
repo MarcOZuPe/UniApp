@@ -53,8 +53,29 @@ func TestVinculacionFlujoCompleto(t *testing.T) {
 	if aceptada.Estado != EstadoVinculacionAceptada || aceptada.AceptadaEn == nil {
 		t.Fatalf("aceptada: %+v", aceptada)
 	}
+	if aceptada.Autorizacion == nil || !aceptada.Autorizacion.Vigente() {
+		t.Fatalf("al aceptar se otorga la autorización inicial: %+v", aceptada.Autorizacion)
+	}
+	if autorizado, err := s.AutorizacionVigente(ctx, escolar.ID); err != nil || !autorizado {
+		t.Fatalf("autorización inicial vigente: %v (%v)", autorizado, err)
+	}
 	if _, err := s.AceptarVinculacion(ctx, escolar, *token); !errors.Is(err, ErrTokenInvalido) {
 		t.Fatalf("el enlace es de un solo uso: %v", err)
+	}
+
+	revocada, err := s.CambiarAutorizacion(ctx, apoderado, escolar.ID, false)
+	if err != nil || revocada.Vigente() || revocada.Estado != AutorizacionRevocada {
+		t.Fatalf("revocar: %+v (%v)", revocada, err)
+	}
+	if autorizado, err := s.AutorizacionVigente(ctx, escolar.ID); err != nil || autorizado {
+		t.Fatalf("tras revocar no puede reservar: %v (%v)", autorizado, err)
+	}
+	otorgada, err := s.CambiarAutorizacion(ctx, apoderado, escolar.ID, true)
+	if err != nil || !otorgada.Vigente() {
+		t.Fatalf("volver a autorizar: %+v (%v)", otorgada, err)
+	}
+	if autorizado, err := s.AutorizacionVigente(ctx, escolar.ID); err != nil || !autorizado {
+		t.Fatalf("tras autorizar puede reservar: %v (%v)", autorizado, err)
 	}
 
 	actual, err := s.VinculacionDeEscolar(ctx, escolar)
@@ -65,6 +86,9 @@ func TestVinculacionFlujoCompleto(t *testing.T) {
 	otro := crearCuenta(t, s, "otro@example.com", "Otro", RolApoderado)
 	if _, err := s.SolicitarVinculacion(ctx, otro, escolar.Email); !errors.Is(err, ErrYaVinculado) {
 		t.Fatalf("un escolar solo admite un apoderado: %v", err)
+	}
+	if _, err := s.CambiarAutorizacion(ctx, otro, escolar.ID, false); !errors.Is(err, ErrVinculacionAjena) {
+		t.Fatalf("otro apoderado no cambia la autorización: %v", err)
 	}
 
 	vinculaciones, err := s.VinculacionesDeApoderado(ctx, apoderado)
@@ -150,5 +174,14 @@ func TestVinculacionValidaRolesYDestino(t *testing.T) {
 	}
 	if _, err := s.SolicitarVinculacion(ctx, apoderado, ""); !errors.As(err, new(ErrValidacion)) {
 		t.Fatalf("correo vacío: %v", err)
+	}
+	if _, err := s.CambiarAutorizacion(ctx, apoderado, escolar.ID, false); !errors.Is(err, ErrSinApoderado) {
+		t.Fatalf("sin vínculo no hay autorización que cambiar: %v", err)
+	}
+	if _, err := s.CambiarAutorizacion(ctx, escolar, escolar.ID, false); !errors.Is(err, ErrNoEsApoderado) {
+		t.Fatalf("solo el apoderado cambia la autorización: %v", err)
+	}
+	if _, err := s.CambiarAutorizacion(ctx, apoderado, "", false); !errors.As(err, new(ErrValidacion)) {
+		t.Fatalf("escolar vacío: %v", err)
 	}
 }

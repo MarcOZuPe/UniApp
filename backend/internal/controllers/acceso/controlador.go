@@ -44,6 +44,7 @@ func (c *Controlador) Rutas() http.Handler {
 	mux.Handle("GET /api/coordinacion/panel", Encadenar(http.HandlerFunc(c.panelCoordinacion), c.Autenticar(), RequierePermiso(modelo.PermisoCoordinacionAcceder)))
 	mux.Handle("POST /api/apoderado/vinculaciones", Encadenar(http.HandlerFunc(c.solicitarVinculacion), c.Autenticar()))
 	mux.Handle("GET /api/apoderado/vinculaciones", Encadenar(http.HandlerFunc(c.listarVinculaciones), c.Autenticar()))
+	mux.Handle("POST /api/apoderado/escolares/{escolarID}/autorizacion", Encadenar(http.HandlerFunc(c.cambiarAutorizacion), c.Autenticar(), RequierePermiso(modelo.PermisoAutorizacionOtorgar)))
 	mux.Handle("POST /api/escolar/vinculaciones/consultar", Encadenar(http.HandlerFunc(c.consultarVinculacion), c.Autenticar()))
 	mux.Handle("POST /api/escolar/vinculaciones/aceptar", Encadenar(http.HandlerFunc(c.aceptarVinculacion), c.Autenticar()))
 	mux.Handle("GET /api/escolar/apoderado", Encadenar(http.HandlerFunc(c.miApoderado), c.Autenticar()))

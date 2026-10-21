@@ -71,11 +71,15 @@ listado, consulta solo por su dueño y recorrido HTTP completo (401/403/201/404/
 4. Enviar tema, objetivo y grado; la reserva se confirma y muestra la hora en America/Lima.
 5. Repetir con el mismo horario: `409`.
 
+## Integración con I06
+
+`POST /api/reserva` consulta el puerto `PuertoAutorizacion` del flujo A. Si el escolar no tiene
+un apoderado vinculado o su apoderado revocó el permiso, responde `403 sin_autorizacion`. Las
+reservas ya confirmadas no se modifican: la comprobación ocurre únicamente al crear una nueva.
+
 ## Fuera de alcance (declarado, no inventado)
 
 - **I09:** concurrencia y carreras, idempotencia, cuota semanal, escolar solapado, cuarentena y
   enlaces privados de adjuntos, reserva que sobrevive a un fallo del análisis.
 - **I16:** cancelar y reprogramar con historial.
-- **I06:** la verificación "sin autorización vigente no se reserva" la publica Víctor; hoy el flujo D
-  no la consulta y debe hacerlo en S2.
 - La oferta es sintética: no hay catálogo de cursos ni tutores reales hasta I03/I07/I08.

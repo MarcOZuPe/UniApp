@@ -71,8 +71,9 @@ func main() {
 
 	controlador := ctrl.Nuevo(servicio, configuracion.CookieSegura)
 
-	// Servicio del flujo D: reservas.
-	reservas := construirServicioReserva(baseDatos)
+	// Servicio del flujo D: reservas. Consulta la autorización vigente del flujo A
+	// sin escribir en sus tablas.
+	reservas := construirServicioReserva(baseDatos, servicio)
 
 	// Extensión del flujo E: sesiones y asistencias.
 	manejador := construirManejadorConSesion(
@@ -118,10 +119,11 @@ func construirServicio(ctx context.Context, registro *log.Logger, configuracion 
 }
 
 // Servicio del flujo D, conservado desde main.
-func construirServicioReserva(baseDatos *sql.DB) *modeloReserva.Servicio {
+func construirServicioReserva(baseDatos *sql.DB, autorizacion modeloReserva.PuertoAutorizacion) *modeloReserva.Servicio {
 	return modeloReserva.NuevoServicio(modeloReserva.Dependencias{
-		Repositorio: modeloReserva.RepositorioPostgres{DB: baseDatos},
-		Oferta:      modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
+		Repositorio:  modeloReserva.RepositorioPostgres{DB: baseDatos},
+		Oferta:       modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
+		Autorizacion: autorizacion,
 	})
 }
 

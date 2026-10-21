@@ -25,6 +25,12 @@ describe('I06: mi apoderado', () => {
         id: 'v-1',
         estado: 'aceptada',
         apoderado: { nombre_uso: 'Apoderado Prueba', email: 'apoderado@example.com' },
+        autorizacion: {
+          id: 'a-1',
+          estado: 'no_autorizado',
+          autorizado: false,
+          creada_en: '2026-10-20T12:00:00Z',
+        },
       },
     });
 
@@ -36,6 +42,8 @@ describe('I06: mi apoderado', () => {
 
     expect(await screen.findByText('Apoderado Prueba')).toBeTruthy();
     expect(screen.getByText(/no se puede desvincular/)).toBeTruthy();
+    expect(screen.getByText(/revocó la autorización/)).toBeTruthy();
+    expect(screen.getByText(/no se modifican/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /desvincular/i })).toBeNull();
   });
 

@@ -5,6 +5,11 @@ export const solicitarVinculacion = (emailEscolar) =>
 
 export const listarVinculaciones = () => api.get('/api/apoderado/vinculaciones');
 
+export const cambiarAutorizacion = (escolarID, autorizado) =>
+  api.post(`/api/apoderado/escolares/${encodeURIComponent(escolarID)}/autorizacion`, {
+    autorizado,
+  });
+
 export const consultarVinculacion = (token) =>
   api.post('/api/escolar/vinculaciones/consultar', { token });
 

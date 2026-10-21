@@ -160,6 +160,27 @@ func TestRepositorioPostgresVinculacion(t *testing.T) {
 	if err != nil || aceptada.Estado != modelo.EstadoVinculacionAceptada || aceptada.AceptadaEn == nil {
 		t.Fatalf("aceptar: %+v (%v)", aceptada, err)
 	}
+	if aceptada.Autorizacion == nil || !aceptada.Autorizacion.Vigente() {
+		t.Fatalf("autorización inicial: %+v", aceptada.Autorizacion)
+	}
+	if autorizado, err := s.AutorizacionVigente(ctx, escolar.ID); err != nil || !autorizado {
+		t.Fatalf("autorización vigente: %v (%v)", autorizado, err)
+	}
+	if _, err := s.CambiarAutorizacion(ctx, apoderado, escolar.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if autorizado, err := s.AutorizacionVigente(ctx, escolar.ID); err != nil || autorizado {
+		t.Fatalf("revocación persistida: %v (%v)", autorizado, err)
+	}
+	if _, err := s.CambiarAutorizacion(ctx, apoderado, escolar.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	var cambios int
+	if err := d.QueryRowContext(ctx,
+		`SELECT count(*) FROM autorizaciones_apoderado WHERE escolar_id=$1 AND apoderado_id=$2`,
+		escolar.ID, apoderado.ID).Scan(&cambios); err != nil || cambios != 3 {
+		t.Fatalf("historial de cambios: %d (%v)", cambios, err)
+	}
 	if _, err := s.AceptarVinculacion(ctx, escolar, tokenVinculacion); !errors.Is(err, modelo.ErrTokenInvalido) {
 		t.Fatalf("un solo uso: %v", err)
 	}

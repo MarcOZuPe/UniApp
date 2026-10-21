@@ -141,10 +141,22 @@ func (r RepositorioPostgres) EliminarUsuariosSinConfirmar(ctx context.Context, a
 
 const consultaVinculacion = `SELECT v.id, v.apoderado_id, v.escolar_id, v.estado, v.token_hash,
 	v.expira_en, v.creada_en, v.aceptada_en,
-	a.nombre_uso, a.email, e.nombre_uso, e.email
+	a.nombre_uso, a.email, e.nombre_uso, e.email,
+	auth.id, auth.vinculacion_id, auth.apoderado_id, auth.escolar_id, auth.estado, auth.creada_en
 	FROM vinculaciones_apoderado v
 	JOIN usuarios a ON a.id = v.apoderado_id
-	JOIN usuarios e ON e.id = v.escolar_id `
+	JOIN usuarios e ON e.id = v.escolar_id
+	LEFT JOIN LATERAL (
+		SELECT au.id, au.vinculacion_id, au.apoderado_id, au.escolar_id, au.estado, au.creada_en
+		FROM autorizaciones_apoderado au
+		WHERE au.vinculacion_id = v.id
+		ORDER BY au.creada_en DESC, au.id DESC
+		LIMIT 1
+	) auth ON TRUE `
+
+const consultaAutorizacion = `SELECT a.id, a.vinculacion_id, a.apoderado_id, a.escolar_id, a.estado, a.creada_en
+	FROM autorizaciones_apoderado a
+	JOIN vinculaciones_apoderado v ON v.id = a.vinculacion_id AND v.estado = 'aceptada' `
 
 func (r RepositorioPostgres) GuardarSolicitudVinculacion(ctx context.Context, v Vinculacion) (*Vinculacion, error) {
 	creada := v
@@ -172,9 +184,18 @@ func (r RepositorioPostgres) SolicitudVinculacionPorToken(ctx context.Context, t
 }
 
 func (r RepositorioPostgres) VinculacionAceptadaDeEscolar(ctx context.Context, escolarID string) (*Vinculacion, error) {
-	return escanearVinculacion(r.DB.QueryRowContext(ctx,
+	vinculacion, err := escanearVinculacion(r.DB.QueryRowContext(ctx,
 		consultaVinculacion+`WHERE v.escolar_id=$1 AND v.estado='aceptada'
 		ORDER BY v.aceptada_en DESC LIMIT 1`, escolarID))
+	if err != nil {
+		// Un identificador con formato inválido no debe convertirse en un 500.
+		var errorPostgres *pq.Error
+		if errors.As(err, &errorPostgres) && errorPostgres.Code == "22P02" {
+			return nil, ErrNoEncontrado
+		}
+		return nil, err
+	}
+	return vinculacion, nil
 }
 
 func (r RepositorioPostgres) ConsumirSolicitudVinculacion(ctx context.Context, tokenHash []byte, escolarID string, ahora time.Time) (*Vinculacion, error) {
@@ -183,13 +204,19 @@ func (r RepositorioPostgres) ConsumirSolicitudVinculacion(ctx context.Context, t
 		SET estado='aceptada', aceptada_en=$3
 		WHERE token_hash=$1 AND escolar_id=$2 AND estado='pendiente' AND expira_en > $3
 		RETURNING id, apoderado_id, escolar_id, estado, token_hash, expira_en, creada_en, aceptada_en
+	), inicial AS (
+		INSERT INTO autorizaciones_apoderado (vinculacion_id, apoderado_id, escolar_id, estado, creada_en)
+		SELECT id, apoderado_id, escolar_id, 'autorizado', $3 FROM actualizada
+		RETURNING id, vinculacion_id, apoderado_id, escolar_id, estado, creada_en
 	)
 	SELECT v.id, v.apoderado_id, v.escolar_id, v.estado, v.token_hash,
 		v.expira_en, v.creada_en, v.aceptada_en,
-		a.nombre_uso, a.email, e.nombre_uso, e.email
+		a.nombre_uso, a.email, e.nombre_uso, e.email,
+		auth.id, auth.vinculacion_id, auth.apoderado_id, auth.escolar_id, auth.estado, auth.creada_en
 	FROM actualizada v
 	JOIN usuarios a ON a.id = v.apoderado_id
-	JOIN usuarios e ON e.id = v.escolar_id`
+	JOIN usuarios e ON e.id = v.escolar_id
+	JOIN inicial auth ON auth.vinculacion_id = v.id`
 	vinculacion, err := escanearVinculacion(r.DB.QueryRowContext(ctx, consulta, tokenHash, escolarID, ahora))
 	if err == nil {
 		return vinculacion, nil
@@ -225,6 +252,72 @@ func (r RepositorioPostgres) VinculacionesDeApoderado(ctx context.Context, apode
 	return vinculaciones, filas.Err()
 }
 
+func (r RepositorioPostgres) AutorizacionVigenteDeEscolar(ctx context.Context, escolarID string) (*Autorizacion, error) {
+	return escanearAutorizacion(r.DB.QueryRowContext(ctx,
+		consultaAutorizacion+`WHERE a.escolar_id=$1
+		ORDER BY a.creada_en DESC, a.id DESC LIMIT 1`, escolarID))
+}
+
+// CambiarAutorizacion bloquea el vínculo para que dos cambios simultáneos no
+// generen historial contradictorio. Si el estado pedido ya es el vigente no
+// agrega una fila nueva.
+func (r RepositorioPostgres) CambiarAutorizacion(ctx context.Context, vinculacionID, escolarID, apoderadoID string, estado EstadoAutorizacion, ahora time.Time) (*Autorizacion, error) {
+	transaccion, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = transaccion.Rollback() }()
+
+	var apoderadoDelVinculo, escolarDelVinculo string
+	err = transaccion.QueryRowContext(ctx,
+		`SELECT apoderado_id, escolar_id FROM vinculaciones_apoderado
+		 WHERE id=$1 AND estado='aceptada' FOR UPDATE`,
+		vinculacionID).Scan(&apoderadoDelVinculo, &escolarDelVinculo)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNoEncontrado
+	}
+	if err != nil {
+		return nil, err
+	}
+	if apoderadoDelVinculo != apoderadoID || escolarDelVinculo != escolarID {
+		return nil, ErrNoEncontrado
+	}
+
+	actual, err := escanearAutorizacion(transaccion.QueryRowContext(ctx,
+		`SELECT id, vinculacion_id, apoderado_id, escolar_id, estado, creada_en
+		 FROM autorizaciones_apoderado
+		 WHERE vinculacion_id=$1 ORDER BY creada_en DESC, id DESC LIMIT 1`,
+		vinculacionID))
+	if err != nil && !errors.Is(err, ErrNoEncontrado) {
+		return nil, err
+	}
+	if err == nil && actual.Estado == estado {
+		if err := transaccion.Commit(); err != nil {
+			return nil, err
+		}
+		return actual, nil
+	}
+
+	cambiada := Autorizacion{
+		VinculacionID: vinculacionID,
+		ApoderadoID:   apoderadoID,
+		EscolarID:     escolarID,
+		Estado:        estado,
+		CreadaEn:      ahora.UTC(),
+	}
+	if err := transaccion.QueryRowContext(ctx,
+		`INSERT INTO autorizaciones_apoderado (vinculacion_id, apoderado_id, escolar_id, estado, creada_en)
+		 VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+		cambiada.VinculacionID, cambiada.ApoderadoID, cambiada.EscolarID, cambiada.Estado, cambiada.CreadaEn).
+		Scan(&cambiada.ID); err != nil {
+		return nil, err
+	}
+	if err := transaccion.Commit(); err != nil {
+		return nil, err
+	}
+	return &cambiada, nil
+}
+
 type escaneador interface {
 	Scan(destinos ...any) error
 }
@@ -233,11 +326,15 @@ func escanearVinculacion(fila escaneador) (*Vinculacion, error) {
 	var vinculacion Vinculacion
 	var estado string
 	var aceptadaEn sql.NullTime
+	var autorizacionID, autorizacionVinculacionID, autorizacionApoderadoID, autorizacionEscolarID, autorizacionEstado sql.NullString
+	var autorizacionCreadaEn sql.NullTime
 	if err := fila.Scan(
 		&vinculacion.ID, &vinculacion.ApoderadoID, &vinculacion.EscolarID, &estado,
 		&vinculacion.TokenHash, &vinculacion.ExpiraEn, &vinculacion.CreadaEn, &aceptadaEn,
 		&vinculacion.ApoderadoNombre, &vinculacion.ApoderadoEmail,
 		&vinculacion.EscolarNombre, &vinculacion.EscolarEmail,
+		&autorizacionID, &autorizacionVinculacionID, &autorizacionApoderadoID, &autorizacionEscolarID,
+		&autorizacionEstado, &autorizacionCreadaEn,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoEncontrado
@@ -249,7 +346,33 @@ func escanearVinculacion(fila escaneador) (*Vinculacion, error) {
 		momento := aceptadaEn.Time
 		vinculacion.AceptadaEn = &momento
 	}
+	if autorizacionID.Valid {
+		vinculacion.Autorizacion = &Autorizacion{
+			ID:            autorizacionID.String,
+			VinculacionID: autorizacionVinculacionID.String,
+			ApoderadoID:   autorizacionApoderadoID.String,
+			EscolarID:     autorizacionEscolarID.String,
+			Estado:        EstadoAutorizacion(autorizacionEstado.String),
+			CreadaEn:      autorizacionCreadaEn.Time,
+		}
+	}
 	return &vinculacion, nil
+}
+
+func escanearAutorizacion(fila escaneador) (*Autorizacion, error) {
+	var autorizacion Autorizacion
+	var estado string
+	if err := fila.Scan(
+		&autorizacion.ID, &autorizacion.VinculacionID, &autorizacion.ApoderadoID,
+		&autorizacion.EscolarID, &estado, &autorizacion.CreadaEn,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoEncontrado
+		}
+		return nil, err
+	}
+	autorizacion.Estado = EstadoAutorizacion(estado)
+	return &autorizacion, nil
 }
 
 func escanearUsuario(fila *sql.Row) (*Usuario, error) {
