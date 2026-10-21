@@ -17,6 +17,7 @@ import (
 	ctrlReserva "uniapp/internal/controllers/reserva"
 	ctrlSesion "uniapp/internal/controllers/sesion"
 	ctrlTutor "uniapp/internal/controllers/tutor"
+	infra "uniapp/internal/infra"
 	modelo "uniapp/internal/models/acceso"
 	modeloReserva "uniapp/internal/models/reserva"
 	modeloSesion "uniapp/internal/models/sesion"
@@ -90,7 +91,7 @@ func main() {
 func construirServicio(ctx context.Context, registro *log.Logger, configuracion config.Config, baseDatos *sql.DB) *modelo.Servicio {
 	mailer := construirMailer(configuracion)
 	bus := construirBus(registro, mailer, configuracion)
-	hasher := modelo.NuevoHasher()
+	hasher := infra.NuevoHasher()
 	fabrica := modelo.NuevaFabrica(hasher, configuracion.DominiosTutor)
 
 	servicio := modelo.NuevoServicio(modelo.Dependencias{
@@ -126,25 +127,25 @@ func construirServicioReserva(baseDatos *sql.DB) *modeloReserva.Servicio {
 }
 
 func construirMailer(configuracion config.Config) modelo.Mailer {
-	var mailer modelo.Mailer = modelo.LogMailer{MostrarCuerpo: !configuracion.CookieSegura}
+	var mailer modelo.Mailer = infra.LogMailer{MostrarCuerpo: !configuracion.CookieSegura}
 	if configuracion.SMTP.Host != "" {
-		mailer = modelo.SMTPMailer{
+		mailer = infra.SMTPMailer{
 			Host: configuracion.SMTP.Host, Puerto: configuracion.SMTP.Puerto,
 			Usuario: configuracion.SMTP.Usuario, Clave: configuracion.SMTP.Clave,
 			Remitente: configuracion.SMTP.Remitente,
 		}
 	}
-	return modelo.NuevoReintentoMailer(modelo.NuevoTiempoLimiteMailer(mailer, limiteDeEnvio), intentosDeEnvio, esperaEntreEnvios)
+	return infra.NuevoReintentoMailer(infra.NuevoTiempoLimiteMailer(mailer, limiteDeEnvio), intentosDeEnvio, esperaEntreEnvios)
 }
 
-func construirBus(registro *log.Logger, mailer modelo.Mailer, configuracion config.Config) *modelo.Bus {
-	bus := modelo.NuevoBus()
-	auditoria := modelo.NuevaAuditoria(registro)
+func construirBus(registro *log.Logger, mailer modelo.Mailer, configuracion config.Config) *infra.Bus {
+	bus := infra.NuevoBus()
+	auditoria := infra.NuevaAuditoria(registro)
 	for _, nombre := range []string{modelo.UsuarioRegistrado, modelo.IngresoExitoso, modelo.IngresoFallido, modelo.ClaveRestablecida, modelo.RecuperacionSolicitada, modelo.ConfirmacionSolicitada, modelo.CorreoConfirmado} {
 		bus.Registrar(nombre, auditoria)
 	}
-	bus.Registrar(modelo.RecuperacionSolicitada, modelo.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
-	bus.Registrar(modelo.ConfirmacionSolicitada, modelo.NuevoCorreoConfirmacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(modelo.RecuperacionSolicitada, infra.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(modelo.ConfirmacionSolicitada, infra.NuevoCorreoConfirmacion(mailer, configuracion.OrigenFrontend))
 	return bus
 }
 

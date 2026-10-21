@@ -1,4 +1,4 @@
-package acceso
+package infra
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	modelo "uniapp/internal/models/acceso"
 )
 
 func TestPBKDF2VectoresConocidos(t *testing.T) {
@@ -38,7 +40,7 @@ func TestHasherVerifica(t *testing.T) {
 
 type mailerQueFalla struct{ fallos, llamadas int }
 
-func (m *mailerQueFalla) Enviar(context.Context, Mensaje) error {
+func (m *mailerQueFalla) Enviar(context.Context, modelo.Mensaje) error {
 	m.llamadas++
 	if m.llamadas <= m.fallos {
 		return errors.New("smtp caído")
@@ -49,11 +51,11 @@ func (m *mailerQueFalla) Enviar(context.Context, Mensaje) error {
 func TestReintentoMailerDecorator(t *testing.T) {
 	falla := &mailerQueFalla{fallos: 2}
 	m := ReintentoMailer{Siguiente: falla, Intentos: 3, Espera: time.Millisecond}
-	if err := m.Enviar(context.Background(), Mensaje{}); err != nil || falla.llamadas != 3 {
+	if err := m.Enviar(context.Background(), modelo.Mensaje{}); err != nil || falla.llamadas != 3 {
 		t.Fatalf("err=%v llamadas=%d", err, falla.llamadas)
 	}
 	sigueFallando := &mailerQueFalla{fallos: 9}
-	if err := (ReintentoMailer{Siguiente: sigueFallando, Intentos: 2, Espera: time.Millisecond}).Enviar(context.Background(), Mensaje{}); err == nil {
+	if err := (ReintentoMailer{Siguiente: sigueFallando, Intentos: 2, Espera: time.Millisecond}).Enviar(context.Background(), modelo.Mensaje{}); err == nil {
 		t.Fatal("debía fallar tras agotar intentos")
 	}
 }
@@ -68,7 +70,7 @@ func (f *transporteFalso) EnviarCorreo(envio EnvioSMTP) error {
 func TestSMTPMailerAdaptaAlTransporte(t *testing.T) {
 	transporte := &transporteFalso{}
 	mailer := SMTPMailer{Host: "smtp.test", Puerto: "587", Remitente: "no@uniapp.test", transporte: transporte}
-	if err := mailer.Enviar(context.Background(), Mensaje{Para: "a@b.test", Asunto: "Hola", Cuerpo: "cuerpo"}); err != nil {
+	if err := mailer.Enviar(context.Background(), modelo.Mensaje{Para: "a@b.test", Asunto: "Hola", Cuerpo: "cuerpo"}); err != nil {
 		t.Fatal(err)
 	}
 	envio := transporte.envio
@@ -85,7 +87,7 @@ func TestSMTPMailerAdaptaAlTransporte(t *testing.T) {
 func TestDecoratorsApilados(t *testing.T) {
 	falla := &mailerQueFalla{fallos: 1}
 	m := NuevoReintentoMailer(NuevoTiempoLimiteMailer(falla, time.Second), 3, time.Millisecond)
-	if err := m.Enviar(context.Background(), Mensaje{}); err != nil || falla.llamadas != 2 {
+	if err := m.Enviar(context.Background(), modelo.Mensaje{}); err != nil || falla.llamadas != 2 {
 		t.Fatalf("err=%v llamadas=%d", err, falla.llamadas)
 	}
 }
