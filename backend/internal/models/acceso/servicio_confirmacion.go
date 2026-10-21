@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"time"
-
-	"uniapp/internal/events"
 )
 
 const duracionConfirmacion = 30 * time.Minute
@@ -28,7 +26,7 @@ func (s *Servicio) SolicitarConfirmacion(ctx context.Context, usuario *Usuario) 
 	if err := s.repositorio.GuardarTokenConfirmacion(ctx, tokenConfirmacion); err != nil {
 		return err
 	}
-	s.bus.Notificar(events.Event{Nombre: events.ConfirmacionSolicitada, Payload: map[string]any{
+	s.bus.Notificar(Event{Nombre: ConfirmacionSolicitada, Payload: map[string]any{
 		"usuario_id": usuario.ID, "rol": string(usuario.Rol), "email": usuario.Email, "token": token}})
 	return nil
 }
@@ -55,6 +53,6 @@ func (s *Servicio) ConfirmarCorreo(ctx context.Context, token string) error {
 	if err := s.repositorio.MarcarCorreoConfirmado(ctx, idUsuario); err != nil {
 		return err
 	}
-	s.bus.Notificar(events.Event{Nombre: events.CorreoConfirmado, Payload: map[string]any{"usuario_id": idUsuario, "rol": "-"}})
+	s.bus.Notificar(Event{Nombre: CorreoConfirmado, Payload: map[string]any{"usuario_id": idUsuario, "rol": "-"}})
 	return nil
 }

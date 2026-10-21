@@ -9,9 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"uniapp/internal/adapters"
 	ctrlAcceso "uniapp/internal/controllers/acceso"
-	"uniapp/internal/events"
 	modeloAcceso "uniapp/internal/models/acceso"
 	modeloSesion "uniapp/internal/models/sesion"
 )
@@ -33,7 +31,7 @@ func prepararEntornoI05(t *testing.T) entornoI05 {
 	ctx := context.Background()
 
 	repoAcceso := modeloAcceso.NuevoRepositorioMemoria()
-	hasher := adapters.PBKDF2Hasher{Iteraciones: 1000}
+	hasher := modeloAcceso.PBKDF2Hasher{Iteraciones: 1000}
 
 	servicioAcceso := modeloAcceso.NuevoServicio(
 		modeloAcceso.Dependencias{
@@ -43,7 +41,7 @@ func prepararEntornoI05(t *testing.T) entornoI05 {
 				"uni.edu.pe",
 			),
 			Hasher: hasher,
-			Bus:    events.NuevoBus(),
+			Bus:    modeloAcceso.NuevoBus(),
 		},
 	)
 

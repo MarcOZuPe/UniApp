@@ -2,8 +2,6 @@ package acceso
 
 import (
 	"context"
-
-	"uniapp/internal/events"
 )
 
 func (s *Servicio) Registrar(ctx context.Context, datos DatosRegistro) (*Usuario, error) {
@@ -18,7 +16,7 @@ func (s *Servicio) Registrar(ctx context.Context, datos DatosRegistro) (*Usuario
 	if err != nil {
 		return nil, err
 	}
-	s.bus.Notificar(eventoDeUsuario(events.UsuarioRegistrado, registrado))
+	s.bus.Notificar(eventoDeUsuario(UsuarioRegistrado, registrado))
 	if err := s.SolicitarConfirmacion(ctx, registrado); err != nil {
 		return nil, err
 	}

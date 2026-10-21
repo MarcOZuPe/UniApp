@@ -5,21 +5,18 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"uniapp/internal/adapters"
-	"uniapp/internal/events"
 )
 
 const claveOK = "Clave-Segura-2026!"
 
-func nuevo(t *testing.T) (*Servicio, *events.Bus, *time.Time, map[string]int) {
+func nuevo(t *testing.T) (*Servicio, *Bus, *time.Time, map[string]int) {
 	t.Helper()
-	h := adapters.PBKDF2Hasher{Iteraciones: 1000}
-	bus := events.NuevoBus()
+	h := PBKDF2Hasher{Iteraciones: 1000}
+	bus := NuevoBus()
 	cuenta := map[string]int{}
-	for _, n := range []string{events.UsuarioRegistrado, events.IngresoFallido, events.IngresoExitoso, events.RecuperacionSolicitada, events.ClaveRestablecida, events.ConfirmacionSolicitada, events.CorreoConfirmado} {
+	for _, n := range []string{UsuarioRegistrado, IngresoFallido, IngresoExitoso, RecuperacionSolicitada, ClaveRestablecida, ConfirmacionSolicitada, CorreoConfirmado} {
 		n := n
-		bus.Registrar(n, events.NuevoObservadorFunc("cuenta-"+n, func(events.Event) { cuenta[n]++ }))
+		bus.Registrar(n, NuevoObservadorFunc("cuenta-"+n, func(Event) { cuenta[n]++ }))
 	}
 	s := NuevoServicio(Dependencias{
 		Repositorio: NuevoRepositorioMemoria(),
@@ -32,10 +29,10 @@ func nuevo(t *testing.T) (*Servicio, *events.Bus, *time.Time, map[string]int) {
 	return s, bus, &ahora, cuenta
 }
 
-func registrarConfirmado(t *testing.T, s *Servicio, bus *events.Bus, datos DatosRegistro) *Usuario {
+func registrarConfirmado(t *testing.T, s *Servicio, bus *Bus, datos DatosRegistro) *Usuario {
 	t.Helper()
 	var token string
-	bus.Registrar(events.ConfirmacionSolicitada, events.NuevoObservadorFunc("captura-confirmacion-"+datos.Email, func(e events.Event) {
+	bus.Registrar(ConfirmacionSolicitada, NuevoObservadorFunc("captura-confirmacion-"+datos.Email, func(e Event) {
 		token, _ = e.Payload["token"].(string)
 	}))
 	usuario, err := s.Registrar(context.Background(), datos)
@@ -49,7 +46,7 @@ func registrarConfirmado(t *testing.T, s *Servicio, bus *events.Bus, datos Datos
 }
 
 func TestFabricaPorRol(t *testing.T) {
-	f := NuevaFabrica(adapters.PBKDF2Hasher{Iteraciones: 1000}, "uni.edu.pe,uni.pe")
+	f := NuevaFabrica(PBKDF2Hasher{Iteraciones: 1000}, "uni.edu.pe,uni.pe")
 	publico, err := f.CrearPublico(DatosRegistro{Email: "Ana@Example.com", NombreUso: "Ana", Clave: "una-clave-larga", Rol: RolEscolar})
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +88,7 @@ func TestRegistroIngresoYSesion(t *testing.T) {
 	s, bus, _, ev := nuevo(t)
 	ctx := context.Background()
 	var token string
-	bus.Registrar(events.ConfirmacionSolicitada, events.NuevoObservadorFunc("captura-confirmacion", func(e events.Event) {
+	bus.Registrar(ConfirmacionSolicitada, NuevoObservadorFunc("captura-confirmacion", func(e Event) {
 		token, _ = e.Payload["token"].(string)
 	}))
 	if _, err := s.Registrar(ctx, DatosRegistro{Email: "e@example.com", NombreUso: "Eli", Clave: "clave-larga-ok", Rol: RolEscolar}); err != nil {
@@ -117,7 +114,7 @@ func TestRegistroIngresoYSesion(t *testing.T) {
 	if _, err := s.UsuarioDeSesion(ctx, tok); err == nil {
 		t.Fatal("sesión cerrada no debe resolver")
 	}
-	if ev[events.UsuarioRegistrado] != 1 || ev[events.IngresoExitoso] != 1 {
+	if ev[UsuarioRegistrado] != 1 || ev[IngresoExitoso] != 1 {
 		t.Fatalf("observers: %v", ev)
 	}
 }
@@ -126,7 +123,7 @@ func TestConfirmacionDeCorreo(t *testing.T) {
 	s, bus, ahora, ev := nuevo(t)
 	ctx := context.Background()
 	var tokens []string
-	bus.Registrar(events.ConfirmacionSolicitada, events.NuevoObservadorFunc("captura-confirmacion", func(e events.Event) {
+	bus.Registrar(ConfirmacionSolicitada, NuevoObservadorFunc("captura-confirmacion", func(e Event) {
 		enlace, _ := e.Payload["token"].(string)
 		tokens = append(tokens, enlace)
 	}))
@@ -165,7 +162,7 @@ func TestConfirmacionDeCorreo(t *testing.T) {
 	if _, _, err := s.Ingresar(ctx, "c@example.com", "clave-larga-ok"); err != nil {
 		t.Fatalf("tras confirmar debe ingresar: %v", err)
 	}
-	if ev[events.ConfirmacionSolicitada] != 2 || ev[events.CorreoConfirmado] != 1 {
+	if ev[ConfirmacionSolicitada] != 2 || ev[CorreoConfirmado] != 1 {
 		t.Fatalf("observers: %v", ev)
 	}
 
@@ -193,7 +190,7 @@ func TestRecuperacionNoEnviaAQuienNoConfirmo(t *testing.T) {
 	s, bus, _, _ := nuevo(t)
 	ctx := context.Background()
 	var tokens []string
-	bus.Registrar(events.RecuperacionSolicitada, events.NuevoObservadorFunc("captura-recuperacion", func(e events.Event) {
+	bus.Registrar(RecuperacionSolicitada, NuevoObservadorFunc("captura-recuperacion", func(e Event) {
 		token, _ := e.Payload["token"].(string)
 		tokens = append(tokens, token)
 	}))
@@ -241,7 +238,7 @@ func TestRecuperacion(t *testing.T) {
 	s, bus, ahora, _ := nuevo(t)
 	ctx := context.Background()
 	var token string
-	bus.Registrar(events.RecuperacionSolicitada, events.NuevoObservadorFunc("captura-token", func(e events.Event) { token, _ = e.Payload["token"].(string) }))
+	bus.Registrar(RecuperacionSolicitada, NuevoObservadorFunc("captura-token", func(e Event) { token, _ = e.Payload["token"].(string) }))
 	registrarConfirmado(t, s, bus, DatosRegistro{Email: "e@example.com", NombreUso: "Eli", Clave: "clave-larga-ok", Rol: RolEscolar})
 	sesion, _, _ := s.Ingresar(ctx, "e@example.com", "clave-larga-ok")
 
