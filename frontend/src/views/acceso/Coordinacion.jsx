@@ -32,6 +32,7 @@ export default function Coordinacion() {
         <section>
           <h2>{panel.mensaje}</h2>
           <p>Permiso activo: <code>coordinacion:acceder</code></p>
+          <p><Link to="/coordinacion/tutores">Revisar expedientes de tutores</Link></p>
         </section>
       )}
       <p><Link to="/">Volver al inicio</Link></p>
