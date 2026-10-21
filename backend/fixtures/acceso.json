@@ -1,0 +1,14 @@
+{
+  "_nota": "Datos SINTÉTICOS del flujo A para que los demás integren sin esperar. Clave de todos: la de SEED_PASSWORD (ver .env.example).",
+  "usuarios": [
+    { "email": "escolar.prueba@example.test",   "nombre_uso": "Escolar Prueba",     "rol": "escolar" },
+    { "email": "apoderado.prueba@example.test", "nombre_uso": "Apoderado Prueba",   "rol": "apoderado" },
+    { "email": "tutor.prueba@uni.edu.pe",       "nombre_uso": "Tutor Prueba",       "rol": "tutor" },
+    { "email": "coord.prueba@example.test",     "nombre_uso": "Coordinación Prueba","rol": "coordinador" }
+  ],
+  "contrato_para_otros_flujos": {
+    "quien_soy": "GET /api/auth/yo  -> { id, email, nombre_uso, rol }",
+    "exigir_permiso": "middleware controllers/acceso.Autenticar() + RequierePermiso(models/acceso.Permiso...)",
+    "permisos": ["coordinacion:acceder", "expediente:presentar", "reserva:crear", "autorizacion:otorgar"]
+  }
+}

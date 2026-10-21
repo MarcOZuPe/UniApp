@@ -1,43 +1,196 @@
 name: Board Automation
+
 on:
   pull_request:
     types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+
 permissions:
   contents: read
   pull-requests: read
+
 jobs:
   move-project-card:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
+
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
       PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
       PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
       GH_REPO: ${{ github.repository }}
+
     steps:
       - name: Update linked issues without checking out PR code
         shell: bash
         run: |
           set -euo pipefail
+
           python3 - <<'PY'
-          import json, os, subprocess
-          def gh(*args):
-              return json.loads(subprocess.check_output(['gh',*args],text=True))
-          with open(os.environ['GITHUB_EVENT_PATH']) as f: event=json.load(f)
-          pr=event['pull_request']; action=event['action']
-          if action=='closed' and not pr['merged']: raise SystemExit(0)
-          status='Done' if action=='closed' else ('In progress' if pr['draft'] else 'In review')
-          for key in ['GH_TOKEN','PROJECT_OWNER','PROJECT_NUMBER']:
-              if not os.environ.get(key): raise SystemExit('Falta configurar '+key)
-          owner=os.environ['PROJECT_OWNER']; number=os.environ['PROJECT_NUMBER']
-          project=gh('project','view',number,'--owner',owner,'--format','json')
-          fields=gh('project','field-list',number,'--owner',owner,'--limit','100','--format','json')['fields']
-          field=next(f for f in fields if f['name']=='Status')
-          option=next(o for o in field['options'] if o['name']==status)
-          issues=gh('pr','view',str(pr['number']),'--repo',os.environ['GH_REPO'],'--json','closingIssuesReferences')['closingIssuesReferences']
-          if not issues: print('Sin issues vinculados; usar Closes #N.')
+          import json
+          import os
+          import subprocess
+
+          def graphql(query, **variables):
+              command = ["gh", "api", "graphql", "-f", "query=" + query]
+              for key, value in variables.items():
+                  flag = "-F" if isinstance(value, int) else "-f"
+                  command.extend([flag, f"{key}={value}"])
+
+              result = subprocess.check_output(command, text=True)
+              return json.loads(result)["data"]
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as f:
+              event = json.load(f)
+
+          pr = event["pull_request"]
+          action = event["action"]
+
+          if action == "closed" and not pr["merged"]:
+              print("PR cerrado sin merge: no se cambia el tablero.")
+              raise SystemExit(0)
+
+          if action == "closed":
+              status = "Done"
+          elif pr["draft"]:
+              status = "In progress"
+          else:
+              status = "In review"
+
+          owner = os.environ["PROJECT_OWNER"]
+          number = int(os.environ["PROJECT_NUMBER"])
+          repo_owner, repo_name = os.environ["GH_REPO"].split("/")
+
+          project_data = graphql("""
+          query($login: String!, $number: Int!) {
+            user(login: $login) {
+              projectV2(number: $number) {
+                id
+                fields(first: 100) {
+                  nodes {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      name
+                      options {
+                        id
+                        name
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          """, login=owner, number=number)
+
+          project = project_data["user"]["projectV2"]
+          if not project:
+              raise RuntimeError("No se encontró el Project indicado.")
+
+          field = next(
+              (f for f in project["fields"]["nodes"]
+               if f and f.get("name") == "Status"),
+              None
+          )
+          if not field:
+              raise RuntimeError("No se encontró el campo Status.")
+
+          option = next(
+              (o for o in field["options"] if o["name"] == status),
+              None
+          )
+          if not option:
+              raise RuntimeError(f"No existe el estado {status}.")
+
+          linked = graphql("""
+          query($owner: String!, $name: String!, $number: Int!) {
+            repository(owner: $owner, name: $name) {
+              pullRequest(number: $number) {
+                closingIssuesReferences(first: 100) {
+                  nodes {
+                    id
+                    url
+                    projectItems(first: 100) {
+                      nodes {
+                        id
+                        project {
+                          id
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          """,
+              owner=repo_owner,
+              name=repo_name,
+              number=pr["number"]
+          )
+
+          issues = linked["repository"]["pullRequest"][
+              "closingIssuesReferences"
+          ]["nodes"]
+
+          if not issues:
+              print("Sin issues vinculados. Usar Closes #N en el PR.")
+              raise SystemExit(0)
+
           for issue in issues:
-              item=gh('project','item-add',number,'--owner',owner,'--url',issue['url'],'--format','json')
-              subprocess.run(['gh','project','item-edit','--project-id',project['id'],'--id',item['id'],'--field-id',field['id'],'--single-select-option-id',option['id']],check=True)
-              print(issue['url']+' -> '+status)
+              existing = next(
+                  (
+                      item for item in issue["projectItems"]["nodes"]
+                      if item["project"]["id"] == project["id"]
+                  ),
+                  None
+              )
+
+              if existing:
+                  item_id = existing["id"]
+              else:
+                  added = graphql("""
+                  mutation($project: ID!, $content: ID!) {
+                    addProjectV2ItemById(input: {
+                      projectId: $project,
+                      contentId: $content
+                    }) {
+                      item {
+                        id
+                      }
+                    }
+                  }
+                  """,
+                      project=project["id"],
+                      content=issue["id"]
+                  )
+                  item_id = added["addProjectV2ItemById"]["item"]["id"]
+
+              graphql("""
+              mutation(
+                $project: ID!,
+                $item: ID!,
+                $field: ID!,
+                $option: String!
+              ) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $project,
+                  itemId: $item,
+                  fieldId: $field,
+                  value: {
+                    singleSelectOptionId: $option
+                  }
+                }) {
+                  projectV2Item {
+                    id
+                  }
+                }
+              }
+              """,
+                  project=project["id"],
+                  item=item_id,
+                  field=field["id"],
+                  option=option["id"]
+              )
+
+              print(f"{issue['url']} -> {status}")
           PY
