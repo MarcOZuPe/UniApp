@@ -64,20 +64,41 @@ describe('controlador D: cliente de reservas', () => {
     expect(fetchSimulado).toHaveBeenCalledWith('/api/reserva/slots', expect.objectContaining({ method: 'GET' }));
   });
 
-  it('envía solo los campos del formulario y los metadatos de adjuntos', async () => {
+  it('envía solo los datos de la reserva y la clave de idempotencia', async () => {
     const fetchSimulado = vi.fn().mockResolvedValue(respuesta(201, { id: 'r-1', estado: 'confirmada' }));
     const api = crearApiReserva(fetchSimulado);
-    await api.crearReserva({ ...reservaValida, adjuntos: [{ nombre: 'p.pdf', tipo: 'application/pdf', tamano_bytes: 10, extra: 'x' }] });
+    await api.crearReserva(reservaValida, 'clave-formulario-001');
     const [ruta, opciones] = fetchSimulado.mock.calls[0];
     expect(ruta).toBe('/api/reserva');
     expect(opciones.method).toBe('POST');
+    expect(opciones.headers['Idempotency-Key']).toBe('clave-formulario-001');
     expect(JSON.parse(opciones.body)).toEqual({
       slot_id: 'slot-i04-01',
       tema: 'Repaso de factorización',
       objetivo: 'Resolver ejercicios de factorización de trinomios sin ayuda del tutor.',
       grado: '5to de secundaria',
-      adjuntos: [{ nombre: 'p.pdf', tipo: 'application/pdf', tamano_bytes: 10 }],
     });
+  });
+
+  it('sube el adjunto como multipart después de crear la reserva', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(respuesta(201, { id: 'a-1', estado: 'validado' }));
+    const api = crearApiReserva(fetchSimulado);
+    const archivo = new File(['%PDF-1.4'], 'practica.pdf', { type: 'application/pdf' });
+    await api.subirAdjunto('r-1', archivo);
+    const [ruta, opciones] = fetchSimulado.mock.calls[0];
+    expect(ruta).toBe('/api/reserva/r-1/adjuntos');
+    expect(opciones.method).toBe('POST');
+    expect(opciones.body).toBeInstanceOf(FormData);
+    expect(opciones.body.get('archivo').name).toBe('practica.pdf');
+    expect(opciones.headers['Content-Type']).toBeUndefined();
+  });
+
+  it('lista los adjuntos y arma el enlace privado de descarga', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(respuesta(200, { adjuntos: [] }));
+    const api = crearApiReserva(fetchSimulado);
+    await expect(api.listarAdjuntos('r 1')).resolves.toEqual({ adjuntos: [] });
+    expect(fetchSimulado).toHaveBeenCalledWith('/api/reserva/r%201/adjuntos', expect.objectContaining({ method: 'GET' }));
+    expect(api.urlAdjunto('r 1', 'a 2')).toBe('/api/reserva/r%201/adjuntos/a%202');
   });
 
   it('propaga el motivo del rechazo de las 48 horas', async () => {
@@ -88,10 +109,11 @@ describe('controlador D: cliente de reservas', () => {
     await expect(api.crearReserva(reservaValida)).rejects.toMatchObject({ estado: 422, codigo: 'anticipacion_insuficiente' });
   });
 
-  it('codifica el identificador al consultar una reserva', async () => {
-    const fetchSimulado = vi.fn().mockResolvedValue(respuesta(200, { id: 'r 1' }));
+  it('propaga la cuarentena del adjunto', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(
+      respuesta(409, { codigo: 'adjunto_en_cuarentena', mensaje: 'El adjunto sigue en cuarentena' }),
+    );
     const api = crearApiReserva(fetchSimulado);
-    await api.obtenerReserva('r 1');
-    expect(fetchSimulado).toHaveBeenCalledWith('/api/reserva/r%201', expect.any(Object));
+    await expect(api.listarAdjuntos('r-1')).rejects.toMatchObject({ estado: 409, codigo: 'adjunto_en_cuarentena' });
   });
 });

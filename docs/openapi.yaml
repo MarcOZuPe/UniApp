@@ -44,12 +44,16 @@ components:
         motivo: { type: string, description: por qué no está disponible }
     AdjuntoReserva:
       type: object
-      description: Metadatos del adjunto. El archivo no se guarda en la base (I09).
-      required: [nombre, tamano_bytes]
+      description: Metadatos del adjunto. El contenido vive en un almacén privado y no se expone.
       properties:
+        id: { type: string, format: uuid }
         nombre: { type: string }
         tipo: { type: string }
         tamano_bytes: { type: integer, format: int64 }
+        estado: { type: string, enum: [en_cuarentena, validado, rechazado] }
+        motivo: { type: string, description: por qué está en cuarentena o fue rechazado }
+        descargable: { type: boolean }
+        creado_en: { type: string, description: "hora de Lima" }
     ReservaEntrada:
       type: object
       required: [slot_id, tema, objetivo, grado]
@@ -58,10 +62,6 @@ components:
         tema: { type: string, minLength: 10, maxLength: 200 }
         objetivo: { type: string, minLength: 20, maxLength: 1000 }
         grado: { type: string, maxLength: 80 }
-        adjuntos:
-          type: array
-          maxItems: 5
-          items: { $ref: '#/components/schemas/AdjuntoReserva' }
     ReservaD:
       type: object
       description: Reserva confirmada de inmediato (D05, RN-06).
@@ -308,13 +308,22 @@ paths:
   /api/reserva:
     post:
       tags: [D-reserva]
-      summary: Crear una reserva confirmada (I04)
+      summary: Crear una reserva confirmada (I04, transaccional desde I09)
       description: >
-        Formulario con tema, objetivo y adjuntos opcionales sobre un horario publicado.
-        El escolar se toma de la sesión, nunca del cuerpo. Aplica RN-03 (48 h exactas),
-        RN-07 (longitudes) y D06 (60 minutos y horizonte de 28 días). Sin pruebas de
-        concurrencia: eso es I09.
+        Formulario con tema, objetivo y grado sobre un horario publicado. El escolar se
+        toma de la sesión, nunca del cuerpo. Aplica RN-03 (48 h exactas), RN-07
+        (longitudes), D06 (60 minutos y horizonte de 28 días) y D07 (dos reservas futuras y
+        una sesión por curso y semana). La creación es transaccional y admite reintentos
+        con Idempotency-Key. Los adjuntos se suben después, en cuarentena.
       security: [{ sesion: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: >
+            Clave del intento (8 a 128 caracteres). Repetirla con los mismos datos devuelve
+            la misma reserva con 200 en lugar de 201.
+          schema: { type: string, minLength: 8, maxLength: 128 }
       requestBody:
         required: true
         content:
@@ -326,11 +335,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReservaD' }
+        '200':
+          description: Reintento con la misma Idempotency-Key; devuelve la reserva ya creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservaD' }
         '400': { description: Cuerpo inválido }
         '401': { description: Sin sesión }
         '403': { description: La cuenta no es de escolar }
         '404': { description: El horario no existe }
-        '409': { description: El horario ya fue reservado o venció }
+        '409': { description: "Conflictos (códigos: slot_ocupado, slot_vencido, solapamiento, cuota_escolar, cuota_curso_semana, idempotencia_conflicto)" }
         '422': { description: "Validación (códigos: validacion, anticipacion_insuficiente, horizonte_excedido)" }
   /api/reserva/{id}:
     get:
@@ -349,6 +363,85 @@ paths:
         '401': { description: Sin sesión }
         '403': { description: La reserva es de otra persona }
         '404': { description: La reserva no existe }
+  /api/reserva/{id}/adjuntos:
+    get:
+      tags: [D-reserva]
+      summary: Listar los adjuntos de una reserva (I09)
+      description: >
+        Solo los participantes de la reserva (escolar dueño, tutor asignado) y coordinación
+        ven los metadatos. El estado indica si el archivo está en cuarentena, validado o
+        rechazado; la clave de almacenamiento nunca se expone.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Adjuntos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adjuntos:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdjuntoReserva' }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva es de otra persona }
+        '404': { description: La reserva no existe }
+    post:
+      tags: [D-reserva]
+      summary: Subir un adjunto a la reserva (I09)
+      description: >
+        Recibe multipart/form-data con el campo "archivo". Solo el escolar dueño puede
+        subirlo. El tipo se detecta por contenido (PDF, PNG, JPG, TXT o DOCX de hasta 10 MB,
+        máximo cinco por reserva) y el archivo queda en cuarentena hasta que el análisis lo
+        valide. Si el análisis no está disponible, la reserva sigue confirmada.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo]
+              properties:
+                archivo: { type: string, format: binary }
+      responses:
+        '201':
+          description: Adjunto recibido (puede quedar en cuarentena)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdjuntoReserva' }
+        '400': { description: Falta el archivo o el formulario no es multipart }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva no es del escolar autenticado }
+        '404': { description: La reserva no existe }
+        '409': { description: "Límite alcanzado (código: adjuntos_llenos)" }
+        '413': { description: El archivo supera los 10 MB }
+        '422': { description: "Tipo no permitido (código: adjunto_invalido)" }
+  /api/reserva/{id}/adjuntos/{adjuntoId}:
+    get:
+      tags: [D-reserva]
+      summary: Descargar un adjunto validado (I09)
+      description: >
+        Enlace privado: exige sesión y participantes de la reserva, y solo entrega adjuntos
+        validados. Los que siguen en cuarentena o fueron rechazados responden 409.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: adjuntoId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Contenido del archivo
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva es de otra persona }
+        '404': { description: La reserva o el adjunto no existen }
+        '409': { description: "Adjunto en cuarentena o rechazado" }
   /api/sesion/salud:
     get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/sesion/{id}:
