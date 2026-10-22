@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
-import { crearReserva, listarSlots } from '../../controllers/reserva/apiReserva.js';
+import {
+  crearReserva,
+  listarSlots,
+  subirAdjunto,
+  urlAdjunto,
+} from '../../controllers/reserva/apiReserva.js';
 import {
   adjuntosDeArchivos,
   contarCaracteres,
@@ -11,6 +16,20 @@ import {
 
 const FORMULARIO_INICIAL = { slot_id: '', tema: '', objetivo: '', grado: '' };
 
+function crearClaveIdempotencia() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `reserva-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function describirAdjunto(adjunto) {
+  if (adjunto.error) return `No se pudo subir: ${adjunto.error}`;
+  if (adjunto.estado === 'validado') return 'Listo para descargar';
+  if (adjunto.estado === 'rechazado') return `Rechazado: ${adjunto.motivo || 'no permitido'}`;
+  return `En cuarentena: ${adjunto.motivo || 'pendiente de análisis'}`;
+}
+
 export default function FormularioReserva() {
   const [slots, setSlots] = useState([]);
   const [formulario, setFormulario] = useState(FORMULARIO_INICIAL);
@@ -19,7 +38,8 @@ export default function FormularioReserva() {
   const [mensaje, setMensaje] = useState('');
   const [cargandoSlots, setCargandoSlots] = useState(true);
   const [enviando, setEnviando] = useState(false);
-  const [confirmada, setConfirmada] = useState(null);
+  const [reserva, setReserva] = useState(null);
+  const [adjuntos, setAdjuntos] = useState([]);
   const noDisponibles = slots.filter((slot) => !slot.disponible);
 
   useEffect(() => {
@@ -38,7 +58,7 @@ export default function FormularioReserva() {
     return () => {
       activo = false;
     };
-  }, [confirmada]);
+  }, [reserva]);
 
   const cambiarCampo = (campo) => (evento) =>
     setFormulario((actual) => ({ ...actual, [campo]: evento.target.value }));
@@ -48,15 +68,26 @@ export default function FormularioReserva() {
   async function enviar(evento) {
     evento.preventDefault();
     setMensaje('');
-    const datos = { ...formulario, adjuntos: adjuntosDeArchivos(archivos) };
-    const encontrados = validarReserva(datos);
+    const datos = { ...formulario };
+    const encontrados = validarReserva({ ...datos, adjuntos: adjuntosDeArchivos(archivos) });
     setErrores(encontrados);
     if (Object.keys(encontrados).length > 0) return;
+
     setEnviando(true);
     try {
-      const reserva = await crearReserva(datos);
-      setConfirmada(reserva);
+      // La reserva se crea primero: si un adjunto falla, la reserva queda confirmada.
+      const creada = await crearReserva(datos, crearClaveIdempotencia());
+      setReserva(creada);
       setFormulario(FORMULARIO_INICIAL);
+      const resultados = [];
+      for (const archivo of archivos) {
+        try {
+          resultados.push(await subirAdjunto(creada.id, archivo));
+        } catch (error) {
+          resultados.push({ nombre: archivo.name, error: error.message });
+        }
+      }
+      setAdjuntos(resultados);
       setArchivos([]);
     } catch (error) {
       setErrores(error.campos ?? {});
@@ -67,34 +98,51 @@ export default function FormularioReserva() {
   }
 
   function reiniciar() {
-    setConfirmada(null);
+    setReserva(null);
+    setAdjuntos([]);
     setErrores({});
     setMensaje('');
   }
 
-  if (confirmada) {
+  if (reserva) {
     return (
       <main>
         <h1>Reserva confirmada</h1>
         <p role="status">
-          Tu sesión de <strong>{confirmada.curso}</strong> con {confirmada.tutor_nombre} quedó
-          agendada para el <strong>{confirmada.inicio_lima}</strong> (hora de Lima).
+          Tu sesión de <strong>{reserva.curso}</strong> con {reserva.tutor_nombre} quedó
+          agendada para el <strong>{reserva.inicio_lima}</strong> (hora de Lima).
         </p>
         <ul>
-          <li>Tema: {confirmada.tema}</li>
-          <li>Grado: {confirmada.grado}</li>
+          <li>Tema: {reserva.tema}</li>
+          <li>Grado: {reserva.grado}</li>
           <li>Duración: 60 minutos</li>
-          <li>Número de reserva: {confirmada.id}</li>
-          <li>
-            Adjuntos: {confirmada.adjuntos.length === 0
-              ? 'sin adjuntos'
-              : confirmada.adjuntos.map((adjunto) => adjunto.nombre).join(', ')}
-          </li>
+          <li>Número de reserva: {reserva.id}</li>
         </ul>
+
+        <h2>Adjuntos</h2>
+        {adjuntos.length === 0 ? (
+          <p>Sin adjuntos.</p>
+        ) : (
+          <ul>
+            {adjuntos.map((adjunto) => (
+              <li key={adjunto.id ?? adjunto.nombre}>
+                {adjunto.nombre} {adjunto.tamano_bytes ? `· ${formatearTamano(adjunto.tamano_bytes)}` : ''}
+                {' — '}
+                {describirAdjunto(adjunto)}
+                {adjunto.estado === 'validado' && (
+                  <> · <a href={urlAdjunto(reserva.id, adjunto.id)} download>Descargar</a></>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
         <p>
-          Los adjuntos se guardan como referencia; el enlace protegido llega en la siguiente
-          entrega (I09).
+          <small>
+            Los adjuntos pasan por cuarentena antes de habilitarse. Si el análisis no está
+            disponible, la reserva sigue confirmada y el archivo queda en revisión.
+          </small>
         </p>
+
         <button type="button" onClick={reiniciar}>Hacer otra reserva</button>
         <p><Link to="/">Volver al inicio</Link></p>
       </main>
@@ -185,7 +233,10 @@ export default function FormularioReserva() {
         <div className="campo">
           <label htmlFor="adjuntos">Adjuntos (opcional)</label>
           <input id="adjuntos" type="file" multiple onChange={elegirArchivos} />
-          <small>Hasta 5 archivos de 10 MB cada uno. Se guardan los metadatos; el archivo no se sube en esta entrega.</small>
+          <small>
+            Hasta 5 archivos de 10 MB (PDF, PNG, JPG, TXT o DOCX). Se suben después de confirmar
+            la reserva y pasan por cuarentena.
+          </small>
           {archivos.length > 0 && (
             <ul>
               {archivos.map((archivo) => (
