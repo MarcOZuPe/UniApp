@@ -1,4 +1,4 @@
-CREATE TABLE vinculaciones_apoderado (
+CREATE TABLE IF NOT EXISTS vinculaciones_apoderado (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     apoderado_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
     escolar_id   UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -19,14 +19,14 @@ CREATE TABLE vinculaciones_apoderado (
 );
 
 -- Un escolar solo puede tener un apoderado aceptado.
-CREATE UNIQUE INDEX vinculacion_escolar_aceptada_uq
+CREATE UNIQUE INDEX IF NOT EXISTS vinculacion_escolar_aceptada_uq
     ON vinculaciones_apoderado (escolar_id)
     WHERE estado = 'aceptada';
 
 -- Acelera la búsqueda de solicitudes pendientes y el listado por apoderado.
-CREATE INDEX vinculacion_escolar_pendiente_idx
+CREATE INDEX IF NOT EXISTS vinculacion_escolar_pendiente_idx
     ON vinculaciones_apoderado (escolar_id)
     WHERE estado = 'pendiente';
 
-CREATE INDEX vinculacion_apoderado_idx
+CREATE INDEX IF NOT EXISTS vinculacion_apoderado_idx
     ON vinculaciones_apoderado (apoderado_id, creada_en DESC);

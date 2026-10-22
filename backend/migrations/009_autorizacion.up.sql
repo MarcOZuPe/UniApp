@@ -1,4 +1,4 @@
-CREATE TABLE autorizaciones_apoderado (
+CREATE TABLE IF NOT EXISTS autorizaciones_apoderado (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     vinculacion_id UUID NOT NULL REFERENCES vinculaciones_apoderado(id) ON DELETE CASCADE,
     apoderado_id   UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -11,10 +11,10 @@ CREATE TABLE autorizaciones_apoderado (
 );
 
 -- Cada fila es un cambio de estado. El vigente es la fila más reciente.
-CREATE INDEX autorizacion_escolar_idx
+CREATE INDEX IF NOT EXISTS autorizacion_escolar_idx
     ON autorizaciones_apoderado (escolar_id, creada_en DESC, id DESC);
 
-CREATE INDEX autorizacion_vinculacion_idx
+CREATE INDEX IF NOT EXISTS autorizacion_vinculacion_idx
     ON autorizaciones_apoderado (vinculacion_id, creada_en DESC, id DESC);
 
 -- Los vínculos aceptados antes de esta migración quedan autorizados, que es el
