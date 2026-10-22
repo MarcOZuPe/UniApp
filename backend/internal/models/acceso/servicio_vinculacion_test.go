@@ -95,6 +95,29 @@ func TestVinculacionFlujoCompleto(t *testing.T) {
 	if err != nil || len(vinculaciones) != 1 || vinculaciones[0].EscolarEmail != escolar.Email {
 		t.Fatalf("listado del apoderado: %+v (%v)", vinculaciones, err)
 	}
+
+	historial, err := s.HistorialAutorizaciones(ctx, apoderado, escolar.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(historial) != 3 {
+		t.Fatalf("debía registrar aceptación, revocación y nueva autorización: %+v", historial)
+	}
+	esperado := []EstadoAutorizacion{AutorizacionOtorgada, AutorizacionRevocada, AutorizacionOtorgada}
+	for i, estado := range esperado {
+		if historial[i].Estado != estado {
+			t.Fatalf("historial[%d]=%s, se esperaba %s", i, historial[i].Estado, estado)
+		}
+		if historial[i].CreadaEn.IsZero() {
+			t.Fatalf("el cambio %d debe llevar fecha", i)
+		}
+	}
+	if _, err := s.HistorialAutorizaciones(ctx, otro, escolar.ID); !errors.Is(err, ErrVinculacionAjena) {
+		t.Fatalf("otro apoderado no ve el historial: %v", err)
+	}
+	if _, err := s.HistorialAutorizaciones(ctx, escolar, escolar.ID); !errors.Is(err, ErrNoEsApoderado) {
+		t.Fatalf("solo el apoderado ve el historial: %v", err)
+	}
 }
 
 func TestVinculacionSolicitudPendienteYUnApoderadoConVariosEscolares(t *testing.T) {

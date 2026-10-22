@@ -38,5 +38,6 @@ type Repositorio interface {
 	VinculacionesDeApoderado(ctx context.Context, apoderadoID string, ahora time.Time) ([]Vinculacion, error)
 
 	AutorizacionVigenteDeEscolar(ctx context.Context, escolarID string) (*Autorizacion, error)
+	AutorizacionesDeVinculacion(ctx context.Context, vinculacionID string) ([]Autorizacion, error)
 	CambiarAutorizacion(ctx context.Context, vinculacionID, escolarID, apoderadoID string, estado EstadoAutorizacion, ahora time.Time) (*Autorizacion, error)
 }

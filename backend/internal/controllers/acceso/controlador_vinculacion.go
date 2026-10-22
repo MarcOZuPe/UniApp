@@ -35,6 +35,21 @@ func (c *Controlador) listarVinculaciones(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// historialAutorizaciones expone, para un escolar del apoderado autenticado,
+// cada vez que se otorgó o retiró el permiso de pedir nuevas tutorías.
+func (c *Controlador) historialAutorizaciones(w http.ResponseWriter, r *http.Request) {
+	autorizaciones, err := c.servicio.HistorialAutorizaciones(
+		r.Context(), UsuarioDe(r.Context()), r.PathValue("escolarID"),
+	)
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	vista.EscribirJSON(w, http.StatusOK, map[string]any{
+		"autorizaciones": vista.PresentarAutorizaciones(autorizaciones),
+	})
+}
+
 func (c *Controlador) consultarVinculacion(w http.ResponseWriter, r *http.Request) {
 	var entrada struct {
 		Token string `json:"token"`

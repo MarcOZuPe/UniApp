@@ -43,7 +43,7 @@ components:
         expira_en: { type: string, format: date-time, description: "Vigencia del enlace de aceptación (24 h)" }
     Autorizacion:
       type: object
-      description: Último cambio de permiso del apoderado para crear nuevas reservas.
+      description: Registro de un cambio de permiso del apoderado para crear nuevas reservas.
       properties:
         id: { type: string, format: uuid }
         estado: { type: string, enum: [autorizado, no_autorizado] }
@@ -254,6 +254,23 @@ paths:
         '403': { description: El usuario no es apoderado o no es el apoderado del escolar }
         '409': { description: El escolar no tiene un apoderado vinculado }
         '422': { description: Falta el campo autorizado }
+  /api/apoderado/escolares/{escolarID}/autorizaciones:
+    get:
+      tags: [A-acceso]
+      summary: Consulta el historial de autorizaciones de un escolar (solo apoderado)
+      description: >
+        Devuelve cada vez que se otorgó o retiró el permiso para crear nuevas
+        reservas, del cambio más reciente al más antiguo. Incluye la autorización
+        inicial registrada al aceptar la vinculación. El escolar debe pertenecer
+        al apoderado autenticado.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: escolarID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Historial de cambios, del más reciente al más antiguo, content: { application/json: { schema: { type: object, properties: { autorizaciones: { type: array, items: { $ref: '#/components/schemas/Autorizacion' } } } } } } }
+        '401': { description: Sin sesión }
+        '403': { description: El usuario no es apoderado o no es el apoderado del escolar }
+        '409': { description: El escolar no tiene un apoderado vinculado }
   /api/escolar/vinculaciones/consultar:
     post:
       tags: [A-acceso]

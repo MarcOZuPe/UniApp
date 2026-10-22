@@ -9,14 +9,15 @@ import (
 )
 
 type RepositorioMemoria struct {
-	mu                 sync.Mutex
-	secuenciaID        int
-	usuarios           map[string]*Usuario
-	sesiones           map[string]Sesion
-	tokens             map[string]*tokenMem
-	tokensConfirmacion map[string]*tokenConfirmacionMem
-	vinculaciones      map[string]*Vinculacion
-	autorizaciones     map[string]*Autorizacion
+	mu                  sync.Mutex
+	secuenciaID         int
+	usuarios            map[string]*Usuario
+	sesiones            map[string]Sesion
+	tokens              map[string]*tokenMem
+	tokensConfirmacion  map[string]*tokenConfirmacionMem
+	vinculaciones       map[string]*Vinculacion
+	autorizaciones      map[string]*Autorizacion
+	ordenAutorizaciones []string
 }
 
 type tokenMem struct {
@@ -286,14 +287,16 @@ func (r *RepositorioMemoria) ConsumirSolicitudVinculacion(_ context.Context, tok
 		momento := ahora
 		vinculacion.AceptadaEn = &momento
 		r.secuenciaID++
-		r.autorizaciones[fmt.Sprintf("a-%d", r.secuenciaID)] = &Autorizacion{
-			ID:            fmt.Sprintf("a-%d", r.secuenciaID),
+		id := fmt.Sprintf("a-%d", r.secuenciaID)
+		r.autorizaciones[id] = &Autorizacion{
+			ID:            id,
 			VinculacionID: vinculacion.ID,
 			ApoderadoID:   vinculacion.ApoderadoID,
 			EscolarID:     vinculacion.EscolarID,
 			Estado:        AutorizacionOtorgada,
 			CreadaEn:      momento,
 		}
+		r.ordenAutorizaciones = append(r.ordenAutorizaciones, id)
 		return r.copiarVinculacion(vinculacion), nil
 	}
 	return nil, ErrTokenInvalido
@@ -410,7 +413,25 @@ func (r *RepositorioMemoria) CambiarAutorizacion(_ context.Context, vinculacionI
 		CreadaEn:      ahora,
 	}
 	r.autorizaciones[autorizacion.ID] = autorizacion
+	r.ordenAutorizaciones = append(r.ordenAutorizaciones, autorizacion.ID)
 	return r.copiarAutorizacion(autorizacion), nil
+}
+
+// AutorizacionesDeVinculacion devuelve el historial completo del vínculo, del
+// cambio más reciente al más antiguo. Cada fila es un cambio de permiso.
+func (r *RepositorioMemoria) AutorizacionesDeVinculacion(_ context.Context, vinculacionID string) ([]Autorizacion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	autorizaciones := make([]Autorizacion, 0)
+	for i := len(r.ordenAutorizaciones) - 1; i >= 0; i-- {
+		autorizacion := r.autorizaciones[r.ordenAutorizaciones[i]]
+		if autorizacion == nil || autorizacion.VinculacionID != vinculacionID {
+			continue
+		}
+		autorizaciones = append(autorizaciones, *r.copiarAutorizacion(autorizacion))
+	}
+	return autorizaciones, nil
 }
 
 func (r *RepositorioMemoria) SolicitudVinculacionPorToken(_ context.Context, tokenHash []byte, escolarID string, ahora time.Time) (*Vinculacion, error) {

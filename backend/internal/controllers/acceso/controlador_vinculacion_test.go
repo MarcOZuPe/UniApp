@@ -111,6 +111,39 @@ func TestAutorizacionDeNuevasReservas(t *testing.T) {
 	if w = llamar(h, "POST", "/api/apoderado/escolares/00000000-0000-0000-0000-000000000000/autorizacion", `{"autorizado":false}`, apoderado); w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), `"sin_apoderado"`) {
 		t.Fatalf("escolar sin vínculo: %d %s", w.Code, w.Body)
 	}
+
+	rutaHistorial := "/api/apoderado/escolares/" + escolarID + "/autorizaciones"
+	w = llamar(h, "GET", rutaHistorial, "", apoderado)
+	if w.Code != http.StatusOK {
+		t.Fatalf("historial: %d %s", w.Code, w.Body)
+	}
+	var historial struct {
+		Autorizaciones []struct {
+			Estado     string `json:"estado"`
+			Autorizado bool   `json:"autorizado"`
+			CreadaEn   string `json:"creada_en"`
+		} `json:"autorizaciones"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &historial); err != nil {
+		t.Fatal(err)
+	}
+	if len(historial.Autorizaciones) != 3 {
+		t.Fatalf("esperaba aceptación, revocación y autorización: %s", w.Body)
+	}
+	for i, estado := range []string{"autorizado", "no_autorizado", "autorizado"} {
+		if historial.Autorizaciones[i].Estado != estado || historial.Autorizaciones[i].CreadaEn == "" {
+			t.Fatalf("historial[%d]=%+v", i, historial.Autorizaciones[i])
+		}
+		if historial.Autorizaciones[i].Autorizado != (estado == "autorizado") {
+			t.Fatalf("autorizado incoherente en historial[%d]: %+v", i, historial.Autorizaciones[i])
+		}
+	}
+	if w = llamar(h, "GET", rutaHistorial, "", escolar); w.Code != http.StatusForbidden {
+		t.Fatalf("el escolar no ve el historial del apoderado: %d %s", w.Code, w.Body)
+	}
+	if w = llamar(h, "GET", rutaHistorial, "", nil); w.Code != http.StatusUnauthorized {
+		t.Fatalf("historial sin sesión: %d %s", w.Code, w.Body)
+	}
 }
 
 func TestVinculacionRechazaRolesYFaltasDeSesion(t *testing.T) {

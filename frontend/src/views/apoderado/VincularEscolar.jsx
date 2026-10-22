@@ -1,37 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
-import {
-  cambiarAutorizacion,
-  listarVinculaciones,
-  solicitarVinculacion,
-} from '../../controllers/apoderado/apiApoderado.js';
+import { solicitarVinculacion } from '../../controllers/apoderado/apiApoderado.js';
 
 const FORMULARIO_INICIAL = { email_escolar: '' };
 
 export default function VincularEscolar() {
   const [formulario, setFormulario] = useState(FORMULARIO_INICIAL);
-  const [vinculaciones, setVinculaciones] = useState([]);
   const [errores, setErrores] = useState({});
   const [mensaje, setMensaje] = useState('');
-  const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
-  const [cambiando, setCambiando] = useState('');
-
-  async function cargarVinculaciones() {
-    try {
-      const respuesta = await listarVinculaciones();
-      setVinculaciones(respuesta.vinculaciones || []);
-    } catch (error) {
-      setMensaje(error.message);
-    } finally {
-      setCargando(false);
-    }
-  }
-
-  useEffect(() => {
-    cargarVinculaciones();
-  }, []);
 
   const cambiarCampo = (evento) =>
     setFormulario({ ...formulario, email_escolar: evento.target.value });
@@ -50,27 +28,11 @@ export default function VincularEscolar() {
       await solicitarVinculacion(email);
       setFormulario(FORMULARIO_INICIAL);
       setMensaje('Solicitud enviada. El escolar recibirá un enlace válido por 24 horas.');
-      await cargarVinculaciones();
     } catch (error) {
       setMensaje(error.message);
       setErrores(error.campos || {});
     } finally {
       setEnviando(false);
-    }
-  }
-
-  async function alternarAutorizacion(vinculacion) {
-    const autorizado = vinculacion.autorizacion?.autorizado === true;
-    setCambiando(vinculacion.escolar.id);
-    setMensaje('');
-    try {
-      const respuesta = await cambiarAutorizacion(vinculacion.escolar.id, !autorizado);
-      setMensaje(respuesta.mensaje);
-      await cargarVinculaciones();
-    } catch (error) {
-      setMensaje(error.message);
-    } finally {
-      setCambiando('');
     }
   }
 
@@ -96,56 +58,12 @@ export default function VincularEscolar() {
         </button>
       </form>
 
-      <section aria-labelledby="vinculaciones-titulo">
-        <h2 id="vinculaciones-titulo">Mis escolares</h2>
-        {cargando && <p role="status">Cargando…</p>}
-        {!cargando && vinculaciones.length === 0 && (
-          <p>Todavía no has vinculado a ningún escolar.</p>
-        )}
-        {!cargando && vinculaciones.length > 0 && (
-          <ul>
-            {vinculaciones.map((vinculacion) => {
-              const autorizado = vinculacion.autorizacion?.autorizado === true;
-              return (
-                <li key={vinculacion.id}>
-                  <strong>{vinculacion.escolar.nombre_uso}</strong>{' '}
-                  <span>({vinculacion.escolar.email})</span>
-                  <br />
-                  <small>
-                    {vinculacion.estado === 'aceptada'
-                      ? 'Vinculación aceptada'
-                      : 'Pendiente de aceptación'}
-                  </small>
-                  {vinculacion.estado === 'aceptada' && (
-                    <>
-                      <br />
-                      <small>
-                        {autorizado
-                          ? 'Puede solicitar nuevas tutorías.'
-                          : 'No puede solicitar nuevas tutorías.'}
-                      </small>
-                      <br />
-                      <button
-                        type="button"
-                        onClick={() => alternarAutorizacion(vinculacion)}
-                        disabled={cambiando === vinculacion.escolar.id}
-                      >
-                        {cambiando === vinculacion.escolar.id
-                          ? 'Guardando…'
-                          : autorizado
-                            ? 'Revocar autorización'
-                            : 'Autorizar nuevas tutorías'}
-                      </button>
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <p><Link to="/">Volver al inicio</Link></p>
+      <p>
+        <Link to="/panel_escolares">Ir al panel de escolares</Link>
+      </p>
+      <p>
+        <Link to="/">Volver al inicio</Link>
+      </p>
     </main>
   );
 }

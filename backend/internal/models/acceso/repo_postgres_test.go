@@ -181,6 +181,21 @@ func TestRepositorioPostgresVinculacion(t *testing.T) {
 		escolar.ID, apoderado.ID).Scan(&cambios); err != nil || cambios != 3 {
 		t.Fatalf("historial de cambios: %d (%v)", cambios, err)
 	}
+	historial, err := s.HistorialAutorizaciones(ctx, apoderado, escolar.ID)
+	if err != nil || len(historial) != 3 {
+		t.Fatalf("historial del vínculo: %+v (%v)", historial, err)
+	}
+	esperado := []modelo.EstadoAutorizacion{
+		modelo.AutorizacionOtorgada, modelo.AutorizacionRevocada, modelo.AutorizacionOtorgada,
+	}
+	for i, estado := range esperado {
+		if historial[i].Estado != estado {
+			t.Fatalf("historial[%d]=%s, se esperaba %s", i, historial[i].Estado, estado)
+		}
+		if historial[i].CreadaEn.IsZero() {
+			t.Fatalf("el cambio %d debe llevar fecha", i)
+		}
+	}
 	if _, err := s.AceptarVinculacion(ctx, escolar, tokenVinculacion); !errors.Is(err, modelo.ErrTokenInvalido) {
 		t.Fatalf("un solo uso: %v", err)
 	}
@@ -194,6 +209,9 @@ func TestRepositorioPostgresVinculacion(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, err := s.HistorialAutorizaciones(ctx, otro, escolar.ID); !errors.Is(err, modelo.ErrVinculacionAjena) {
+		t.Fatalf("otro apoderado no ve el historial: %v", err)
 	}
 	if _, err := s.SolicitarVinculacion(ctx, otro, escolar.Email); !errors.Is(err, modelo.ErrYaVinculado) {
 		t.Fatalf("escolar ya vinculado: %v", err)

@@ -10,6 +10,9 @@ export const cambiarAutorizacion = (escolarID, autorizado) =>
     autorizado,
   });
 
+export const historialAutorizaciones = (escolarID) =>
+  api.get(`/api/apoderado/escolares/${encodeURIComponent(escolarID)}/autorizaciones`);
+
 export const consultarVinculacion = (token) =>
   api.post('/api/escolar/vinculaciones/consultar', { token });
 

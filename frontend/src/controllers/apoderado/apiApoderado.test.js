@@ -3,6 +3,7 @@ import {
   aceptarVinculacion,
   cambiarAutorizacion,
   consultarVinculacion,
+  historialAutorizaciones,
   listarVinculaciones,
   miApoderado,
   solicitarVinculacion,
@@ -100,6 +101,17 @@ describe('I06: cliente API de vinculación', () => {
         credentials: 'same-origin',
         body: JSON.stringify({ autorizado: false }),
       })
+    );
+  });
+
+  it('consulta el historial de autorizaciones de un escolar', async () => {
+    const fetchSimulado = espiarFetch(200, { autorizaciones: [] });
+
+    await historialAutorizaciones('escolar-1');
+
+    expect(fetchSimulado).toHaveBeenCalledWith(
+      '/api/apoderado/escolares/escolar-1/autorizaciones',
+      expect.objectContaining({ method: 'GET', credentials: 'same-origin' })
     );
   });
 

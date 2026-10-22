@@ -15,6 +15,7 @@ export default function Inicio() {
         {usuario.rol === 'escolar' && <li><Link to="/mi-apoderado">Mi apoderado</Link></li>}
         {usuario.rol === 'tutor' && <li><Link to="/expediente">Mi expediente de tutor</Link></li>}
         {usuario.rol === 'tutor' && <li><Link to="/tutor/disponibilidad">Gestionar disponibilidad semanal</Link></li>}
+        {usuario.rol === 'apoderado' && <li><Link to="/panel_escolares">Panel de escolares</Link></li>}
         {usuario.rol === 'apoderado' && <li><Link to="/apoderado/vincular">Vincular a un escolar</Link></li>}
       </ul>
       <button onClick={salir}>Cerrar sesión</button>

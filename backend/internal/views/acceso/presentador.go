@@ -98,6 +98,14 @@ func PresentarAutorizacion(autorizacion *modelo.Autorizacion) *AutorizacionJSON 
 	}
 }
 
+func PresentarAutorizaciones(autorizaciones []modelo.Autorizacion) []AutorizacionJSON {
+	presentadas := make([]AutorizacionJSON, 0, len(autorizaciones))
+	for i := range autorizaciones {
+		presentadas = append(presentadas, *PresentarAutorizacion(&autorizaciones[i]))
+	}
+	return presentadas
+}
+
 func PresentarVinculacion(vinculacion *modelo.Vinculacion) VinculacionJSON {
 	return VinculacionJSON{
 		ID:     vinculacion.ID,

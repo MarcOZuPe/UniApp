@@ -119,6 +119,9 @@ func construirServicio(ctx context.Context, registro *log.Logger, configuracion 
 		if err := modelo.Sembrar(ctx, servicio, modelo.OpcionesSiembra{DominioTutor: configuracion.DominiosTutor, Clave: configuracion.ClaveSemilla}); err != nil {
 			registro.Fatalf("semilla: %v", err)
 		}
+		if err := modelo.SembrarVinculacion(ctx, servicio, modelo.EmailApoderadoSintetico, modelo.EmailEscolarSintetico); err != nil {
+			registro.Fatalf("semilla de vinculación: %v", err)
+		}
 
 		registro.Println("cuentas sintéticas de prueba listas")
 	}

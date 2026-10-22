@@ -258,6 +258,33 @@ func (r RepositorioPostgres) AutorizacionVigenteDeEscolar(ctx context.Context, e
 		ORDER BY a.creada_en DESC, a.id DESC LIMIT 1`, escolarID))
 }
 
+// AutorizacionesDeVinculacion devuelve el historial completo del vínculo, del
+// cambio más reciente al más antiguo.
+func (r RepositorioPostgres) AutorizacionesDeVinculacion(ctx context.Context, vinculacionID string) ([]Autorizacion, error) {
+	filas, err := r.DB.QueryContext(ctx,
+		consultaAutorizacion+`WHERE a.vinculacion_id=$1
+		ORDER BY a.creada_en DESC, a.id DESC`, vinculacionID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = filas.Close() }()
+
+	autorizaciones := make([]Autorizacion, 0)
+	for filas.Next() {
+		var autorizacion Autorizacion
+		var estado string
+		if err := filas.Scan(
+			&autorizacion.ID, &autorizacion.VinculacionID, &autorizacion.ApoderadoID,
+			&autorizacion.EscolarID, &estado, &autorizacion.CreadaEn,
+		); err != nil {
+			return nil, err
+		}
+		autorizacion.Estado = EstadoAutorizacion(estado)
+		autorizaciones = append(autorizaciones, autorizacion)
+	}
+	return autorizaciones, filas.Err()
+}
+
 // CambiarAutorizacion bloquea el vínculo para que dos cambios simultáneos no
 // generen historial contradictorio. Si el estado pedido ya es el vigente no
 // agrega una fila nueva.

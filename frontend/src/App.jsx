@@ -18,6 +18,7 @@ import Disponibilidad from './views/oferta/Disponibilidad.jsx';
 import FormularioReserva from './views/reserva/FormularioReserva.jsx';
 import DetalleSesion from './views/sesion/DetalleSesion.jsx';
 import VincularEscolar from './views/apoderado/VincularEscolar.jsx';
+import PanelEscolares from './views/apoderado/PanelEscolares.jsx';
 import AceptarVinculacion from './views/apoderado/AceptarVinculacion.jsx';
 import MiApoderado from './views/apoderado/MiApoderado.jsx';
 import ExpedienteTutor from './views/tutor/ExpedienteTutor.jsx';
@@ -97,6 +98,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['apoderado']}>
                             <VincularEscolar />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/panel_escolares"
+                    element={
+                        <RutaProtegida roles={['apoderado']}>
+                            <PanelEscolares />
                         </RutaProtegida>
                     }
                 />
