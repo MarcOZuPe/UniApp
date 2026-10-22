@@ -49,5 +49,7 @@ export function crearClienteHttp(implementacionFetch = (...argumentos) => fetch(
     get: (ruta) => pedir('GET', ruta),
     post: (ruta, cuerpo) => pedir('POST', ruta, cuerpo),
     postFormulario: (ruta, formulario) => pedir('POST', ruta, formulario, true),
+    put: (ruta, cuerpo) => pedir('PUT', ruta, cuerpo),
+    delete: (ruta) => pedir('DELETE', ruta),
   };
 }
