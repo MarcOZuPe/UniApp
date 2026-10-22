@@ -57,6 +57,11 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['tutor']}>
                             <ExpedienteTutor />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
                     path="/tutor/disponibilidad"
                     element={
                         <RutaProtegida roles={['tutor']}>
