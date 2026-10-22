@@ -16,6 +16,8 @@ import Coordinacion from './views/acceso/Coordinacion.jsx';
 import Disponibilidad from './views/oferta/Disponibilidad.jsx';
 import FormularioReserva from './views/reserva/FormularioReserva.jsx';
 import DetalleSesion from './views/sesion/DetalleSesion.jsx';
+import ExpedienteTutor from './views/tutor/ExpedienteTutor.jsx';
+import RevisarTutores from './views/tutor/RevisarTutores.jsx';
 
 export default function App() {
     useEffect(() => {
@@ -37,6 +39,24 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador']}>
                             <Coordinacion />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/coordinacion/tutores"
+                    element={
+                        <RutaProtegida roles={['coordinador']}>
+                            <RevisarTutores />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/expediente"
+                    element={
+                        <RutaProtegida roles={['tutor']}>
+                            <ExpedienteTutor />
                         </RutaProtegida>
                     }
                 />

@@ -11,12 +11,12 @@ const CABECERAS_JSON = { 'Content-Type': 'application/json' };
 const ERROR_DE_RED = { codigo: 'red', mensaje: 'No hay conexión con el servidor.' };
 
 
-function construirPeticion(metodo, cuerpo) {
+function construirPeticion(metodo, cuerpo, formulario = false) {
   return {
     method: metodo,
     credentials: 'same-origin',
-    headers: cuerpo ? CABECERAS_JSON : {},
-    body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+    headers: cuerpo && !formulario ? CABECERAS_JSON : {},
+    body: cuerpo ? (formulario ? cuerpo : JSON.stringify(cuerpo)) : undefined,
   };
 }
 
@@ -39,8 +39,8 @@ async function interpretarCuerpo(respuesta) {
 }
 
 export function crearClienteHttp(implementacionFetch = (...argumentos) => fetch(...argumentos), base = '') {
-  async function pedir(metodo, ruta, cuerpo) {
-    const respuesta = await enviar(implementacionFetch, base + ruta, construirPeticion(metodo, cuerpo));
+  async function pedir(metodo, ruta, cuerpo, formulario = false) {
+    const respuesta = await enviar(implementacionFetch, base + ruta, construirPeticion(metodo, cuerpo, formulario));
     const datos = await interpretarCuerpo(respuesta);
     if (!respuesta.ok) throw new ErrorApi(respuesta.status, datos);
     return datos;
@@ -48,6 +48,7 @@ export function crearClienteHttp(implementacionFetch = (...argumentos) => fetch(
   return {
     get: (ruta) => pedir('GET', ruta),
     post: (ruta, cuerpo) => pedir('POST', ruta, cuerpo),
+    postFormulario: (ruta, formulario) => pedir('POST', ruta, formulario, true),
     put: (ruta, cuerpo) => pedir('PUT', ruta, cuerpo),
     delete: (ruta) => pedir('DELETE', ruta),
   };

@@ -1,1 +1,2 @@
-Flujo tutor: capa controllers. Ver CONTRIBUTING.md (sin reglas de negocio en views; datos de otros flujos solo por su API).
+API del expediente de tutor y de la bandeja de revisión: `apiTutor.js`.
+El cliente común conserva las credenciales de sesión y procesa errores de API.

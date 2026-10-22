@@ -6,7 +6,7 @@ info:
 servers: [{ url: http://localhost:8080 }]
 tags:
   - { name: A-acceso, description: "Flujo A · Víctor · implementado en I01" }
-  - { name: B-tutor, description: "Flujo B · Miguel · esqueleto (I02)" }
+  - { name: B-tutor, description: "Flujo B · expediente y revisión mínima (I02)" }
   - { name: C-oferta, description: "Flujo C · Mateo · esqueleto (I03)" }
   - { name: D-reserva, description: "Flujo D · Jhon · esqueleto (I04)" }
   - { name: E-sesion, description: "Flujo E · Marco · esqueleto (I05)" }
@@ -104,6 +104,30 @@ components:
         usuario_id: { type: string }
         rol: { type: string, enum: [tutor, escolar] }
         declarada_en: { type: string, format: date-time }
+    DocumentoTutor:
+      type: object
+      required: [id, nombre, tipo, tamano_bytes]
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        tipo: { type: string, enum: [application/pdf] }
+        tamano_bytes: { type: integer, maximum: 10485760 }
+        creado_en: { type: string, format: date-time }
+    ExpedienteTutor:
+      type: object
+      required: [tutor_id, presentacion, cursos, experiencia, estado, presentado_en, documentos]
+      properties:
+        tutor_id: { type: string, format: uuid }
+        presentacion: { type: string, maxLength: 500 }
+        cursos: { type: string, maxLength: 500 }
+        experiencia: { type: string, maxLength: 2000 }
+        estado: { type: string, enum: [pendiente, aprobado, rechazado] }
+        presentado_en: { type: string, format: date-time }
+        vence_en: { type: string, format: date-time }
+        motivo_rechazo: { type: string }
+        documentos:
+          type: array
+          items: { $ref: '#/components/schemas/DocumentoTutor' }
 paths:
   /api/auth/registro:
     post:
@@ -154,7 +178,108 @@ paths:
       summary: Zona de coordinación (permiso coordinacion:acceder)
       responses: { '200': { description: OK }, '401': { description: Sin sesión }, '403': { description: Rol sin permiso (p. ej. escolar) } }
   /api/tutor/salud:
-    get: { tags: [B-tutor], summary: Esqueleto. Miguel añade aquí su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [B-tutor], summary: Estado del flujo B, responses: { '200': { description: OK } } }
+  /api/tutor/mi-expediente:
+    get:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Consultar el expediente propio (solo tutor)
+      responses:
+        '200': { description: Expediente propio, content: { application/json: { schema: { $ref: '#/components/schemas/ExpedienteTutor' } } } }
+        '401': { description: Sin sesión }
+        '403': { description: La cuenta no puede presentar expedientes }
+        '404': { description: Aún no existe un expediente }
+  /api/tutor/expediente:
+    post:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Presentar o volver a presentar un expediente de tutor
+      description: El perfil permanece privado hasta ser aprobado. Acepta de 1 a 5 PDF, máximo 10 MiB por archivo. Los archivos se guardan fuera del contenido público y se descargan con autorización.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [presentacion, cursos, experiencia, documentos]
+              properties:
+                presentacion: { type: string, maxLength: 500 }
+                cursos: { type: string, maxLength: 500 }
+                experiencia: { type: string, maxLength: 2000 }
+                documentos:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items: { type: string, format: binary }
+      responses:
+        '201': { description: Expediente enviado a revisión, content: { application/json: { schema: { $ref: '#/components/schemas/ExpedienteTutor' } } } }
+        '401': { description: Sin sesión }
+        '403': { description: La cuenta no puede presentar expedientes }
+        '422': { description: Campos inválidos o PDF no válido }
+  /api/tutor/revision:
+    get:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Listar expedientes pendientes (solo coordinación)
+      responses:
+        '200': { description: Expedientes pendientes }
+        '401': { description: Sin sesión }
+        '403': { description: Sin permiso de coordinación }
+  /api/tutor/{id}/revision:
+    post:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Aprobar o rechazar un expediente pendiente (solo coordinación)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [estado, vence_en]
+                  properties:
+                    estado: { type: string, enum: [aprobado] }
+                    vence_en: { type: string, format: date-time }
+                - type: object
+                  required: [estado, motivo_rechazo]
+                  properties:
+                    estado: { type: string, enum: [rechazado] }
+                    motivo_rechazo: { type: string }
+      responses:
+        '200': { description: Revisión guardada }
+        '401': { description: Sin sesión }
+        '403': { description: Sin permiso de coordinación }
+        '404': { description: Expediente inexistente }
+        '409': { description: Expediente ya revisado }
+        '422': { description: Fecha o motivo inválidos }
+  /api/tutor/documentos/{id}:
+    get:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Descargar un documento privado (propietario o coordinación)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: PDF privado, content: { application/pdf: { schema: { type: string, format: binary } } } }
+        '401': { description: Sin sesión }
+        '403': { description: Sin permiso }
+        '404': { description: Documento inexistente }
+  /api/tutor/perfiles/{id}:
+    get:
+      tags: [B-tutor]
+      summary: Consultar perfil aprobado y vigente (no incluye documentos)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Perfil público
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExpedienteTutor' }
+        '404': { description: Perfil no aprobado, vencido o inexistente }
   /api/oferta/salud:
     get: { tags: [C-oferta], summary: Esqueleto. Mateo añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/reserva/salud:
@@ -278,4 +403,3 @@ paths:
         '404': { description: Sesion inexistente }
         '409': { description: Asistencia duplicada }
         '422': { description: Declaracion invalida }
-

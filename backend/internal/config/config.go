@@ -11,16 +11,17 @@ import (
 type SMTP struct{ Host, Puerto, Usuario, Clave, Remitente string }
 
 type Config struct {
-	Puerto           string
-	DatabaseURL      string
-	OrigenFrontend   string
-	OrigenesFrontend []string
-	Entorno          string
-	CookieSegura     bool
-	DominiosTutor    string
-	SembrarSintetico bool
-	ClaveSemilla     string
-	SMTP             SMTP
+	Puerto               string
+	DatabaseURL          string
+	OrigenFrontend       string
+	OrigenesFrontend     []string
+	Entorno              string
+	CookieSegura         bool
+	DominiosTutor        string
+	SembrarSintetico     bool
+	ClaveSemilla         string
+	DirectorioDocumentos string
+	SMTP                 SMTP
 }
 
 func (c Config) EnProduccion() bool {
@@ -92,11 +93,12 @@ func variableSecreta(clave string) (string, error) {
 
 func Cargar() (Config, error) {
 	configuracion := Config{
-		Puerto:        variableEntorno("PORT", "8080"),
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		Entorno:       variableEntorno("APP_ENV", "dev"),
-		DominiosTutor: variableEntorno("TUTOR_EMAIL_DOMAIN", "uni.edu.pe,uni.pe"),
-		ClaveSemilla:  os.Getenv("SEED_PASSWORD"),
+		Puerto:               variableEntorno("PORT", "8080"),
+		DatabaseURL:          os.Getenv("DATABASE_URL"),
+		Entorno:              variableEntorno("APP_ENV", "dev"),
+		DominiosTutor:        variableEntorno("TUTOR_EMAIL_DOMAIN", "uni.edu.pe,uni.pe"),
+		ClaveSemilla:         os.Getenv("SEED_PASSWORD"),
+		DirectorioDocumentos: variableEntorno("TUTOR_DOCUMENTS_DIR", "./data/tutor-documents"),
 	}
 	origenes := origenesDe(variableEntorno("FRONTEND_ORIGIN", "http://localhost:5173"))
 	configuracion.CookieSegura, _ = strconv.ParseBool(variableEntorno("COOKIE_SECURE", "false"))

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"uniapp/internal/adapters"
 	"uniapp/internal/config"
 	ctrl "uniapp/internal/controllers/acceso"
 	ctrlOferta "uniapp/internal/controllers/oferta"
@@ -21,6 +22,7 @@ import (
 	modelo "uniapp/internal/models/acceso"
 	modeloReserva "uniapp/internal/models/reserva"
 	modeloSesion "uniapp/internal/models/sesion"
+	modeloTutor "uniapp/internal/models/tutor"
 	"uniapp/migrations"
 )
 
@@ -71,6 +73,11 @@ func main() {
 	}
 
 	controlador := ctrl.Nuevo(servicio, configuracion.CookieSegura)
+	servicioTutor := modeloTutor.NuevoServicio(
+		modeloTutor.RepositorioPostgres{DB: baseDatos},
+		adapters.AlmacenDocumentosFS{Directorio: configuracion.DirectorioDocumentos},
+	)
+	tutores := ctrlTutor.Nuevo(servicioTutor, controlador.Autenticar()).Rutas()
 
 	// Servicio del flujo D: reservas.
 	reservas := construirServicioReserva(baseDatos)
@@ -78,6 +85,7 @@ func main() {
 	// Extensión del flujo E: sesiones y asistencias.
 	manejador := construirManejadorConSesion(
 		controlador,
+		tutores,
 		reservas,
 		registro,
 		configuracion,
@@ -152,6 +160,7 @@ func construirBus(registro *log.Logger, mailer modelo.Mailer, configuracion conf
 // Manejador principal: conserva las rutas de acceso y reservas.
 func construirManejador(
 	controlador *ctrl.Controlador,
+	tutores http.Handler,
 	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
@@ -159,7 +168,7 @@ func construirManejador(
 ) http.Handler {
 	raiz := http.NewServeMux()
 
-	raiz.Handle("/api/tutor/", ctrlTutor.Rutas())
+	raiz.Handle("/api/tutor/", tutores)
 	raiz.Handle("/api/oferta/", ctrlOferta.Rutas(baseDatos, controlador.Autenticar()))
 
 	// Ambos patrones son necesarios para el flujo de reservas.
@@ -185,6 +194,7 @@ func construirManejador(
 // Extensión I05: agrega sesiones sin sustituir el flujo D.
 func construirManejadorConSesion(
 	controlador *ctrl.Controlador,
+	tutores http.Handler,
 	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
@@ -217,6 +227,7 @@ func construirManejadorConSesion(
 		"/",
 		construirManejador(
 			controlador,
+			tutores,
 			reservas,
 			registro,
 			configuracion,
