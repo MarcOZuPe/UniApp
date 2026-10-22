@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"uniapp/internal/adapters"
 )
 
 type DatosRegistro struct {
@@ -15,11 +13,11 @@ type DatosRegistro struct {
 }
 
 type Fabrica struct {
-	hasher        adapters.PasswordHasher
+	hasher        PasswordHasher
 	dominiosTutor string
 }
 
-func NuevaFabrica(hasher adapters.PasswordHasher, dominiosTutor string) *Fabrica {
+func NuevaFabrica(hasher PasswordHasher, dominiosTutor string) *Fabrica {
 	return &Fabrica{hasher: hasher, dominiosTutor: dominiosTutor}
 }
 

@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"uniapp/internal/adapters"
-	"uniapp/internal/db"
-	"uniapp/internal/events"
+	infra "uniapp/internal/infra"
 	modelo "uniapp/internal/models/acceso"
 	"uniapp/migrations"
 )
@@ -20,24 +18,24 @@ func TestRepositorioPostgresFlujoCompleto(t *testing.T) {
 		t.Skip("TEST_DATABASE_URL no definida")
 	}
 	ctx := context.Background()
-	d, err := db.Abrir(url)
+	d, err := migrations.Abrir(url)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer d.Close()
-	if err := db.Migrar(ctx, d, migrations.FS); err != nil {
+	if err := migrations.Migrar(ctx, d, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Migrar(ctx, d, migrations.FS); err != nil {
+	if err := migrations.Migrar(ctx, d, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
 	_, _ = d.Exec(`TRUNCATE usuarios CASCADE`)
 
-	h := adapters.PBKDF2Hasher{Iteraciones: 1000}
+	h := infra.PBKDF2Hasher{Iteraciones: 1000}
 	repo := modelo.RepositorioPostgres{DB: d}
-	bus := events.NuevoBus()
+	bus := infra.NuevoBus()
 	var tokenConfirmacion string
-	bus.Registrar(events.ConfirmacionSolicitada, events.NuevoObservadorFunc("captura-confirmacion", func(e events.Event) {
+	bus.Registrar(modelo.ConfirmacionSolicitada, infra.NuevoObservadorFunc("captura-confirmacion", func(e modelo.Event) {
 		tokenConfirmacion, _ = e.Payload["token"].(string)
 	}))
 	s := modelo.NuevoServicio(modelo.Dependencias{
@@ -78,7 +76,7 @@ func TestRepositorioPostgresFlujoCompleto(t *testing.T) {
 	}
 
 	var tokenReset string
-	bus.Registrar(events.RecuperacionSolicitada, events.NuevoObservadorFunc("captura-token-reset", func(e events.Event) {
+	bus.Registrar(modelo.RecuperacionSolicitada, infra.NuevoObservadorFunc("captura-token-reset", func(e modelo.Event) {
 		tokenReset, _ = e.Payload["token"].(string)
 	}))
 	_ = s.SolicitarRecuperacion(ctx, "pg@example.com")

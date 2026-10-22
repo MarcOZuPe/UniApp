@@ -1,4 +1,4 @@
-package adapters
+package infra
 
 import (
 	"crypto/hmac"
@@ -11,11 +11,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-type PasswordHasher interface {
-	Hash(clave string) (string, error)
-	Verify(clave, codificado string) bool
-}
 
 type derivadorPBKDF2 struct{}
 

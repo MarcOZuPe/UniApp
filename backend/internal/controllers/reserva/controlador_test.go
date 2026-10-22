@@ -9,9 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"uniapp/internal/adapters"
 	ctrlAcceso "uniapp/internal/controllers/acceso"
-	"uniapp/internal/events"
+	infra "uniapp/internal/infra"
 	modeloAcceso "uniapp/internal/models/acceso"
 	modelo "uniapp/internal/models/reserva"
 )
@@ -31,12 +30,12 @@ type entorno struct {
 
 func nuevoEntorno(t *testing.T) *entorno {
 	t.Helper()
-	hasher := adapters.PBKDF2Hasher{Iteraciones: 1000}
+	hasher := infra.PBKDF2Hasher{Iteraciones: 1000}
 	servicioAcceso := modeloAcceso.NuevoServicio(modeloAcceso.Dependencias{
 		Repositorio: modeloAcceso.NuevoRepositorioMemoria(),
 		Fabrica:     modeloAcceso.NuevaFabrica(hasher, "uni.edu.pe"),
 		Hasher:      hasher,
-		Bus:         events.NuevoBus(),
+		Bus:         infra.NuevoBus(),
 	})
 	if err := modeloAcceso.Sembrar(context.Background(), servicioAcceso, modeloAcceso.OpcionesSiembra{DominioTutor: "uni.edu.pe", Clave: clave}); err != nil {
 		t.Fatal(err)
