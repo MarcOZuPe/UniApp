@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"uniapp/internal/adapters"
 	"uniapp/internal/config"
 	ctrl "uniapp/internal/controllers/acceso"
 	ctrlOferta "uniapp/internal/controllers/oferta"
@@ -22,7 +23,6 @@ import (
 	modeloReserva "uniapp/internal/models/reserva"
 	modeloSesion "uniapp/internal/models/sesion"
 	modeloTutor "uniapp/internal/models/tutor"
-	"uniapp/internal/observers"
 	"uniapp/migrations"
 )
 
