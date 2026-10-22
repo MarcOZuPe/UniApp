@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	infra "uniapp/internal/infra"
 	modelo "uniapp/internal/models/acceso"
 	"uniapp/migrations"
 )
@@ -30,11 +31,11 @@ func TestRepositorioPostgresFlujoCompleto(t *testing.T) {
 	}
 	_, _ = d.Exec(`TRUNCATE usuarios CASCADE`)
 
-	h := modelo.PBKDF2Hasher{Iteraciones: 1000}
+	h := infra.PBKDF2Hasher{Iteraciones: 1000}
 	repo := modelo.RepositorioPostgres{DB: d}
-	bus := modelo.NuevoBus()
+	bus := infra.NuevoBus()
 	var tokenConfirmacion string
-	bus.Registrar(modelo.ConfirmacionSolicitada, modelo.NuevoObservadorFunc("captura-confirmacion", func(e modelo.Event) {
+	bus.Registrar(modelo.ConfirmacionSolicitada, infra.NuevoObservadorFunc("captura-confirmacion", func(e modelo.Event) {
 		tokenConfirmacion, _ = e.Payload["token"].(string)
 	}))
 	s := modelo.NuevoServicio(modelo.Dependencias{
@@ -75,7 +76,7 @@ func TestRepositorioPostgresFlujoCompleto(t *testing.T) {
 	}
 
 	var tokenReset string
-	bus.Registrar(modelo.RecuperacionSolicitada, modelo.NuevoObservadorFunc("captura-token-reset", func(e modelo.Event) {
+	bus.Registrar(modelo.RecuperacionSolicitada, infra.NuevoObservadorFunc("captura-token-reset", func(e modelo.Event) {
 		tokenReset, _ = e.Payload["token"].(string)
 	}))
 	_ = s.SolicitarRecuperacion(ctx, "pg@example.com")
@@ -103,7 +104,6 @@ func TestRepositorioPostgresFlujoCompleto(t *testing.T) {
 		t.Fatalf("no debe borrar cuentas confirmadas: %v", err)
 	}
 }
-
 func TestRepositorioPostgresVinculacion(t *testing.T) {
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
@@ -120,10 +120,10 @@ func TestRepositorioPostgresVinculacion(t *testing.T) {
 	}
 	_, _ = d.Exec(`TRUNCATE usuarios CASCADE`)
 
-	h := modelo.PBKDF2Hasher{Iteraciones: 1000}
-	bus := modelo.NuevoBus()
+	h := infra.PBKDF2Hasher{Iteraciones: 1000}
+	bus := infra.NuevoBus()
 	var tokenVinculacion string
-	bus.Registrar(modelo.VinculacionSolicitada, modelo.NuevoObservadorFunc("captura-vinculacion-pg", func(e modelo.Event) {
+	bus.Registrar(modelo.VinculacionSolicitada, infra.NuevoObservadorFunc("captura-vinculacion-pg", func(e modelo.Event) {
 		tokenVinculacion, _ = e.Payload["token"].(string)
 	}))
 	s := modelo.NuevoServicio(modelo.Dependencias{

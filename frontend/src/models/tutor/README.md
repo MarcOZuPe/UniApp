@@ -1,1 +1,1 @@
-Flujo tutor: capa models. Ver CONTRIBUTING.md (sin reglas de negocio en views; datos de otros flujos solo por su API).
+El dominio del expediente, la transición de revisión y la regla de publicación viven en el backend, en `backend/internal/models/tutor`.

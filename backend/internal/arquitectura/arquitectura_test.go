@@ -65,6 +65,27 @@ func TestReglasMVCPorFlujo(t *testing.T) {
 	})
 }
 
+func TestModeloNoImportaInfraestructura(t *testing.T) {
+	raiz := filepath.Join("..", "models")
+	_ = filepath.WalkDir(raiz, func(ruta string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(ruta, ".go") || strings.HasSuffix(ruta, "_test.go") {
+			return nil
+		}
+		f, perr := parser.ParseFile(token.NewFileSet(), ruta, nil, parser.ImportsOnly)
+		if perr != nil {
+			t.Errorf("%s: %v", ruta, perr)
+			return nil
+		}
+		for _, im := range f.Imports {
+			imp := strings.Trim(im.Path.Value, `"`)
+			if strings.HasPrefix(imp, prefijo+"infra") {
+				t.Errorf("%s: el modelo no puede importar infraestructura (%s)", ruta, imp)
+			}
+		}
+		return nil
+	})
+}
+
 func TestCadaFlujoTieneLasTresCapas(t *testing.T) {
 	for _, flujo := range []string{"acceso", "tutor", "oferta", "reserva", "sesion"} {
 		for _, capa := range []string{"models", "views", "controllers"} {

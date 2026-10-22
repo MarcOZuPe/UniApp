@@ -12,4 +12,7 @@ small { color:var(--muted); }
 .error { color:var(--err); }
 .no-disponibles { margin-top:.4rem; }
 .no-disponibles ul { margin:.4rem 0 0; padding-left:1.2rem; color:var(--muted); }
+.pagina-tutor { max-width:48rem; }
+.pagina-tutor textarea { resize:vertical; }
+.expediente { border:1px solid var(--borde); border-radius:8px; padding:1rem; margin:1rem 0; }
 :focus-visible { outline:3px solid var(--accent); outline-offset:2px; }

@@ -66,10 +66,13 @@ listado, consulta solo por su dueño y recorrido HTTP completo (401/403/201/404/
 ## Demostración manual
 
 1. `SEED_SYNTHETIC=true` con `SEED_PASSWORD`, arrancar la API (`go run ./cmd/server`).
-2. Entrar como `escolar.prueba@example.test`.
-3. Abrir `/reservar`: el horario a menos de 48 h aparece deshabilitado con su motivo.
-4. Enviar tema, objetivo y grado; la reserva se confirma y muestra la hora en America/Lima.
-5. Repetir con el mismo horario: `409`.
+2. Entrar como `apoderado.prueba@example.test` y solicitar la vinculación de
+   `escolar.prueba@example.test` en `/apoderado/vincular`.
+3. Entrar como `escolar.prueba@example.test`, abrir el enlace de vinculación que aparece en el log
+   del correo de desarrollo y aceptarlo.
+4. Abrir `/reservar`: el horario a menos de 48 h aparece deshabilitado con su motivo.
+5. Enviar tema, objetivo y grado; la reserva se confirma y muestra la hora en America/Lima.
+6. Repetir con el mismo horario: `409`.
 
 ## Integración con I06
 
@@ -79,7 +82,8 @@ reservas ya confirmadas no se modifican: la comprobación ocurre únicamente al 
 
 ## Fuera de alcance (declarado, no inventado)
 
-- **I09:** concurrencia y carreras, idempotencia, cuota semanal, escolar solapado, cuarentena y
-  enlaces privados de adjuntos, reserva que sobrevive a un fallo del análisis.
 - **I16:** cancelar y reprogramar con historial.
 - La oferta es sintética: no hay catálogo de cursos ni tutores reales hasta I03/I07/I08.
+
+La concurrencia, idempotencia, cuotas y adjuntos del flujo D se documentan en
+[I09](i09-reserva-transaccional.md).

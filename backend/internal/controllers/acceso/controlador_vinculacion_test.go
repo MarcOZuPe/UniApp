@@ -6,13 +6,14 @@ import (
 	"strings"
 	"testing"
 
+	infra "uniapp/internal/infra"
 	modelo "uniapp/internal/models/acceso"
 )
 
 func TestVinculacionApoderadoYEscolar(t *testing.T) {
 	h, bus := servidor(t)
 	var token string
-	bus.Registrar(modelo.VinculacionSolicitada, modelo.NuevoObservadorFunc("captura-vinculacion-http", func(e modelo.Event) {
+	bus.Registrar(modelo.VinculacionSolicitada, infra.NuevoObservadorFunc("captura-vinculacion-http", func(e modelo.Event) {
 		token, _ = e.Payload["token"].(string)
 	}))
 
@@ -56,7 +57,7 @@ func TestVinculacionApoderadoYEscolar(t *testing.T) {
 func TestAutorizacionDeNuevasReservas(t *testing.T) {
 	h, bus := servidor(t)
 	var token string
-	bus.Registrar(modelo.VinculacionSolicitada, modelo.NuevoObservadorFunc("captura-autorizacion-http", func(e modelo.Event) {
+	bus.Registrar(modelo.VinculacionSolicitada, infra.NuevoObservadorFunc("captura-autorizacion-http", func(e modelo.Event) {
 		token, _ = e.Payload["token"].(string)
 	}))
 

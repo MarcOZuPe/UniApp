@@ -6,7 +6,7 @@ info:
 servers: [{ url: http://localhost:8080 }]
 tags:
   - { name: A-acceso, description: "Flujo A · Víctor · implementado en I01 e I06" }
-  - { name: B-tutor, description: "Flujo B · Miguel · esqueleto (I02)" }
+  - { name: B-tutor, description: "Flujo B · expediente y revisión mínima (I02)" }
   - { name: C-oferta, description: "Flujo C · Mateo · esqueleto (I03)" }
   - { name: D-reserva, description: "Flujo D · Jhon · esqueleto (I04)" }
   - { name: E-sesion, description: "Flujo E · Marco · esqueleto (I05)" }
@@ -71,12 +71,16 @@ components:
         motivo: { type: string, description: por qué no está disponible }
     AdjuntoReserva:
       type: object
-      description: Metadatos del adjunto. El archivo no se guarda en la base (I09).
-      required: [nombre, tamano_bytes]
+      description: Metadatos del adjunto. El contenido vive en un almacén privado y no se expone.
       properties:
+        id: { type: string, format: uuid }
         nombre: { type: string }
         tipo: { type: string }
         tamano_bytes: { type: integer, format: int64 }
+        estado: { type: string, enum: [en_cuarentena, validado, rechazado] }
+        motivo: { type: string, description: por qué está en cuarentena o fue rechazado }
+        descargable: { type: boolean }
+        creado_en: { type: string, description: "hora de Lima" }
     ReservaEntrada:
       type: object
       required: [slot_id, tema, objetivo, grado]
@@ -85,10 +89,6 @@ components:
         tema: { type: string, minLength: 10, maxLength: 200 }
         objetivo: { type: string, minLength: 20, maxLength: 1000 }
         grado: { type: string, maxLength: 80 }
-        adjuntos:
-          type: array
-          maxItems: 5
-          items: { $ref: '#/components/schemas/AdjuntoReserva' }
     ReservaD:
       type: object
       description: Reserva confirmada de inmediato (D05, RN-06).
@@ -131,6 +131,30 @@ components:
         usuario_id: { type: string }
         rol: { type: string, enum: [tutor, escolar] }
         declarada_en: { type: string, format: date-time }
+    DocumentoTutor:
+      type: object
+      required: [id, nombre, tipo, tamano_bytes]
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        tipo: { type: string, enum: [application/pdf] }
+        tamano_bytes: { type: integer, maximum: 10485760 }
+        creado_en: { type: string, format: date-time }
+    ExpedienteTutor:
+      type: object
+      required: [tutor_id, presentacion, cursos, experiencia, estado, presentado_en, documentos]
+      properties:
+        tutor_id: { type: string, format: uuid }
+        presentacion: { type: string, maxLength: 500 }
+        cursos: { type: string, maxLength: 500 }
+        experiencia: { type: string, maxLength: 2000 }
+        estado: { type: string, enum: [pendiente, aprobado, rechazado] }
+        presentado_en: { type: string, format: date-time }
+        vence_en: { type: string, format: date-time }
+        motivo_rechazo: { type: string }
+        documentos:
+          type: array
+          items: { $ref: '#/components/schemas/DocumentoTutor' }
 paths:
   /api/auth/registro:
     post:
@@ -272,7 +296,108 @@ paths:
       summary: Zona de coordinación (permiso coordinacion:acceder)
       responses: { '200': { description: OK }, '401': { description: Sin sesión }, '403': { description: Rol sin permiso (p. ej. escolar) } }
   /api/tutor/salud:
-    get: { tags: [B-tutor], summary: Esqueleto. Miguel añade aquí su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [B-tutor], summary: Estado del flujo B, responses: { '200': { description: OK } } }
+  /api/tutor/mi-expediente:
+    get:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Consultar el expediente propio (solo tutor)
+      responses:
+        '200': { description: Expediente propio, content: { application/json: { schema: { $ref: '#/components/schemas/ExpedienteTutor' } } } }
+        '401': { description: Sin sesión }
+        '403': { description: La cuenta no puede presentar expedientes }
+        '404': { description: Aún no existe un expediente }
+  /api/tutor/expediente:
+    post:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Presentar o volver a presentar un expediente de tutor
+      description: El perfil permanece privado hasta ser aprobado. Acepta de 1 a 5 PDF, máximo 10 MiB por archivo. Los archivos se guardan fuera del contenido público y se descargan con autorización.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [presentacion, cursos, experiencia, documentos]
+              properties:
+                presentacion: { type: string, maxLength: 500 }
+                cursos: { type: string, maxLength: 500 }
+                experiencia: { type: string, maxLength: 2000 }
+                documentos:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items: { type: string, format: binary }
+      responses:
+        '201': { description: Expediente enviado a revisión, content: { application/json: { schema: { $ref: '#/components/schemas/ExpedienteTutor' } } } }
+        '401': { description: Sin sesión }
+        '403': { description: La cuenta no puede presentar expedientes }
+        '422': { description: Campos inválidos o PDF no válido }
+  /api/tutor/revision:
+    get:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Listar expedientes pendientes (solo coordinación)
+      responses:
+        '200': { description: Expedientes pendientes }
+        '401': { description: Sin sesión }
+        '403': { description: Sin permiso de coordinación }
+  /api/tutor/{id}/revision:
+    post:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Aprobar o rechazar un expediente pendiente (solo coordinación)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [estado, vence_en]
+                  properties:
+                    estado: { type: string, enum: [aprobado] }
+                    vence_en: { type: string, format: date-time }
+                - type: object
+                  required: [estado, motivo_rechazo]
+                  properties:
+                    estado: { type: string, enum: [rechazado] }
+                    motivo_rechazo: { type: string }
+      responses:
+        '200': { description: Revisión guardada }
+        '401': { description: Sin sesión }
+        '403': { description: Sin permiso de coordinación }
+        '404': { description: Expediente inexistente }
+        '409': { description: Expediente ya revisado }
+        '422': { description: Fecha o motivo inválidos }
+  /api/tutor/documentos/{id}:
+    get:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Descargar un documento privado (propietario o coordinación)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: PDF privado, content: { application/pdf: { schema: { type: string, format: binary } } } }
+        '401': { description: Sin sesión }
+        '403': { description: Sin permiso }
+        '404': { description: Documento inexistente }
+  /api/tutor/perfiles/{id}:
+    get:
+      tags: [B-tutor]
+      summary: Consultar perfil aprobado y vigente (no incluye documentos)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Perfil público
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExpedienteTutor' }
+        '404': { description: Perfil no aprobado, vencido o inexistente }
   /api/oferta/salud:
     get: { tags: [C-oferta], summary: Esqueleto. Mateo añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/reserva/salud:
@@ -301,13 +426,22 @@ paths:
   /api/reserva:
     post:
       tags: [D-reserva]
-      summary: Crear una reserva confirmada (I04)
+      summary: Crear una reserva confirmada (I04, transaccional desde I09)
       description: >
-        Formulario con tema, objetivo y adjuntos opcionales sobre un horario publicado.
-        El escolar se toma de la sesión, nunca del cuerpo. Aplica RN-03 (48 h exactas),
-        RN-07 (longitudes) y D06 (60 minutos y horizonte de 28 días). Sin pruebas de
-        concurrencia: eso es I09.
+        Formulario con tema, objetivo y grado sobre un horario publicado. El escolar se
+        toma de la sesión, nunca del cuerpo. Aplica RN-03 (48 h exactas), RN-07
+        (longitudes), D06 (60 minutos y horizonte de 28 días) y D07 (dos reservas futuras y
+        una sesión por curso y semana). La creación es transaccional y admite reintentos
+        con Idempotency-Key. Los adjuntos se suben después, en cuarentena.
       security: [{ sesion: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: >
+            Clave del intento (8 a 128 caracteres). Repetirla con los mismos datos devuelve
+            la misma reserva con 200 en lugar de 201.
+          schema: { type: string, minLength: 8, maxLength: 128 }
       requestBody:
         required: true
         content:
@@ -319,11 +453,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReservaD' }
+        '200':
+          description: Reintento con la misma Idempotency-Key; devuelve la reserva ya creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservaD' }
         '400': { description: Cuerpo inválido }
         '401': { description: Sin sesión }
         '403': { description: "La cuenta no es de escolar o el apoderado no tiene una autorización vigente (código sin_autorizacion)" }
         '404': { description: El horario no existe }
-        '409': { description: El horario ya fue reservado o venció }
+        '409': { description: "Conflictos (códigos: slot_ocupado, slot_vencido, solapamiento, cuota_escolar, cuota_curso_semana, idempotencia_conflicto)" }
         '422': { description: "Validación (códigos: validacion, anticipacion_insuficiente, horizonte_excedido)" }
   /api/reserva/{id}:
     get:
@@ -342,6 +481,85 @@ paths:
         '401': { description: Sin sesión }
         '403': { description: La reserva es de otra persona }
         '404': { description: La reserva no existe }
+  /api/reserva/{id}/adjuntos:
+    get:
+      tags: [D-reserva]
+      summary: Listar los adjuntos de una reserva (I09)
+      description: >
+        Solo los participantes de la reserva (escolar dueño, tutor asignado) y coordinación
+        ven los metadatos. El estado indica si el archivo está en cuarentena, validado o
+        rechazado; la clave de almacenamiento nunca se expone.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Adjuntos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adjuntos:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdjuntoReserva' }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva es de otra persona }
+        '404': { description: La reserva no existe }
+    post:
+      tags: [D-reserva]
+      summary: Subir un adjunto a la reserva (I09)
+      description: >
+        Recibe multipart/form-data con el campo "archivo". Solo el escolar dueño puede
+        subirlo. El tipo se detecta por contenido (PDF, PNG, JPG, TXT o DOCX de hasta 10 MB,
+        máximo cinco por reserva) y el archivo queda en cuarentena hasta que el análisis lo
+        valide. Si el análisis no está disponible, la reserva sigue confirmada.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo]
+              properties:
+                archivo: { type: string, format: binary }
+      responses:
+        '201':
+          description: Adjunto recibido (puede quedar en cuarentena)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdjuntoReserva' }
+        '400': { description: Falta el archivo o el formulario no es multipart }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva no es del escolar autenticado }
+        '404': { description: La reserva no existe }
+        '409': { description: "Límite alcanzado (código: adjuntos_llenos)" }
+        '413': { description: El archivo supera los 10 MB }
+        '422': { description: "Tipo no permitido (código: adjunto_invalido)" }
+  /api/reserva/{id}/adjuntos/{adjuntoId}:
+    get:
+      tags: [D-reserva]
+      summary: Descargar un adjunto validado (I09)
+      description: >
+        Enlace privado: exige sesión y participantes de la reserva, y solo entrega adjuntos
+        validados. Los que siguen en cuarentena o fueron rechazados responden 409.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: adjuntoId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Contenido del archivo
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva es de otra persona }
+        '404': { description: La reserva o el adjunto no existen }
+        '409': { description: "Adjunto en cuarentena o rechazado" }
   /api/sesion/salud:
     get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/sesion/{id}:
@@ -396,4 +614,3 @@ paths:
         '404': { description: Sesion inexistente }
         '409': { description: Asistencia duplicada }
         '422': { description: Declaracion invalida }
-

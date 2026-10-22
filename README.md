@@ -25,6 +25,24 @@ Arquitectura MVC, con cada integrante responsable de un flujo completo:
 
 El lenguaje y framework se acuerdan en E02. Esta entrega configura la colaboración; no implementa ni declara terminada la aplicación. n8n y Telegram no son dependencias del MVP.
 
+## Estructura del backend
+
+```text
+backend/
+├── cmd/server/main.go       # composition root
+├── migrations/              # migraciones SQL
+├── fixtures/                # datos de apoyo
+└── internal/
+    ├── models/              # dominio, con subcarpeta por flujo
+    ├── views/               # serialización JSON
+    ├── controllers/         # HTTP y middleware
+    ├── infra/               # hash, correo, bus de eventos y observadores
+    ├── arquitectura/        # pruebas de reglas MVC
+    └── config/              # configuración de entorno
+```
+
+`models` no importa `infra`; la infraestructura implementa los contratos del dominio y se inyecta en `main.go`.
+
 ## Preparación local
 
 ```bash

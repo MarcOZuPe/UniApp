@@ -11,15 +11,18 @@ import (
 	"syscall"
 	"time"
 
+	"uniapp/internal/adapters"
 	"uniapp/internal/config"
 	ctrl "uniapp/internal/controllers/acceso"
 	ctrlOferta "uniapp/internal/controllers/oferta"
 	ctrlReserva "uniapp/internal/controllers/reserva"
 	ctrlSesion "uniapp/internal/controllers/sesion"
 	ctrlTutor "uniapp/internal/controllers/tutor"
+	infra "uniapp/internal/infra"
 	modelo "uniapp/internal/models/acceso"
 	modeloReserva "uniapp/internal/models/reserva"
 	modeloSesion "uniapp/internal/models/sesion"
+	modeloTutor "uniapp/internal/models/tutor"
 	"uniapp/migrations"
 )
 
@@ -70,14 +73,19 @@ func main() {
 	}
 
 	controlador := ctrl.Nuevo(servicio, configuracion.CookieSegura)
+	servicioTutor := modeloTutor.NuevoServicio(
+		modeloTutor.RepositorioPostgres{DB: baseDatos},
+		adapters.AlmacenDocumentosFS{Directorio: configuracion.DirectorioDocumentos},
+	)
+	tutores := ctrlTutor.Nuevo(servicioTutor, controlador.Autenticar()).Rutas()
 
-	// Servicio del flujo D: reservas. Consulta la autorización vigente del flujo A
-	// sin escribir en sus tablas.
-	reservas := construirServicioReserva(baseDatos, servicio)
+	// Servicio del flujo D: reservas y adjuntos, con la autorización vigente del flujo A.
+	reservas := construirServicioReserva(baseDatos, configuracion, servicio)
 
 	// Extensión del flujo E: sesiones y asistencias.
 	manejador := construirManejadorConSesion(
 		controlador,
+		tutores,
 		reservas,
 		registro,
 		configuracion,
@@ -91,7 +99,7 @@ func main() {
 func construirServicio(ctx context.Context, registro *log.Logger, configuracion config.Config, baseDatos *sql.DB) *modelo.Servicio {
 	mailer := construirMailer(configuracion)
 	bus := construirBus(registro, mailer, configuracion)
-	hasher := modelo.NuevoHasher()
+	hasher := infra.NuevoHasher()
 	fabrica := modelo.NuevaFabrica(hasher, configuracion.DominiosTutor)
 
 	servicio := modelo.NuevoServicio(modelo.Dependencias{
@@ -118,50 +126,61 @@ func construirServicio(ctx context.Context, registro *log.Logger, configuracion 
 	return servicio
 }
 
-// Servicio del flujo D, conservado desde main.
-func construirServicioReserva(baseDatos *sql.DB, autorizacion modeloReserva.PuertoAutorizacion) *modeloReserva.Servicio {
+// Servicio del flujo D: reserva transaccional y adjuntos en cuarentena (I09),
+// con la autorización vigente del flujo A inyectada como puerto.
+func construirServicioReserva(baseDatos *sql.DB, configuracion config.Config, autorizacion modeloReserva.PuertoAutorizacion) *modeloReserva.Servicio {
+	var analizador modeloReserva.Analizador = modeloReserva.AnalizadorBasico{}
+	if strings.EqualFold(configuracion.AnalisisAdjuntos, "ninguno") {
+		// Sin análisis disponible la reserva sigue funcionando: el adjunto queda en cuarentena.
+		analizador = modeloReserva.AnalizadorNoDisponible{}
+	}
 	return modeloReserva.NuevoServicio(modeloReserva.Dependencias{
 		Repositorio:  modeloReserva.RepositorioPostgres{DB: baseDatos},
 		Oferta:       modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
+		Almacen:      adapters.AlmacenAdjuntosFS{Directorio: configuracion.DirectorioAdjuntos},
+		Analizador:   analizador,
+		Limites:      modeloReserva.LimitesPorDefecto,
 		Autorizacion: autorizacion,
 	})
 }
 
 func construirMailer(configuracion config.Config) modelo.Mailer {
-	var mailer modelo.Mailer = modelo.LogMailer{MostrarCuerpo: !configuracion.CookieSegura}
+	var mailer modelo.Mailer = infra.LogMailer{MostrarCuerpo: !configuracion.CookieSegura}
 	if configuracion.SMTP.Host != "" {
-		mailer = modelo.SMTPMailer{
+		mailer = infra.SMTPMailer{
 			Host: configuracion.SMTP.Host, Puerto: configuracion.SMTP.Puerto,
 			Usuario: configuracion.SMTP.Usuario, Clave: configuracion.SMTP.Clave,
 			Remitente: configuracion.SMTP.Remitente,
 		}
 	}
-	return modelo.NuevoReintentoMailer(modelo.NuevoTiempoLimiteMailer(mailer, limiteDeEnvio), intentosDeEnvio, esperaEntreEnvios)
+	return infra.NuevoReintentoMailer(infra.NuevoTiempoLimiteMailer(mailer, limiteDeEnvio), intentosDeEnvio, esperaEntreEnvios)
 }
 
-func construirBus(registro *log.Logger, mailer modelo.Mailer, configuracion config.Config) *modelo.Bus {
-	bus := modelo.NuevoBus()
-	auditoria := modelo.NuevaAuditoria(registro)
+func construirBus(registro *log.Logger, mailer modelo.Mailer, configuracion config.Config) *infra.Bus {
+	bus := infra.NuevoBus()
+	auditoria := infra.NuevaAuditoria(registro)
 	for _, nombre := range []string{modelo.UsuarioRegistrado, modelo.IngresoExitoso, modelo.IngresoFallido, modelo.ClaveRestablecida, modelo.RecuperacionSolicitada, modelo.ConfirmacionSolicitada, modelo.CorreoConfirmado, modelo.VinculacionSolicitada, modelo.VinculacionAceptada} {
 		bus.Registrar(nombre, auditoria)
 	}
-	bus.Registrar(modelo.RecuperacionSolicitada, modelo.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
-	bus.Registrar(modelo.ConfirmacionSolicitada, modelo.NuevoCorreoConfirmacion(mailer, configuracion.OrigenFrontend))
-	bus.Registrar(modelo.VinculacionSolicitada, modelo.NuevoCorreoVinculacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(modelo.RecuperacionSolicitada, infra.NuevoCorreoRecuperacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(modelo.ConfirmacionSolicitada, infra.NuevoCorreoConfirmacion(mailer, configuracion.OrigenFrontend))
+	bus.Registrar(modelo.VinculacionSolicitada, infra.NuevoCorreoVinculacion(mailer, configuracion.OrigenFrontend))
 	return bus
 }
 
 // Manejador principal: conserva las rutas de acceso y reservas.
 func construirManejador(
 	controlador *ctrl.Controlador,
+	tutores http.Handler,
 	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
+	baseDatos *sql.DB,
 ) http.Handler {
 	raiz := http.NewServeMux()
 
-	raiz.Handle("/api/tutor/", ctrlTutor.Rutas())
-	raiz.Handle("/api/oferta/", ctrlOferta.Rutas())
+	raiz.Handle("/api/tutor/", tutores)
+	raiz.Handle("/api/oferta/", ctrlOferta.Rutas(baseDatos, controlador.Autenticar()))
 
 	// Ambos patrones son necesarios para el flujo de reservas.
 	manejadorReserva := ctrlReserva.Nuevo(
@@ -186,6 +205,7 @@ func construirManejador(
 // Extensión I05: agrega sesiones sin sustituir el flujo D.
 func construirManejadorConSesion(
 	controlador *ctrl.Controlador,
+	tutores http.Handler,
 	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
@@ -218,9 +238,11 @@ func construirManejadorConSesion(
 		"/",
 		construirManejador(
 			controlador,
+			tutores,
 			reservas,
 			registro,
 			configuracion,
+			baseDatos,
 		),
 	)
 

@@ -2,7 +2,11 @@ package reserva
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
+	"mime"
 	"net/http"
+	"strconv"
 
 	ctrlAcceso "uniapp/internal/controllers/acceso"
 	modeloAcceso "uniapp/internal/models/acceso"
@@ -11,8 +15,11 @@ import (
 	vista "uniapp/internal/views/reserva"
 )
 
-// Controlador expone la reserva base. Recibe el decorador de sesión con su tipo sin
-// nombre para poder usar el mismo Autenticar del flujo A sin acoplarse a su paquete.
+// limiteCuerpoAdjunto deja margen para el formulario multipart sobre el tope del archivo.
+const limiteCuerpoAdjunto = modelo.AdjuntoMaximoBytes + (1 << 20)
+
+// Controlador expone la reserva y sus adjuntos. Recibe el decorador de sesión con su tipo
+// sin nombre para poder usar el mismo Autenticar del flujo A sin acoplarse a su paquete.
 type Controlador struct {
 	servicio   *modelo.Servicio
 	autenticar func(http.Handler) http.Handler
@@ -31,6 +38,9 @@ func (c *Controlador) Rutas() http.Handler {
 	mux.Handle("GET /api/reserva/slots", c.autenticar(http.HandlerFunc(c.slots)))
 	mux.Handle("GET /api/reserva/{id}", c.autenticar(http.HandlerFunc(c.consultar)))
 	mux.Handle("POST /api/reserva", c.autenticar(http.HandlerFunc(c.crear)))
+	mux.Handle("GET /api/reserva/{id}/adjuntos", c.autenticar(http.HandlerFunc(c.listarAdjuntos)))
+	mux.Handle("POST /api/reserva/{id}/adjuntos", c.autenticar(http.HandlerFunc(c.subirAdjunto)))
+	mux.Handle("GET /api/reserva/{id}/adjuntos/{adjuntoId}", c.autenticar(http.HandlerFunc(c.descargarAdjunto)))
 	return mux
 }
 
@@ -71,25 +81,29 @@ func (c *Controlador) crear(w http.ResponseWriter, r *http.Request) {
 		Tema     string `json:"tema"`
 		Objetivo string `json:"objetivo"`
 		Grado    string `json:"grado"`
-		Adjuntos []struct {
-			Nombre      string `json:"nombre"`
-			Tipo        string `json:"tipo"`
-			TamanoBytes int64  `json:"tamano_bytes"`
-		} `json:"adjuntos"`
 	}
 	if !decodificarCuerpo(w, r, &entrada) {
 		return
 	}
-	datos := modelo.DatosReserva{SlotID: entrada.SlotID, Tema: entrada.Tema, Objetivo: entrada.Objetivo, Grado: entrada.Grado}
-	for _, adjunto := range entrada.Adjuntos {
-		datos.Adjuntos = append(datos.Adjuntos, modelo.Adjunto{Nombre: adjunto.Nombre, Tipo: adjunto.Tipo, TamanoBytes: adjunto.TamanoBytes})
+	datos := modelo.DatosReserva{
+		SlotID: entrada.SlotID, Tema: entrada.Tema, Objetivo: entrada.Objetivo, Grado: entrada.Grado,
+		ClaveIdempotencia: r.Header.Get("Idempotency-Key"),
 	}
-	reserva, err := c.servicio.Reservar(r.Context(), usuario.ID, datos)
+	reserva, creada, err := c.servicio.Reservar(r.Context(), usuario.ID, datos)
 	if err != nil {
 		c.responderError(w, err)
 		return
 	}
-	vistaAcceso.EscribirJSON(w, http.StatusCreated, vista.PresentarReserva(reserva))
+	if creada {
+		w.Header().Set("Idempotent-Replayed", "false")
+	} else {
+		w.Header().Set("Idempotent-Replayed", "true")
+	}
+	estado := http.StatusCreated
+	if !creada {
+		estado = http.StatusOK
+	}
+	vistaAcceso.EscribirJSON(w, estado, vista.PresentarReserva(reserva))
 }
 
 func (c *Controlador) consultar(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +118,99 @@ func (c *Controlador) consultar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vistaAcceso.EscribirJSON(w, http.StatusOK, vista.PresentarReserva(reserva))
+}
+
+func (c *Controlador) listarAdjuntos(w http.ResponseWriter, r *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		c.responderError(w, modelo.ErrNoAutorizado)
+		return
+	}
+	adjuntos, err := c.servicio.AdjuntosDe(r.Context(), usuario.ID, usuario.Rol, r.PathValue("id"))
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]any{"adjuntos": vista.PresentarAdjuntos(adjuntos)})
+}
+
+func (c *Controlador) subirAdjunto(w http.ResponseWriter, r *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		c.responderError(w, modelo.ErrNoAutorizado)
+		return
+	}
+	if usuario.Rol != modeloAcceso.RolEscolar {
+		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+			Estado: http.StatusForbidden, Codigo: "solo_escolar",
+			Mensaje: "Solo el escolar dueño de la reserva sube adjuntos.",
+		})
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, limiteCuerpoAdjunto)
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
+		var demasiadoGrande *http.MaxBytesError
+		if errors.As(err, &demasiadoGrande) {
+			vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+				Estado: http.StatusRequestEntityTooLarge, Codigo: "adjunto_muy_grande",
+				Mensaje: "Cada adjunto debe pesar como máximo 10 MB.",
+			})
+			return
+		}
+		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+			Estado: http.StatusBadRequest, Codigo: "solicitud_invalida",
+			Mensaje: "Envía el archivo en el campo 'archivo' como multipart/form-data.",
+		})
+		return
+	}
+	archivo, cabecera, err := r.FormFile("archivo")
+	if err != nil {
+		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+			Estado: http.StatusBadRequest, Codigo: "solicitud_invalida",
+			Mensaje: "Falta el archivo en el campo 'archivo'.",
+		})
+		return
+	}
+	defer func() { _ = archivo.Close() }()
+	contenido, err := io.ReadAll(io.LimitReader(archivo, modelo.AdjuntoMaximoBytes+1))
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	if int64(len(contenido)) > modelo.AdjuntoMaximoBytes {
+		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+			Estado: http.StatusRequestEntityTooLarge, Codigo: "adjunto_muy_grande",
+			Mensaje: "Cada adjunto debe pesar como máximo 10 MB.",
+		})
+		return
+	}
+	adjunto, err := c.servicio.Adjuntar(r.Context(), usuario.ID, r.PathValue("id"), cabecera.Filename, contenido)
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	vistaAcceso.EscribirJSON(w, http.StatusCreated, vista.PresentarAdjunto(adjunto))
+}
+
+func (c *Controlador) descargarAdjunto(w http.ResponseWriter, r *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		c.responderError(w, modelo.ErrNoAutorizado)
+		return
+	}
+	adjunto, contenido, err := c.servicio.AbrirAdjunto(r.Context(), usuario.ID, usuario.Rol, r.PathValue("id"), r.PathValue("adjuntoId"))
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	disposicion := mime.FormatMediaType("attachment", map[string]string{"filename": adjunto.Nombre})
+	w.Header().Set("Content-Type", adjunto.Tipo)
+	w.Header().Set("Content-Disposition", disposicion)
+	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(contenido)
 }
 
 func decodificarCuerpo(w http.ResponseWriter, r *http.Request, destino any) bool {

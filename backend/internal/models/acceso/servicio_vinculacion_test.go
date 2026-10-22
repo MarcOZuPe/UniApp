@@ -18,9 +18,9 @@ func crearCuenta(t *testing.T, s *Servicio, email, nombre string, rol Rol) *Usua
 	return usuario
 }
 
-func capturarTokenVinculacion(bus *Bus) *string {
+func capturarTokenVinculacion(bus *busDePrueba) *string {
 	token := new(string)
-	bus.Registrar(VinculacionSolicitada, NuevoObservadorFunc("captura-vinculacion", func(e Event) {
+	bus.Registrar(VinculacionSolicitada, nuevoObservadorDePrueba("captura-vinculacion", func(e Event) {
 		*token, _ = e.Payload["token"].(string)
 	}))
 	return token

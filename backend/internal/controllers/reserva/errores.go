@@ -46,6 +46,56 @@ func registrarErroresDeReserva(mapeador *ctrlAcceso.MapeadorDeErrores) {
 		respuestaConEstado(http.StatusNotFound, "reserva_inexistente"),
 	)
 	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrSolapamiento) },
+		respuestaConEstado(http.StatusConflict, "solapamiento"),
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrCuotaEscolar) },
+		respuestaConEstado(http.StatusConflict, "cuota_escolar"),
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrCuotaCursoSemana) },
+		respuestaConEstado(http.StatusConflict, "cuota_curso_semana"),
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrIdempotenciaConflicto) },
+		respuestaConEstado(http.StatusConflict, "idempotencia_conflicto"),
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrAdjuntoNoEncontrado) },
+		respuestaConEstado(http.StatusNotFound, "adjunto_inexistente"),
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrAdjuntosLlenos) },
+		respuestaConEstado(http.StatusConflict, "adjuntos_llenos"),
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrAdjuntoEnCuarentena) },
+		respuestaConEstado(http.StatusConflict, "adjunto_en_cuarentena"),
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrAdjuntoRechazado) },
+		respuestaConEstado(http.StatusConflict, "adjunto_rechazado"),
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrAdjuntoInvalido) },
+		func(error) vistaAcceso.RespuestaError {
+			return vistaAcceso.RespuestaError{
+				Estado: http.StatusUnprocessableEntity, Codigo: "adjunto_invalido",
+				Mensaje: "El archivo no cumple el formato permitido (PDF, PNG, JPG, TXT o DOCX de hasta 10 MB).",
+			}
+		},
+	)
+	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrAlmacen) },
+		func(error) vistaAcceso.RespuestaError {
+			return vistaAcceso.RespuestaError{
+				Estado: http.StatusInternalServerError, Codigo: "almacen",
+				Mensaje: "No se pudo guardar el adjunto. Intenta de nuevo.",
+			}
+		},
+	)
+	mapeador.Registrar(
 		func(err error) bool { return errors.Is(err, modelo.ErrSinAutorizacion) },
 		respuestaConEstado(http.StatusForbidden, "sin_autorizacion"),
 	)
