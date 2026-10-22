@@ -7,18 +7,17 @@ import (
 	"strings"
 	"testing"
 
-	"uniapp/internal/adapters"
-	"uniapp/internal/events"
+	infra "uniapp/internal/infra"
 	modelo "uniapp/internal/models/acceso"
 )
 
 const origen = "http://localhost:5173"
 const clave = "Clave-Segura-2026!"
 
-func servidor(t *testing.T) (http.Handler, *events.Bus) {
+func servidor(t *testing.T) (http.Handler, *infra.Bus) {
 	t.Helper()
-	h := adapters.PBKDF2Hasher{Iteraciones: 1000}
-	bus := events.NuevoBus()
+	h := infra.PBKDF2Hasher{Iteraciones: 1000}
+	bus := infra.NuevoBus()
 	svc := modelo.NuevoServicio(modelo.Dependencias{
 		Repositorio: modelo.NuevoRepositorioMemoria(),
 		Fabrica:     modelo.NuevaFabrica(h, "uni.edu.pe"),
@@ -87,7 +86,7 @@ func TestRegistroNoPermiteCoordinadorNiCampos(t *testing.T) {
 func TestRegistroConfirmaCorreoAntesDeIngresar(t *testing.T) {
 	h, bus := servidor(t)
 	var token string
-	bus.Registrar(events.ConfirmacionSolicitada, events.NuevoObservadorFunc("captura-confirmacion", func(e events.Event) {
+	bus.Registrar(modelo.ConfirmacionSolicitada, infra.NuevoObservadorFunc("captura-confirmacion", func(e modelo.Event) {
 		token, _ = e.Payload["token"].(string)
 	}))
 	cuerpo := `{"email":"nuevo@example.com","nombre_uso":"Nuevo","clave":"` + clave + `","rol":"escolar"}`
