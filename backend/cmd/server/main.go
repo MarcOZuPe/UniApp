@@ -155,11 +155,12 @@ func construirManejador(
 	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
+	baseDatos *sql.DB,
 ) http.Handler {
 	raiz := http.NewServeMux()
 
 	raiz.Handle("/api/tutor/", ctrlTutor.Rutas())
-	raiz.Handle("/api/oferta/", ctrlOferta.Rutas())
+	raiz.Handle("/api/oferta/", ctrlOferta.Rutas(baseDatos, controlador.Autenticar()))
 
 	// Ambos patrones son necesarios para el flujo de reservas.
 	manejadorReserva := ctrlReserva.Nuevo(
@@ -219,6 +220,7 @@ func construirManejadorConSesion(
 			reservas,
 			registro,
 			configuracion,
+			baseDatos,
 		),
 	)
 
