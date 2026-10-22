@@ -21,6 +21,8 @@ type Config struct {
 	SembrarSintetico     bool
 	ClaveSemilla         string
 	DirectorioDocumentos string
+	DirectorioAdjuntos   string
+	AnalisisAdjuntos     string
 	SMTP                 SMTP
 }
 
@@ -99,6 +101,8 @@ func Cargar() (Config, error) {
 		DominiosTutor:        variableEntorno("TUTOR_EMAIL_DOMAIN", "uni.edu.pe,uni.pe"),
 		ClaveSemilla:         os.Getenv("SEED_PASSWORD"),
 		DirectorioDocumentos: variableEntorno("TUTOR_DOCUMENTS_DIR", "./data/tutor-documents"),
+		DirectorioAdjuntos:   variableEntorno("RESERVA_ATTACHMENTS_DIR", "./data/reserva-adjuntos"),
+		AnalisisAdjuntos:     variableEntorno("RESERVA_ATTACHMENTS_SCAN", "basico"),
 	}
 	origenes := origenesDe(variableEntorno("FRONTEND_ORIGIN", "http://localhost:5173"))
 	configuracion.CookieSegura, _ = strconv.ParseBool(variableEntorno("COOKIE_SECURE", "false"))

@@ -11,9 +11,14 @@ import (
 const formatoLima = "2006-01-02 15:04"
 
 type AdjuntoJSON struct {
+	ID          string `json:"id"`
 	Nombre      string `json:"nombre"`
 	Tipo        string `json:"tipo"`
 	TamanoBytes int64  `json:"tamano_bytes"`
+	Estado      string `json:"estado"`
+	Motivo      string `json:"motivo,omitempty"`
+	Descargable bool   `json:"descargable"`
+	CreadoEn    string `json:"creado_en"`
 }
 
 type ReservaJSON struct {
@@ -62,12 +67,27 @@ func PresentarReservas(reservas []modelo.Reserva) []ReservaJSON {
 	return presentadas
 }
 
+func PresentarAdjuntos(adjuntos []modelo.Adjunto) []AdjuntoJSON {
+	return presentarAdjuntos(adjuntos)
+}
+
+func PresentarAdjunto(adjunto *modelo.Adjunto) AdjuntoJSON {
+	return AdjuntoJSON{
+		ID:          adjunto.ID,
+		Nombre:      adjunto.Nombre,
+		Tipo:        adjunto.Tipo,
+		TamanoBytes: adjunto.TamanoBytes,
+		Estado:      string(adjunto.Estado),
+		Motivo:      adjunto.Motivo,
+		Descargable: adjunto.Descargable(),
+		CreadoEn:    presentarLima(adjunto.CreadoEn),
+	}
+}
+
 func presentarAdjuntos(adjuntos []modelo.Adjunto) []AdjuntoJSON {
 	presentados := make([]AdjuntoJSON, 0, len(adjuntos))
-	for _, adjunto := range adjuntos {
-		presentados = append(presentados, AdjuntoJSON{
-			Nombre: adjunto.Nombre, Tipo: adjunto.Tipo, TamanoBytes: adjunto.TamanoBytes,
-		})
+	for i := range adjuntos {
+		presentados = append(presentados, PresentarAdjunto(&adjuntos[i]))
 	}
 	return presentados
 }

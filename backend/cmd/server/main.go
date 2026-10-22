@@ -79,8 +79,8 @@ func main() {
 	)
 	tutores := ctrlTutor.Nuevo(servicioTutor, controlador.Autenticar()).Rutas()
 
-	// Servicio del flujo D: reservas.
-	reservas := construirServicioReserva(baseDatos)
+	// Servicio del flujo D: reservas y adjuntos.
+	reservas := construirServicioReserva(baseDatos, configuracion)
 
 	// Extensión del flujo E: sesiones y asistencias.
 	manejador := construirManejadorConSesion(
@@ -126,11 +126,19 @@ func construirServicio(ctx context.Context, registro *log.Logger, configuracion 
 	return servicio
 }
 
-// Servicio del flujo D, conservado desde main.
-func construirServicioReserva(baseDatos *sql.DB) *modeloReserva.Servicio {
+// Servicio del flujo D: reserva transaccional y adjuntos en cuarentena (I09).
+func construirServicioReserva(baseDatos *sql.DB, configuracion config.Config) *modeloReserva.Servicio {
+	var analizador modeloReserva.Analizador = modeloReserva.AnalizadorBasico{}
+	if strings.EqualFold(configuracion.AnalisisAdjuntos, "ninguno") {
+		// Sin análisis disponible la reserva sigue funcionando: el adjunto queda en cuarentena.
+		analizador = modeloReserva.AnalizadorNoDisponible{}
+	}
 	return modeloReserva.NuevoServicio(modeloReserva.Dependencias{
 		Repositorio: modeloReserva.RepositorioPostgres{DB: baseDatos},
 		Oferta:      modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
+		Almacen:     adapters.AlmacenAdjuntosFS{Directorio: configuracion.DirectorioAdjuntos},
+		Analizador:  analizador,
+		Limites:     modeloReserva.LimitesPorDefecto,
 	})
 }
 
