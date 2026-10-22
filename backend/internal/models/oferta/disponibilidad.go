@@ -8,29 +8,29 @@ import (
 )
 
 const (
-	ZonaHoraria          = "America/Lima"
-	DuracionSlot         = time.Hour
-	CupoSemanalMinimo    = 180
-	CupoSemanalMaximo    = 360
-	MinutosEnUnaHora     = 60
+	ZonaHoraria       = "America/Lima"
+	DuracionSlot      = time.Hour
+	CupoSemanalMinimo = 180
+	CupoSemanalMaximo = 360
+	MinutosEnUnaHora  = 60
 )
 
 var (
-	ErrSlotInvalido        = errors.New("slot de disponibilidad inválido")
-	ErrSolapamiento        = errors.New("los slots de un tutor no pueden solaparse")
-	ErrCupoInvalido        = errors.New("el cupo semanal debe estar entre 180 y 360 minutos, en múltiplos de 60")
-	ErrReduccionConActivos = errors.New("no se puede reducir el cupo semanal con compromisos activos")
+	ErrSlotInvalido           = errors.New("slot de disponibilidad inválido")
+	ErrSolapamiento           = errors.New("los slots de un tutor no pueden solaparse")
+	ErrCupoInvalido           = errors.New("el cupo semanal debe estar entre 180 y 360 minutos, en múltiplos de 60")
+	ErrReduccionConActivos    = errors.New("no se puede reducir el cupo semanal con compromisos activos")
 	ErrReduccionNoVerificable = errors.New("no se puede verificar si hay compromisos activos para reducir el cupo")
-	ErrCapacidadSemanal    = errors.New("la disponibilidad excede el cupo semanal")
-	ErrSlotNoEncontrado    = errors.New("slot de disponibilidad no encontrado")
+	ErrCapacidadSemanal       = errors.New("la disponibilidad excede el cupo semanal")
+	ErrSlotNoEncontrado       = errors.New("slot de disponibilidad no encontrado")
 )
 
 type SlotSemanal struct {
-	ID         int64
-	TutorID    string
-	DiaSemana  time.Weekday
-	Inicio     time.Duration
-	Fin        time.Duration
+	ID        int64
+	TutorID   string
+	DiaSemana time.Weekday
+	Inicio    time.Duration
+	Fin       time.Duration
 }
 
 type CupoSemanal struct {
