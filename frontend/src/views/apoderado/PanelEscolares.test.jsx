@@ -47,7 +47,7 @@ describe('I06: panel de escolares', () => {
     cleanup();
   });
 
-  it('muestra la autorización y el historial de cada escolar', async () => {
+  it('muestra la autorización y el historial del escolar seleccionado', async () => {
     listarVinculaciones.mockResolvedValue({
       vinculaciones: [vinculacionAceptada(false)],
     });
@@ -73,6 +73,10 @@ describe('I06: panel de escolares', () => {
     expect(
       await screen.findByRole('heading', { name: 'Panel de escolares' })
     ).toBeTruthy();
+    fireEvent.change(await screen.findByLabelText('Escolar'), {
+      target: { value: 'e-1' },
+    });
+
     expect(await screen.findByRole('table')).toBeTruthy();
     expect(screen.getByText('No puede solicitar nuevas tutorías.')).toBeTruthy();
     expect(historialAutorizaciones).toHaveBeenCalledWith('e-1');
@@ -87,6 +91,48 @@ describe('I06: panel de escolares', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('solo muestra el detalle del escolar elegido en la lista', async () => {
+    const segundo = {
+      ...vinculacionAceptada(true),
+      id: 'v-2',
+      escolar: {
+        id: 'e-2',
+        nombre_uso: 'Escolar Dos',
+        email: 'escolar2@example.com',
+      },
+    };
+    listarVinculaciones.mockResolvedValue({
+      vinculaciones: [vinculacionAceptada(true), segundo],
+    });
+    historialAutorizaciones.mockResolvedValue({
+      autorizaciones: [
+        {
+          id: 'a-3',
+          estado: 'autorizado',
+          autorizado: true,
+          creada_en: '2026-10-20T15:30:00Z',
+        },
+      ],
+    });
+
+    renderizar();
+
+    const selector = await screen.findByLabelText('Escolar');
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(historialAutorizaciones).not.toHaveBeenCalled();
+
+    fireEvent.change(selector, { target: { value: 'e-2' } });
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Escolar Dos' })
+    ).toBeTruthy();
+    expect(await screen.findByRole('table')).toBeTruthy();
+    expect(screen.getByText(/Cambios de permiso para Escolar Dos/)).toBeTruthy();
+    expect(historialAutorizaciones).toHaveBeenCalledWith('e-2');
+    expect(historialAutorizaciones).not.toHaveBeenCalledWith('e-1');
+    expect(screen.queryByRole('heading', { level: 2, name: 'Escolar Prueba' })).toBeNull();
+  });
+
   it('permite revocar y volver a autorizar desde el panel', async () => {
     listarVinculaciones
       .mockResolvedValueOnce({ vinculaciones: [vinculacionAceptada(true)] })
@@ -97,6 +143,9 @@ describe('I06: panel de escolares', () => {
 
     renderizar();
 
+    fireEvent.change(await screen.findByLabelText('Escolar'), {
+      target: { value: 'e-1' },
+    });
     expect(await screen.findByText('Puede solicitar nuevas tutorías.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Revocar autorización' }));
 
@@ -122,6 +171,10 @@ describe('I06: panel de escolares', () => {
     });
 
     renderizar();
+
+    fireEvent.change(await screen.findByLabelText('Escolar'), {
+      target: { value: 'e-2' },
+    });
 
     expect(await screen.findByText('Pendiente de aceptación')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /autorización/i })).toBeNull();
