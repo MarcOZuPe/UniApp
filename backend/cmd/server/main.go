@@ -188,7 +188,7 @@ func construirServicioReserva(
 
 	return modeloReserva.NuevoServicio(modeloReserva.Dependencias{
 		Repositorio: modeloReserva.RepositorioPostgres{
-			DB:                      baseDatos,
+			DB:                       baseDatos,
 			AnticipacionRecordatorio: anticipacion,
 		},
 		Oferta: modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
