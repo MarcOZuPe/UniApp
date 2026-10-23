@@ -1,6 +1,9 @@
 package tutor
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type Repositorio interface {
 	Guardar(context.Context, *Expediente) error
@@ -8,6 +11,7 @@ type Repositorio interface {
 	Pendientes(context.Context) ([]Expediente, error)
 	Revisar(context.Context, *Expediente) error
 	Documento(context.Context, string) (Documento, string, error)
+	PerfilesPublicos(context.Context, time.Time) ([]PerfilListado, error)
 }
 
 type AlmacenDocumentos interface {

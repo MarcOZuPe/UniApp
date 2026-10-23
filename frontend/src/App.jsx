@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import RutaProtegida from './components/RutaProtegida.jsx';
+import RutaProtegidaConRetorno from './components/RutaProtegidaConRetorno.jsx';
 import { cargarSesion } from './controllers/acceso/acciones.js';
 
 import Inicio from './views/acceso/Inicio.jsx';
@@ -15,9 +16,20 @@ import Coordinacion from './views/acceso/Coordinacion.jsx';
 
 import Disponibilidad from './views/oferta/Disponibilidad.jsx';
 import FormularioReserva from './views/reserva/FormularioReserva.jsx';
+import Agenda from './views/reserva/Agenda.jsx';
 import DetalleSesion from './views/sesion/DetalleSesion.jsx';
+import Notificaciones from './views/sesion/Notificaciones.jsx';
+
+import VincularEscolar from './views/apoderado/VincularEscolar.jsx';
+import PanelEscolares from './views/apoderado/PanelEscolares.jsx';
+import AceptarVinculacion from './views/apoderado/AceptarVinculacion.jsx';
+import MiApoderado from './views/apoderado/MiApoderado.jsx';
+
 import ExpedienteTutor from './views/tutor/ExpedienteTutor.jsx';
 import RevisarTutores from './views/tutor/RevisarTutores.jsx';
+
+import Catalogo from './views/catalogo/Catalogo.jsx';
+import GestionarCatalogo from './views/catalogo/GestionarCatalogo.jsx';
 
 export default function App() {
     useEffect(() => {
@@ -27,6 +39,8 @@ export default function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/catalogo" element={<Catalogo />} />
+
                 <Route path="/ingreso" element={<Ingreso />} />
                 <Route path="/registro" element={<Registro />} />
                 <Route path="/recuperar" element={<Recuperar />} />
@@ -48,6 +62,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador']}>
                             <RevisarTutores />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/coordinacion/catalogo"
+                    element={
+                        <RutaProtegida roles={['coordinador']}>
+                            <GestionarCatalogo />
                         </RutaProtegida>
                     }
                 />
@@ -84,6 +107,60 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['tutor', 'escolar']}>
                             <DetalleSesion />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/agenda"
+                    element={
+                        <RutaProtegida roles={['escolar', 'tutor']}>
+                            <Agenda />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/notificaciones"
+                    element={
+                        <RutaProtegida roles={['escolar', 'tutor']}>
+                            <Notificaciones />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/apoderado/vincular"
+                    element={
+                        <RutaProtegida roles={['apoderado']}>
+                            <VincularEscolar />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/panel_escolares"
+                    element={
+                        <RutaProtegida roles={['apoderado']}>
+                            <PanelEscolares />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/vinculacion/aceptar"
+                    element={
+                        <RutaProtegidaConRetorno roles={['escolar']}>
+                            <AceptarVinculacion />
+                        </RutaProtegidaConRetorno>
+                    }
+                />
+
+                <Route
+                    path="/mi-apoderado"
+                    element={
+                        <RutaProtegida roles={['escolar']}>
+                            <MiApoderado />
                         </RutaProtegida>
                     }
                 />

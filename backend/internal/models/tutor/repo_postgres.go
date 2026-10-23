@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 )
 
 type RepositorioPostgres struct {
@@ -115,6 +116,26 @@ func (r RepositorioPostgres) Documento(ctx context.Context, id string) (Document
 		return Documento{}, "", ErrNoEncontrado
 	}
 	return documento, tutorID, err
+}
+
+func (r RepositorioPostgres) PerfilesPublicos(ctx context.Context, ahora time.Time) ([]PerfilListado, error) {
+	filas, err := r.DB.QueryContext(ctx, `SELECT tutor_id, presentacion, cursos, experiencia
+		FROM tutor_expedientes
+		WHERE estado = $1 AND vence_en > $2
+		ORDER BY tutor_id`, string(EstadoAprobado), ahora)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = filas.Close() }()
+	resultado := make([]PerfilListado, 0)
+	for filas.Next() {
+		var perfil PerfilListado
+		if err := filas.Scan(&perfil.TutorID, &perfil.Presentacion, &perfil.Cursos, &perfil.Experiencia); err != nil {
+			return nil, err
+		}
+		resultado = append(resultado, perfil)
+	}
+	return resultado, filas.Err()
 }
 
 func (r RepositorioPostgres) documentosDe(ctx context.Context, tutorID string) ([]Documento, error) {
