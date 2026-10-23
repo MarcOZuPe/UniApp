@@ -148,6 +148,31 @@ func (r RepositorioPostgres) PorEscolar(ctx context.Context, escolarID string) (
 	return reservas, filas.Err()
 }
 
+func (r RepositorioPostgres) PorTutor(ctx context.Context, tutorID string) ([]Reserva, error) {
+	filas, err := r.DB.QueryContext(
+		ctx,
+		"SELECT "+columnasReserva+" FROM reservas WHERE tutor_id = $1 ORDER BY inicio, id",
+		tutorID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer filas.Close()
+
+	reservas := []Reserva{}
+
+	for filas.Next() {
+		reserva, err := escanearReserva(filas)
+		if err != nil {
+			return nil, err
+		}
+
+		reservas = append(reservas, *reserva)
+	}
+
+	return reservas, filas.Err()
+}
+
 func (r RepositorioPostgres) SlotTomado(ctx context.Context, slotID string) (bool, error) {
 	var tomado bool
 	err := r.DB.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM reservas WHERE slot_id = $1)", slotID).Scan(&tomado)

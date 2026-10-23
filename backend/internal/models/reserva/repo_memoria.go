@@ -131,6 +131,32 @@ func (r *RepositorioMemoria) PorEscolar(_ context.Context, escolarID string) ([]
 	return resultado, nil
 }
 
+func (r *RepositorioMemoria) PorTutor(_ context.Context, tutorID string) ([]Reserva, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	resultado := []Reserva{}
+
+	for _, guardada := range r.reservas {
+		if guardada.TutorID != tutorID {
+			continue
+		}
+
+		copia := *guardada
+		copia.Adjuntos = nil
+		resultado = append(resultado, copia)
+	}
+
+	sort.Slice(resultado, func(i, j int) bool {
+		if resultado[i].Inicio.Equal(resultado[j].Inicio) {
+			return resultado[i].ID < resultado[j].ID
+		}
+		return resultado[i].Inicio.Before(resultado[j].Inicio)
+	})
+
+	return resultado, nil
+}
+
 func (r *RepositorioMemoria) SlotTomado(_ context.Context, slotID string) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -11,6 +11,7 @@ type Repositorio interface {
 	PorClaveIdempotencia(ctx context.Context, escolarID, clave string) (*Reserva, error)
 	PorID(ctx context.Context, id string) (*Reserva, error)
 	PorEscolar(ctx context.Context, escolarID string) ([]Reserva, error)
+	PorTutor(ctx context.Context, tutorID string) ([]Reserva, error) //Agregado para obtener reservas por tutor
 	SlotTomado(ctx context.Context, slotID string) (bool, error)
 
 	ContarAdjuntos(ctx context.Context, reservaID string) (int, error)
