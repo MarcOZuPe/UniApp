@@ -85,6 +85,10 @@ func (s *Servicio) PerfilPublico(ctx context.Context, tutorID string) (*Expedien
 	return expediente, nil
 }
 
+func (s *Servicio) PerfilesPublicos(ctx context.Context) ([]PerfilListado, error) {
+	return s.repositorio.PerfilesPublicos(ctx, s.ahora())
+}
+
 func (s *Servicio) DescargarDocumento(ctx context.Context, documentoID, usuarioID string, coordinador bool) ([]byte, Documento, error) {
 	documento, propietarioID, err := s.repositorio.Documento(ctx, documentoID)
 	if err != nil {

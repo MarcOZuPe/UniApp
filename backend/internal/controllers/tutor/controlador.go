@@ -43,6 +43,7 @@ func (c *Controlador) Rutas() http.Handler {
 	mux.HandleFunc("GET /api/tutor/salud", func(w http.ResponseWriter, _ *http.Request) {
 		vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]string{"flujo": "tutor", "estado": "implementado"})
 	})
+	mux.HandleFunc("GET /api/tutor/perfiles", c.perfilesPublicos)
 	mux.HandleFunc("GET /api/tutor/perfiles/{id}", c.perfilPublico)
 	mux.Handle("GET /api/tutor/mi-expediente", c.proteger(http.HandlerFunc(c.miExpediente), c.presentarTutor))
 	mux.Handle("POST /api/tutor/expediente", c.proteger(http.HandlerFunc(c.presentarExpediente), c.presentarTutor))
@@ -150,7 +151,18 @@ func (c *Controlador) perfilPublico(w http.ResponseWriter, r *http.Request) {
 		c.responderError(w, err)
 		return
 	}
-	vistaAcceso.EscribirJSON(w, http.StatusOK, vista.PresentarExpediente(expediente))
+	vistaAcceso.EscribirJSON(w, http.StatusOK, vista.PresentarPerfilPublico(expediente))
+}
+
+func (c *Controlador) perfilesPublicos(w http.ResponseWriter, r *http.Request) {
+	perfiles, err := c.servicio.PerfilesPublicos(r.Context())
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]any{
+		"perfiles": vista.PresentarPerfilesPublicos(perfiles),
+	})
 }
 
 func (c *Controlador) documento(w http.ResponseWriter, r *http.Request) {

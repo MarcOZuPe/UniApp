@@ -87,7 +87,7 @@ func TestModeloNoImportaInfraestructura(t *testing.T) {
 }
 
 func TestCadaFlujoTieneLasTresCapas(t *testing.T) {
-	for _, flujo := range []string{"acceso", "tutor", "oferta", "reserva", "sesion"} {
+	for _, flujo := range []string{"acceso", "tutor", "oferta", "reserva", "sesion", "catalogo"} {
 		for _, capa := range []string{"models", "views", "controllers"} {
 			m, _ := filepath.Glob(filepath.Join("..", capa, flujo, "*.go"))
 			if len(m) == 0 {

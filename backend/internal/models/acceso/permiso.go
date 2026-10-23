@@ -3,10 +3,12 @@ package acceso
 type Permiso string
 
 const (
-	PermisoCoordinacionAcceder Permiso = "coordinacion:acceder"
-	PermisoExpedientePresentar Permiso = "expediente:presentar"
-	PermisoReservaCrear        Permiso = "reserva:crear"
-	PermisoAutorizacionOtorgar Permiso = "autorizacion:otorgar"
+	PermisoCoordinacionAcceder      Permiso = "coordinacion:acceder"
+	PermisoExpedientePresentar      Permiso = "expediente:presentar"
+	PermisoReservaCrear             Permiso = "reserva:crear"
+	PermisoAutorizacionOtorgar      Permiso = "autorizacion:otorgar"
+	PermisoCatalogoGestionar        Permiso = "catalogo:gestionar"
+	PermisoCatalogoSolicitarColegio Permiso = "catalogo:solicitar_colegio"
 )
 
 func (r Rol) Permisos() []Permiso {

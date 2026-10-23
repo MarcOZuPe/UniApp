@@ -16,7 +16,7 @@ import (
 )
 
 // baseAislada crea una base nueva para este paquete. Evita que otras pruebas que
-// truncan usuarios interfieran con las carreras, y comprueba las migraciones 001-007
+// truncan usuarios interfieran con las carreras, y comprueba todas las migraciones
 // desde cero.
 func baseAislada(t *testing.T) *sql.DB {
 	t.Helper()

@@ -33,6 +33,7 @@ export default function Coordinacion() {
           <h2>{panel.mensaje}</h2>
           <p>Permiso activo: <code>coordinacion:acceder</code></p>
           <p><Link to="/coordinacion/tutores">Revisar expedientes de tutores</Link></p>
+          <p><Link to="/coordinacion/catalogo">Importar y aprobar el catálogo escolar</Link></p>
         </section>
       )}
       <p><Link to="/">Volver al inicio</Link></p>

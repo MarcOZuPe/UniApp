@@ -7,25 +7,52 @@ type FabricaRol interface {
 
 type fabricaRolEscolar struct{}
 
-func (fabricaRolEscolar) CrearPerfil(string) PerfilRol { return nuevoPerfilEscolar() }
-func (fabricaRolEscolar) Permisos() []Permiso          { return []Permiso{PermisoReservaCrear} }
+func (fabricaRolEscolar) CrearPerfil(string) PerfilRol {
+	return nuevoPerfilEscolar()
+}
+
+func (fabricaRolEscolar) Permisos() []Permiso {
+	return []Permiso{
+		PermisoReservaCrear,
+		PermisoCatalogoSolicitarColegio,
+	}
+}
 
 type fabricaRolApoderado struct{}
 
-func (fabricaRolApoderado) CrearPerfil(string) PerfilRol { return nuevoPerfilApoderado() }
-func (fabricaRolApoderado) Permisos() []Permiso          { return []Permiso{PermisoAutorizacionOtorgar} }
+func (fabricaRolApoderado) CrearPerfil(string) PerfilRol {
+	return nuevoPerfilApoderado()
+}
+
+func (fabricaRolApoderado) Permisos() []Permiso {
+	return []Permiso{
+		PermisoAutorizacionOtorgar,
+		PermisoCatalogoSolicitarColegio,
+	}
+}
 
 type fabricaRolTutor struct{}
 
 func (fabricaRolTutor) CrearPerfil(dominiosTutor string) PerfilRol {
 	return nuevoPerfilTutor(dominiosTutor)
 }
-func (fabricaRolTutor) Permisos() []Permiso { return []Permiso{PermisoExpedientePresentar} }
+
+func (fabricaRolTutor) Permisos() []Permiso {
+	return []Permiso{PermisoExpedientePresentar}
+}
 
 type fabricaRolCoordinador struct{}
 
-func (fabricaRolCoordinador) CrearPerfil(string) PerfilRol { return nuevoPerfilCoordinador() }
-func (fabricaRolCoordinador) Permisos() []Permiso          { return []Permiso{PermisoCoordinacionAcceder} }
+func (fabricaRolCoordinador) CrearPerfil(string) PerfilRol {
+	return nuevoPerfilCoordinador()
+}
+
+func (fabricaRolCoordinador) Permisos() []Permiso {
+	return []Permiso{
+		PermisoCoordinacionAcceder,
+		PermisoCatalogoGestionar,
+	}
+}
 
 func FabricaParaRol(rol Rol) (FabricaRol, error) {
 	switch rol {
@@ -38,6 +65,10 @@ func FabricaParaRol(rol Rol) (FabricaRol, error) {
 	case RolCoordinador:
 		return fabricaRolCoordinador{}, nil
 	default:
-		return nil, ErrValidacion{Campos: map[string]string{"rol": "rol desconocido"}}
+		return nil, ErrValidacion{
+			Campos: map[string]string{
+				"rol": "rol desconocido",
+			},
+		}
 	}
 }

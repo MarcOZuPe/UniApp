@@ -10,6 +10,7 @@ export default function Inicio() {
       <h1>Hola, {usuario.nombre_uso}</h1>
       <p>Rol: <strong>{etiquetaRol(usuario.rol)}</strong></p>
       <ul>
+        <li><Link to="/catalogo">Explorar cursos y perfiles públicos de tutores</Link></li>
         {import.meta.env.VITE_I05_DEMO === 'true' && ['tutor', 'escolar'].includes(usuario.rol) && (
           <li><Link to="/sesiones/sesion-i05-demo">Ver sesión de demostración</Link></li>
         )}

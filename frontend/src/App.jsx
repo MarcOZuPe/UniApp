@@ -23,6 +23,8 @@ import AceptarVinculacion from './views/apoderado/AceptarVinculacion.jsx';
 import MiApoderado from './views/apoderado/MiApoderado.jsx';
 import ExpedienteTutor from './views/tutor/ExpedienteTutor.jsx';
 import RevisarTutores from './views/tutor/RevisarTutores.jsx';
+import Catalogo from './views/catalogo/Catalogo.jsx';
+import GestionarCatalogo from './views/catalogo/GestionarCatalogo.jsx';
 
 export default function App() {
     useEffect(() => {
@@ -32,6 +34,7 @@ export default function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/catalogo" element={<Catalogo />} />
                 <Route path="/ingreso" element={<Ingreso />} />
                 <Route path="/registro" element={<Registro />} />
                 <Route path="/recuperar" element={<Recuperar />} />
@@ -53,6 +56,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador']}>
                             <RevisarTutores />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/coordinacion/catalogo"
+                    element={
+                        <RutaProtegida roles={['coordinador']}>
+                            <GestionarCatalogo />
                         </RutaProtegida>
                     }
                 />
