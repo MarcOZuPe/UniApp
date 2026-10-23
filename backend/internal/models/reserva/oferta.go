@@ -23,7 +23,14 @@ const (
 // de las 48 horas y otra fuera del horizonte de 28 días.
 type OfertaSintetica struct{ slots []Slot }
 
+// NuevaOfertaSintetica usa el tutor ficticio de la demo. Para que la agenda real de un
+// tutor reciba la reserva (I10) se usa NuevaOfertaSinteticaParaTutor con el UUID del
+// tutor sembrado; mientras I08 no publique la búsqueda, el horario sigue siendo ficticio.
 func NuevaOfertaSintetica(base time.Time) *OfertaSintetica {
+	return NuevaOfertaSinteticaParaTutor(base, TutorSinteticoID, TutorSinteticoNombre)
+}
+
+func NuevaOfertaSinteticaParaTutor(base time.Time, tutorID, tutorNombre string) *OfertaSintetica {
 	catalogo := []struct {
 		curso string
 		dias  int
@@ -37,20 +44,20 @@ func NuevaOfertaSintetica(base time.Time) *OfertaSintetica {
 	slots := make([]Slot, 0, len(catalogo)+2)
 	for indice, entrada := range catalogo {
 		slots = append(slots, slotSintetico(
-			fmt.Sprintf("slot-i04-%02d", indice+1), entrada.curso, horaEnLima(base, entrada.dias, entrada.hora)))
+			fmt.Sprintf("slot-i04-%02d", indice+1), tutorID, tutorNombre, entrada.curso, horaEnLima(base, entrada.dias, entrada.hora)))
 	}
 	slots = append(slots,
-		slotSintetico("slot-i04-cercano", "Álgebra", horaEnLima(base, 1, 9)),
-		slotSintetico("slot-i04-lejano", "Geometría", horaEnLima(base, 30, 15)),
+		slotSintetico("slot-i04-cercano", tutorID, tutorNombre, "Álgebra", horaEnLima(base, 1, 9)),
+		slotSintetico("slot-i04-lejano", tutorID, tutorNombre, "Geometría", horaEnLima(base, 30, 15)),
 	)
 	return &OfertaSintetica{slots: slots}
 }
 
-func slotSintetico(id, curso string, inicio time.Time) Slot {
+func slotSintetico(id, tutorID, tutorNombre, curso string, inicio time.Time) Slot {
 	return Slot{
 		ID:          id,
-		TutorID:     TutorSinteticoID,
-		TutorNombre: TutorSinteticoNombre,
+		TutorID:     tutorID,
+		TutorNombre: tutorNombre,
 		Curso:       curso,
 		Inicio:      inicio.UTC(),
 		Fin:         inicio.UTC().Add(DuracionSesion),
