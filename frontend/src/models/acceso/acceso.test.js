@@ -67,6 +67,20 @@ describe('controlador: cliente (Adapter + Decorator)', () => {
     await expect(caido.get('/x')).rejects.toMatchObject({ estado: 0, codigo: 'red' });
   });
 
+  it('el decorador conserva postFormulario del cliente decorado', async () => {
+    const formulario = new FormData();
+    const base = {
+      get: vi.fn(),
+      post: vi.fn(),
+      postFormulario: vi.fn(async () => ({ adjunto_id: 'a-1' })),
+      put: vi.fn(),
+      delete: vi.fn(),
+    };
+    const c = conSesionExpirada(base, vi.fn());
+    await expect(c.postFormulario('/api/reservas/r-1/adjuntos', formulario)).resolves.toEqual({ adjunto_id: 'a-1' });
+    expect(base.postFormulario).toHaveBeenCalledWith('/api/reservas/r-1/adjuntos', formulario);
+  });
+
   it('el decorador avisa cuando una ruta protegida devuelve 401, pero no en el ingreso', async () => {
     const base = crearClienteHttp(async () => respuesta(401, { mensaje: 'no' }));
     const alExpirar = vi.fn();
