@@ -11,22 +11,23 @@ const (
 	PermisoCatalogoSolicitarColegio Permiso = "catalogo:solicitar_colegio"
 )
 
-var permisosPorRol = map[Rol][]Permiso{
-	RolEscolar:     {PermisoReservaCrear, PermisoCatalogoSolicitarColegio},
-	RolApoderado:   {PermisoAutorizacionOtorgar, PermisoCatalogoSolicitarColegio},
-	RolTutor:       {PermisoExpedientePresentar},
-	RolCoordinador: {PermisoCoordinacionAcceder, PermisoCatalogoGestionar},
-}
-
 func (r Rol) Permisos() []Permiso {
-	propios := permisosPorRol[r]
+	fabrica, err := FabricaParaRol(r)
+	if err != nil {
+		return nil
+	}
+	propios := fabrica.Permisos()
 	copia := make([]Permiso, len(propios))
 	copy(copia, propios)
 	return copia
 }
 
 func (r Rol) TienePermiso(permiso Permiso) bool {
-	for _, propio := range permisosPorRol[r] {
+	fabrica, err := FabricaParaRol(r)
+	if err != nil {
+		return false
+	}
+	for _, propio := range fabrica.Permisos() {
 		if propio == permiso {
 			return true
 		}
