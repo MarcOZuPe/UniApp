@@ -1,9 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
-import { puedeAcceder } from './roles.js';
+import { ROLES, ROLES_REGISTRO, etiquetaRol, politicaDeRol, puedeAcceder, requiereCorreoInstitucional } from './roles.js';
 import { crearPolitica, validarRegistro } from './validadores.js';
 import { crearAlmacen } from '../../controllers/acceso/almacenSesion.js';
 import { crearClienteHttp, ErrorApi } from '../../controllers/acceso/apiCliente.js';
 import { conSesionExpirada } from '../../controllers/acceso/decoradores.js';
+
+describe('modelo: catálogo de roles (registro centralizado)', () => {
+  it('deriva los roles públicos y expone sus metadatos', () => {
+    expect(ROLES_REGISTRO).toEqual(['escolar', 'apoderado', 'tutor']);
+    expect(ROLES_REGISTRO).not.toContain('coordinador');
+    for (const rol of Object.keys(ROLES)) {
+      expect(etiquetaRol(rol)).toBeTruthy();
+      expect(['basica', 'estricta']).toContain(politicaDeRol(rol));
+    }
+    expect(etiquetaRol('desconocido')).toBe('desconocido');
+    expect(politicaDeRol('desconocido')).toBe('basica');
+    expect(requiereCorreoInstitucional('tutor')).toBe(true);
+    expect(requiereCorreoInstitucional('escolar')).toBe(false);
+    expect(requiereCorreoInstitucional('desconocido')).toBe(false);
+  });
+});
 
 describe('modelo: validadores (Strategy + Factory)', () => {
   it('tutor usa política estricta y escolar la básica', () => {
