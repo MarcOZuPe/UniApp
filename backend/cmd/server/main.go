@@ -191,7 +191,7 @@ func construirServicioReserva(
 			DB:                       baseDatos,
 			AnticipacionRecordatorio: anticipacion,
 		},
-		Oferta: modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
+		Oferta: ofertaConTutorReal(baseDatos, configuracion),
 		Almacen: adapters.AlmacenAdjuntosFS{
 			Directorio: configuracion.DirectorioAdjuntos,
 		},
@@ -199,6 +199,22 @@ func construirServicioReserva(
 		Limites:      modeloReserva.LimitesPorDefecto,
 		Autorizacion: autorizacion,
 	})
+}
+
+// ofertaConTutorReal asocia la oferta de demostración al tutor sembrado para que la
+// reserva conserve su UUID y aparezca en su agenda (I10). El horario sigue siendo
+// sintético: la oferta real por curso y semana llega con I08.
+func ofertaConTutorReal(baseDatos *sql.DB, configuracion config.Config) modeloReserva.PuertoOferta {
+	base := time.Now().UTC()
+	if !configuracion.SembrarSintetico {
+		return modeloReserva.NuevaOfertaSintetica(base)
+	}
+	email := "tutor.prueba@" + primerDominio(configuracion.DominiosTutor)
+	tutor, err := (modelo.RepositorioPostgres{DB: baseDatos}).UsuarioPorEmail(context.Background(), email)
+	if err != nil || tutor.ID == "" {
+		return modeloReserva.NuevaOfertaSintetica(base)
+	}
+	return modeloReserva.NuevaOfertaSinteticaParaTutor(base, tutor.ID, tutor.NombreUso)
 }
 
 func construirMailer(configuracion config.Config) modelo.Mailer {
