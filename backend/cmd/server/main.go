@@ -54,6 +54,10 @@ func main() {
 		registro.Fatalf("migraciones: %v", err)
 	}
 
+	if _, err := anticipacionRecordatorio(); err != nil {
+		registro.Fatal(err)
+	}
+	iniciarOutbox(ctx, baseDatos, configuracion, registro)
 	servicio := construirServicio(ctx, registro, configuracion, baseDatos)
 	go limpiarRegistrosVencidosPeriodicamente(ctx, registro, servicio)
 
@@ -83,7 +87,7 @@ func main() {
 	reservas := construirServicioReserva(baseDatos, configuracion)
 
 	// Extensión del flujo E: sesiones y asistencias.
-	manejador := construirManejadorConSesion(
+	manejadorSesion := construirManejadorConSesion(
 		controlador,
 		tutores,
 		reservas,
@@ -92,6 +96,7 @@ func main() {
 		baseDatos,
 	)
 
+	manejador := construirManejadorConAgenda(manejadorSesion, controlador.Autenticar(), registro, configuracion, baseDatos)
 	servidor := nuevoServidor(configuracion.Puerto, manejador)
 	servirHastaSenalDeParada(registro, servidor, ctx)
 }
@@ -128,13 +133,14 @@ func construirServicio(ctx context.Context, registro *log.Logger, configuracion 
 
 // Servicio del flujo D: reserva transaccional y adjuntos en cuarentena (I09).
 func construirServicioReserva(baseDatos *sql.DB, configuracion config.Config) *modeloReserva.Servicio {
+	anticipacion, _ := anticipacionRecordatorio() // Validada al arrancar.
 	var analizador modeloReserva.Analizador = modeloReserva.AnalizadorBasico{}
 	if strings.EqualFold(configuracion.AnalisisAdjuntos, "ninguno") {
 		// Sin análisis disponible la reserva sigue funcionando: el adjunto queda en cuarentena.
 		analizador = modeloReserva.AnalizadorNoDisponible{}
 	}
 	return modeloReserva.NuevoServicio(modeloReserva.Dependencias{
-		Repositorio: modeloReserva.RepositorioPostgres{DB: baseDatos},
+		Repositorio: modeloReserva.RepositorioPostgres{DB: baseDatos, AnticipacionRecordatorio: anticipacion},
 		Oferta:      modeloReserva.NuevaOfertaSintetica(time.Now().UTC()),
 		Almacen:     adapters.AlmacenAdjuntosFS{Directorio: configuracion.DirectorioAdjuntos},
 		Analizador:  analizador,
@@ -200,6 +206,7 @@ func construirManejador(
 }
 
 // Extensión I05: agrega sesiones sin sustituir el flujo D.
+// Esta función conserva el comportamiento original de I05.
 func construirManejadorConSesion(
 	controlador *ctrl.Controlador,
 	tutores http.Handler,
@@ -242,6 +249,41 @@ func construirManejadorConSesion(
 			baseDatos,
 		),
 	)
+
+	return raiz
+}
+
+func construirManejadorConAgenda(
+	anterior http.Handler,
+	autenticar func(http.Handler) http.Handler,
+	registro *log.Logger,
+	configuracion config.Config,
+	baseDatos *sql.DB,
+) http.Handler {
+	raiz := http.NewServeMux()
+
+	rutasAgenda := ctrlReserva.RutasAgenda(
+		modeloReserva.RepositorioPostgres{DB: baseDatos},
+		autenticar,
+	)
+
+	raiz.Handle(
+		"/api/agenda",
+		ctrl.Encadenar(
+			rutasAgenda,
+			ctrl.Recuperar(registro),
+			ctrl.Registro(registro),
+			ctrl.CabecerasSeguras(),
+			ctrl.OrigenPermitido(configuracion.OrigenesFrontend...),
+		),
+	)
+
+	raiz.Handle("/api/notificaciones", ctrl.Encadenar(
+		ctrlSesion.RutasNotificaciones(modeloSesion.RepositorioOutboxPostgres{DB: baseDatos}, autenticar),
+		ctrl.Recuperar(registro), ctrl.Registro(registro), ctrl.CabecerasSeguras(),
+		ctrl.OrigenPermitido(configuracion.OrigenesFrontend...),
+	))
+	raiz.Handle("/", anterior)
 
 	return raiz
 }
@@ -291,7 +333,6 @@ func servirHastaSenalDeParada(registro *log.Logger, servidor *http.Server, ctx c
 }
 
 // primerDominio devuelve el primer dominio no vacío de la lista separada por comas.
-// I05 solo siembra una sesión y necesita el mismo dominio que usa el seed de acceso.
 func primerDominio(texto string) string {
 	for _, parte := range strings.Split(texto, ",") {
 		if dominio := strings.TrimSpace(parte); dominio != "" {

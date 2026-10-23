@@ -16,7 +16,10 @@ const columnasAdjunto = "id, nombre, tipo, tamano_bytes, estado, motivo, huella,
 // RepositorioPostgres usa solo las tablas reservas y reserva_adjuntos (migraciones 004 y
 // 007). La unicidad por slot, el solapamiento del escolar y la idempotencia los garantiza
 // la base de datos; la cuota de D07 se cuenta dentro de la misma transacción.
-type RepositorioPostgres struct{ DB *sql.DB }
+type RepositorioPostgres struct {
+	DB                       *sql.DB
+	AnticipacionRecordatorio time.Duration
+}
 
 func (r RepositorioPostgres) ReservarTransaccional(ctx context.Context, reserva *Reserva, limites Limites) (*Reserva, bool, error) {
 	tx, err := r.DB.BeginTx(ctx, nil)
@@ -82,6 +85,10 @@ func (r RepositorioPostgres) ReservarTransaccional(ctx context.Context, reserva 
 			return existente, false, nil
 		}
 		return nil, false, traducirError(err)
+	}
+	// I10: persistir entregas en la misma transacción; I09 conserva sus validaciones.
+	if err := encolarNotificaciones(ctx, tx, id, reserva, r.AnticipacionRecordatorio); err != nil {
+		return nil, false, err
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, false, err

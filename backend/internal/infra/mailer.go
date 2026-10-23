@@ -44,7 +44,10 @@ type SMTPMailer struct {
 	transporte                              transporteSMTP
 }
 
-func (s SMTPMailer) Enviar(_ context.Context, mensaje modelo.Mensaje) error {
+func (s SMTPMailer) Enviar(ctx context.Context, mensaje modelo.Mensaje) error {
+	if s.transporte == nil {
+		return enviarSMTPConContexto(ctx, s.construirEnvio(mensaje))
+	}
 	return s.transporteORespaldo().EnviarCorreo(s.construirEnvio(mensaje))
 }
 
