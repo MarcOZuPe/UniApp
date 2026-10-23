@@ -7,15 +7,36 @@ import (
 	vista "uniapp/internal/views/acceso"
 )
 
+// manejadorDeError implementa un eslabón de la cadena de responsabilidad.
+// Cada regla decide si maneja el error; si no, lo delega al siguiente.
+type manejadorDeError interface {
+	manejar(error) (vista.RespuestaError, bool)
+	establecerSiguiente(manejadorDeError)
+}
+
 type reglaDeError struct {
 	coincide  func(error) bool
 	respuesta func(error) vista.RespuestaError
+	siguiente manejadorDeError
 }
 
-// MapeadorDeErrores permite extender las respuestas HTTP sin modificar el
-// controlador: cada flujo registra sus propios errores.
+func (r *reglaDeError) manejar(err error) (vista.RespuestaError, bool) {
+	if r.coincide(err) {
+		return r.respuesta(err), true
+	}
+	if r.siguiente != nil {
+		return r.siguiente.manejar(err)
+	}
+	return vista.RespuestaError{}, false
+}
+
+func (r *reglaDeError) establecerSiguiente(siguiente manejadorDeError) {
+	r.siguiente = siguiente
+}
+
 type MapeadorDeErrores struct {
-	reglas []reglaDeError
+	primero manejadorDeError
+	ultimo  *reglaDeError
 }
 
 func NuevoMapeadorDeErrores() *MapeadorDeErrores {
@@ -23,13 +44,19 @@ func NuevoMapeadorDeErrores() *MapeadorDeErrores {
 }
 
 func (m *MapeadorDeErrores) Registrar(coincide func(error) bool, respuesta func(error) vista.RespuestaError) {
-	m.reglas = append(m.reglas, reglaDeError{coincide: coincide, respuesta: respuesta})
+	regla := &reglaDeError{coincide: coincide, respuesta: respuesta}
+	if m.primero == nil {
+		m.primero = regla
+	} else {
+		m.ultimo.establecerSiguiente(regla)
+	}
+	m.ultimo = regla
 }
 
 func (m *MapeadorDeErrores) Escribir(w http.ResponseWriter, err error) {
-	for _, regla := range m.reglas {
-		if regla.coincide(err) {
-			vista.EscribirError(w, regla.respuesta(err))
+	if m.primero != nil {
+		if respuesta, manejado := m.primero.manejar(err); manejado {
+			vista.EscribirError(w, respuesta)
 			return
 		}
 	}
