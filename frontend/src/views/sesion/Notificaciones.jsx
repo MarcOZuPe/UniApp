@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { obtenerNotificaciones } from '../../controllers/sesion/apiNotificaciones.js';
+import '../i10.css';
 
 export default function Notificaciones() {
   const [datos, setDatos] = useState([]);
@@ -14,7 +15,7 @@ export default function Notificaciones() {
     return () => { activo = false; };
   }, []);
   return (
-    <main>
+    <main className="i10-notificaciones">
       <Link to="/">Volver al inicio</Link>
       <h1>Mis notificaciones</h1>
       <p>Confirmaciones y recordatorios de tus tutorías. Se muestran las últimas 100 notificaciones.</p>

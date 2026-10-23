@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { obtenerAgenda } from '../../controllers/reserva/apiAgenda.js';
 import { useSesion } from '../../controllers/acceso/useSesion.js';
+import '../i10.css';
 
 function esProxima(reserva, ahora) {
   return new Date(reserva.fin).getTime() > ahora;
@@ -99,7 +100,7 @@ export default function Agenda() {
   const visibles = periodo === 'proximas' ? proximas : pasadas;
 
   return (
-    <main>
+    <main className="i10-agenda">
       <h1>Mi agenda</h1>
 
       <p>
