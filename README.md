@@ -41,6 +41,10 @@ backend/
     └── config/              # configuración de entorno
 ```
 
+    El catálogo escolar y sus permisos forman parte del flujo B (I07) en
+    `backend/internal/{models,views,controllers}/catalogo`; el expediente y sus perfiles
+    públicos se mantienen en el modelo I02 de tutores.
+
 `models` no importa `infra`; la infraestructura implementa los contratos del dominio y se inyecta en `main.go`.
 
 ## Preparación local

@@ -26,6 +26,31 @@ type Expediente struct {
 	Documentos   []Documento `json:"documentos"`
 }
 
+type PerfilPublico struct {
+	TutorID      string `json:"tutor_id"`
+	Presentacion string `json:"presentacion"`
+	Cursos       string `json:"cursos"`
+	Experiencia  string `json:"experiencia"`
+}
+
+func PresentarPerfilPublico(expediente *modelo.Expediente) PerfilPublico {
+	return PerfilPublico{
+		TutorID: expediente.TutorID, Presentacion: expediente.Presentacion,
+		Cursos: expediente.Cursos, Experiencia: expediente.Experiencia,
+	}
+}
+
+func PresentarPerfilesPublicos(perfiles []modelo.PerfilListado) []PerfilPublico {
+	resultado := make([]PerfilPublico, 0, len(perfiles))
+	for _, perfil := range perfiles {
+		resultado = append(resultado, PerfilPublico{
+			TutorID: perfil.TutorID, Presentacion: perfil.Presentacion,
+			Cursos: perfil.Cursos, Experiencia: perfil.Experiencia,
+		})
+	}
+	return resultado
+}
+
 func PresentarExpediente(expediente *modelo.Expediente) Expediente {
 	documentos := make([]Documento, 0, len(expediente.Documentos))
 	for _, documento := range expediente.Documentos {

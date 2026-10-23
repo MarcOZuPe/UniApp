@@ -79,6 +79,9 @@ func TestExpedienteRevisionYDocumentosPrivados(t *testing.T) {
 	if respuesta := hacerSolicitud(handler, http.MethodGet, "/api/tutor/perfiles/"+tutor.ID, nil, nil); respuesta.Code != http.StatusNotFound {
 		t.Fatalf("perfil pendiente no debe publicarse: estado %d", respuesta.Code)
 	}
+	if respuesta := hacerSolicitud(handler, http.MethodGet, "/api/tutor/perfiles", nil, nil); respuesta.Code != http.StatusOK || strings.Contains(respuesta.Body.String(), tutor.ID) {
+		t.Fatalf("la lista pública debe omitir perfiles pendientes: estado %d, cuerpo %s", respuesta.Code, respuesta.Body.String())
+	}
 
 	cookieTutor := iniciarSesionTutor(t, handler, "tutor.prueba@uni.edu.pe")
 	respuestaPresentacion := presentarFormularioTutor(t, handler, cookieTutor)
@@ -121,8 +124,19 @@ func TestExpedienteRevisionYDocumentosPrivados(t *testing.T) {
 	}
 
 	respuestaPublica := hacerSolicitud(handler, http.MethodGet, "/api/tutor/perfiles/"+tutor.ID, nil, nil)
-	if respuestaPublica.Code != http.StatusOK || strings.Contains(respuestaPublica.Body.String(), presentado.Documentos[0].ID) {
-		t.Fatalf("el perfil aprobado debe ser público pero sin documentos: estado %d, cuerpo %s", respuestaPublica.Code, respuestaPublica.Body.String())
+	for _, campoPrivado := range []string{"documentos", "constancia.pdf", presentado.Documentos[0].ID, "vence_en", "email"} {
+		if strings.Contains(respuestaPublica.Body.String(), campoPrivado) {
+			t.Fatalf("el perfil público expuso %q: %s", campoPrivado, respuestaPublica.Body.String())
+		}
+	}
+	if respuestaPublica.Code != http.StatusOK {
+		t.Fatalf("el perfil aprobado vigente debe ser público: estado %d, cuerpo %s", respuestaPublica.Code, respuestaPublica.Body.String())
+	}
+	respuestaPerfiles := hacerSolicitud(handler, http.MethodGet, "/api/tutor/perfiles", nil, nil)
+	if respuestaPerfiles.Code != http.StatusOK || !strings.Contains(respuestaPerfiles.Body.String(), tutor.ID) ||
+		strings.Contains(respuestaPerfiles.Body.String(), "documentos") ||
+		strings.Contains(respuestaPerfiles.Body.String(), "email") {
+		t.Fatalf("la lista debe incluir únicamente datos públicos: estado %d, cuerpo %s", respuestaPerfiles.Code, respuestaPerfiles.Body.String())
 	}
 	respuestaDocumento := hacerSolicitud(handler, http.MethodGet, "/api/tutor/documentos/"+presentado.Documentos[0].ID, cookieCoord, nil)
 	if respuestaDocumento.Code != http.StatusOK || respuestaDocumento.Header().Get("Content-Type") != "application/pdf" {

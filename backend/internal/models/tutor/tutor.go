@@ -38,6 +38,13 @@ type Expediente struct {
 	Documentos   []Documento
 }
 
+type PerfilListado struct {
+	TutorID      string
+	Presentacion string
+	Cursos       string
+	Experiencia  string
+}
+
 type DatosExpediente struct {
 	Presentacion string
 	Cursos       string

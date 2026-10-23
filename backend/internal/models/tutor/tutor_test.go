@@ -65,10 +65,18 @@ func TestExpedientePendienteNoSePublicaHastaAprobacionVigente(t *testing.T) {
 	if len(publico.Documentos) != 0 {
 		t.Fatal("el perfil público no debe exponer documentos")
 	}
+	perfiles, err := servicio.PerfilesPublicos(context.Background())
+	if err != nil || len(perfiles) != 1 || perfiles[0].TutorID != "tutor-1" {
+		t.Fatalf("el directorio debe incluir perfiles aprobados vigentes: %+v, error: %v", perfiles, err)
+	}
 
 	ahora = vencimiento
 	if _, err := servicio.PerfilPublico(context.Background(), "tutor-1"); !errors.Is(err, ErrNoPublicable) {
 		t.Fatalf("perfil vencido no debe publicarse: %v", err)
+	}
+	perfiles, err = servicio.PerfilesPublicos(context.Background())
+	if err != nil || len(perfiles) != 0 {
+		t.Fatalf("el directorio debe ocultar perfiles vencidos: %+v, error: %v", perfiles, err)
 	}
 }
 

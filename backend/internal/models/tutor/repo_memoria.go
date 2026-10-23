@@ -2,7 +2,9 @@ package tutor
 
 import (
 	"context"
+	"sort"
 	"sync"
+	"time"
 )
 
 type RepositorioMemoria struct {
@@ -76,4 +78,20 @@ func (r *RepositorioMemoria) Documento(_ context.Context, id string) (Documento,
 		return Documento{}, "", ErrNoEncontrado
 	}
 	return documento, r.propietario[id], nil
+}
+
+func (r *RepositorioMemoria) PerfilesPublicos(_ context.Context, ahora time.Time) ([]PerfilListado, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	resultado := make([]PerfilListado, 0)
+	for _, expediente := range r.expedientes {
+		if expediente.Publicable(ahora) {
+			resultado = append(resultado, PerfilListado{
+				TutorID: expediente.TutorID, Presentacion: expediente.Presentacion,
+				Cursos: expediente.Cursos, Experiencia: expediente.Experiencia,
+			})
+		}
+	}
+	sort.Slice(resultado, func(i, j int) bool { return resultado[i].TutorID < resultado[j].TutorID })
+	return resultado, nil
 }
