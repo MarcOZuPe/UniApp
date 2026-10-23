@@ -3,17 +3,19 @@ package acceso
 type Permiso string
 
 const (
-	PermisoCoordinacionAcceder Permiso = "coordinacion:acceder"
-	PermisoExpedientePresentar Permiso = "expediente:presentar"
-	PermisoReservaCrear        Permiso = "reserva:crear"
-	PermisoAutorizacionOtorgar Permiso = "autorizacion:otorgar"
+	PermisoCoordinacionAcceder      Permiso = "coordinacion:acceder"
+	PermisoExpedientePresentar      Permiso = "expediente:presentar"
+	PermisoReservaCrear             Permiso = "reserva:crear"
+	PermisoAutorizacionOtorgar      Permiso = "autorizacion:otorgar"
+	PermisoCatalogoGestionar        Permiso = "catalogo:gestionar"
+	PermisoCatalogoSolicitarColegio Permiso = "catalogo:solicitar_colegio"
 )
 
 var permisosPorRol = map[Rol][]Permiso{
-	RolEscolar:     {PermisoReservaCrear},
-	RolApoderado:   {PermisoAutorizacionOtorgar},
+	RolEscolar:     {PermisoReservaCrear, PermisoCatalogoSolicitarColegio},
+	RolApoderado:   {PermisoAutorizacionOtorgar, PermisoCatalogoSolicitarColegio},
 	RolTutor:       {PermisoExpedientePresentar},
-	RolCoordinador: {PermisoCoordinacionAcceder},
+	RolCoordinador: {PermisoCoordinacionAcceder, PermisoCatalogoGestionar},
 }
 
 func (r Rol) Permisos() []Permiso {

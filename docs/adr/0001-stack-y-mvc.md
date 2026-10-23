@@ -3,7 +3,7 @@
 **Estado:** propuesto; el equipo debe confirmarlo en la revisión de E02.
 
 **Decisión.** Frontend React (Vite) · API Go (`net/http`, Go 1.22) · PostgreSQL 16. Aplicación web con MVC.
-Tres capas (`models`, `views`, `controllers`) con una subcarpeta por flujo: `acceso` (A), `tutor` (B), `oferta` (C), `reserva` (D), `sesion` (E).
+Tres capas (`models`, `views`, `controllers`) con una subcarpeta por flujo: `acceso` (A), `tutor` (B/I02), `catalogo` (B/I07), `oferta` (C), `reserva` (D), `sesion` (E).
 En la API, la *vista* es la serialización JSON; en React, la vista son las pantallas.
 La infraestructura técnica (hash de claves, correo, bus de eventos y observadores) vive en `internal/infra`; el dominio conserva solo sus contratos.
 

@@ -14,12 +14,14 @@ import (
 	"uniapp/internal/adapters"
 	"uniapp/internal/config"
 	ctrl "uniapp/internal/controllers/acceso"
+	ctrlCatalogo "uniapp/internal/controllers/catalogo"
 	ctrlOferta "uniapp/internal/controllers/oferta"
 	ctrlReserva "uniapp/internal/controllers/reserva"
 	ctrlSesion "uniapp/internal/controllers/sesion"
 	ctrlTutor "uniapp/internal/controllers/tutor"
 	infra "uniapp/internal/infra"
 	modelo "uniapp/internal/models/acceso"
+	modeloCatalogo "uniapp/internal/models/catalogo"
 	modeloReserva "uniapp/internal/models/reserva"
 	modeloSesion "uniapp/internal/models/sesion"
 	modeloTutor "uniapp/internal/models/tutor"
@@ -78,6 +80,10 @@ func main() {
 		adapters.AlmacenDocumentosFS{Directorio: configuracion.DirectorioDocumentos},
 	)
 	tutores := ctrlTutor.Nuevo(servicioTutor, controlador.Autenticar()).Rutas()
+	catalogo := ctrlCatalogo.Nuevo(
+		modeloCatalogo.NuevoServicio(modeloCatalogo.RepositorioPostgres{DB: baseDatos}),
+		controlador.Autenticar(),
+	).Rutas()
 
 	// Servicio del flujo D: reservas y adjuntos.
 	reservas := construirServicioReserva(baseDatos, configuracion)
@@ -86,6 +92,7 @@ func main() {
 	manejador := construirManejadorConSesion(
 		controlador,
 		tutores,
+		catalogo,
 		reservas,
 		registro,
 		configuracion,
@@ -169,6 +176,7 @@ func construirBus(registro *log.Logger, mailer modelo.Mailer, configuracion conf
 func construirManejador(
 	controlador *ctrl.Controlador,
 	tutores http.Handler,
+	catalogo http.Handler,
 	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
@@ -177,6 +185,8 @@ func construirManejador(
 	raiz := http.NewServeMux()
 
 	raiz.Handle("/api/tutor/", tutores)
+	raiz.Handle("/api/catalogo", catalogo)
+	raiz.Handle("/api/catalogo/", catalogo)
 	raiz.Handle("/api/oferta/", ctrlOferta.Rutas(baseDatos, controlador.Autenticar()))
 
 	// Ambos patrones son necesarios para el flujo de reservas.
@@ -203,6 +213,7 @@ func construirManejador(
 func construirManejadorConSesion(
 	controlador *ctrl.Controlador,
 	tutores http.Handler,
+	catalogo http.Handler,
 	reservas *modeloReserva.Servicio,
 	registro *log.Logger,
 	configuracion config.Config,
@@ -236,6 +247,7 @@ func construirManejadorConSesion(
 		construirManejador(
 			controlador,
 			tutores,
+			catalogo,
 			reservas,
 			registro,
 			configuracion,

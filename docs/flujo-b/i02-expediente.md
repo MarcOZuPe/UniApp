@@ -15,7 +15,8 @@ La aprobación deja de publicar el perfil al llegar a `vence_en`; no se requiere
 | `GET` | `/api/tutor/revision` | Coordinación | Listar expedientes pendientes |
 | `POST` | `/api/tutor/{id}/revision` | Coordinación | Aprobar con `vence_en` o rechazar con `motivo_rechazo` |
 | `GET` | `/api/tutor/documentos/{id}` | Tutor dueño o coordinación | Descargar un PDF privado |
-| `GET` | `/api/tutor/perfiles/{id}` | Público | Obtener solo un perfil aprobado y vigente; nunca incluye documentos |
+| `GET` | `/api/tutor/perfiles` | Público | Listar perfiles aprobados y vigentes con campos públicos |
+| `GET` | `/api/tutor/perfiles/{id}` | Público | Obtener solo un perfil aprobado y vigente; nunca incluye documentos ni contactos |
 
 El contrato OpenAPI en `docs/openapi.yaml` es la referencia para cuerpos y respuestas.
 
@@ -27,6 +28,7 @@ El contrato OpenAPI en `docs/openapi.yaml` es la referencia para cuerpos y respu
 - `AlmacenDocumentos` es el puerto de archivos y `AlmacenDocumentosFS` el adaptador. Los nombres originales solo son metadatos: los archivos se guardan con identificadores aleatorios en `TUTOR_DOCUMENTS_DIR` (por defecto `backend/data/tutor-documents` al arrancar desde `backend/`).
 - El almacenamiento no se sirve como contenido estático. La descarga requiere sesión y autorización; el directorio se ignora en Git.
 - La migración `006_tutor_expediente` crea únicamente tablas del flujo B.
+- I07 extiende el servicio/repositorio con un directorio público; su DTO solo serializa presentación, cursos y experiencia. Filtra por aprobación y `vence_en` en cada consulta.
 
 ## Límites
 
