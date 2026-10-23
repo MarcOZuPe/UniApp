@@ -15,7 +15,9 @@ import Coordinacion from './views/acceso/Coordinacion.jsx';
 
 import Disponibilidad from './views/oferta/Disponibilidad.jsx';
 import FormularioReserva from './views/reserva/FormularioReserva.jsx';
+import Agenda from './views/reserva/Agenda.jsx';
 import DetalleSesion from './views/sesion/DetalleSesion.jsx';
+import Notificaciones from './views/sesion/Notificaciones.jsx';
 import ExpedienteTutor from './views/tutor/ExpedienteTutor.jsx';
 import RevisarTutores from './views/tutor/RevisarTutores.jsx';
 
@@ -27,6 +29,7 @@ export default function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/notificaciones" element={<RutaProtegida roles={['tutor', 'escolar']}><Notificaciones /></RutaProtegida>} />
                 <Route path="/ingreso" element={<Ingreso />} />
                 <Route path="/registro" element={<Registro />} />
                 <Route path="/recuperar" element={<Recuperar />} />
@@ -96,6 +99,15 @@ export default function App() {
                         </RutaProtegida>
                     }
                 />
+
+                <Route
+                    path="/agenda"
+                    element={
+                        <RutaProtegida roles={['escolar', 'tutor']}>
+                            <Agenda />
+                        </RutaProtegida>
+                    }
+                 />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
