@@ -52,7 +52,7 @@ schema_migrations: 001 … 007, incluida 007_reserva_transaccional
 | Tipo | Comando | Resultado |
 |---|---|---|
 | Unidad de modelo y controlador | `go test ./...` | 13 paquetes en verde |
-| Integración con PostgreSQL | `TEST_DATABASE_URL=... go test ./internal/models/reserva` | carreras, idempotencia, solapamiento y cuota concurrentes en verde |
+| Integración con PostgreSQL | `TEST_DATABASE_URL=... go test ./internal/domain/reserva ./internal/application/reserva ./internal/adapters/repositories/postgres/reserva` | carreras, idempotencia, solapamiento y cuota concurrentes en verde |
 | Frontend | `npm test` y `npm run build` | 33 pruebas y compilación correctas |
 
 ## Cómo reproducirlo
@@ -61,7 +61,7 @@ schema_migrations: 001 … 007, incluida 007_reserva_transaccional
 docker run -d --name uniapp-pg -e POSTGRES_USER=uniapp -e POSTGRES_PASSWORD=uniapp \
   -e POSTGRES_DB=uniapp -p 5432:5432 postgres:16-alpine
 cd backend && DATABASE_URL="postgres://uniapp:uniapp@localhost:5432/uniapp?sslmode=disable" \
-  SEED_SYNTHETIC=true SEED_PASSWORD="Clave-Segura-2026!" go run ./cmd/server
+  SEED_SYNTHETIC=true SEED_PASSWORD="Clave-Segura-2026!" go run ./cmd/api
 cd frontend && npm run dev
 # http://localhost:5173/ingreso · escolar.prueba@example.test / Clave-Segura-2026!
 ```

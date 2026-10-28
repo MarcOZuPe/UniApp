@@ -29,6 +29,7 @@ services:
       DATABASE_URL: "postgres://${POSTGRES_USER:-uniapp}:${POSTGRES_PASSWORD:-cambia-esto-en-local}@db:5432/${POSTGRES_DB:-uniapp}?sslmode=disable"
       APP_ENV: ${APP_ENV:-dev}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+      FRONTEND_PORT: ${FRONTEND_PORT:-5173}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       TUTOR_EMAIL_DOMAIN: ${TUTOR_EMAIL_DOMAIN:-uni.edu.pe,uni.pe}
       SEED_SYNTHETIC: ${SEED_SYNTHETIC:-true}

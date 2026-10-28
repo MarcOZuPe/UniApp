@@ -211,6 +211,7 @@ paths:
         content: { application/json: { schema: { type: object, required: [email, nombre_uso, clave, rol], properties: { email: {type: string}, nombre_uso: {type: string}, clave: {type: string}, rol: {type: string, enum: [escolar, apoderado, tutor]} } } } }
       responses:
         '201': { description: Creado sin confirmar; se envió un enlace al correo, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
+        '400': { description: Solicitud inválida }
         '403': { description: Rol no permitido }
         '409': { description: "Correo en uso (un correo, un registro)" }
         '422': { description: Validación por campo, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

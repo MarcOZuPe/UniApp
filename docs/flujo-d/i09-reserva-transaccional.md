@@ -12,9 +12,9 @@
 | Idempotencia | migración `007` + modelo | índice único `(escolar_id, clave_idempotencia)`, reintento con la misma clave y mismos datos devuelve la misma reserva; con otros datos responde 409 |
 | Cuota D07 | modelo + transacción | máximo 2 reservas futuras activas y 1 sesión por curso por semana de Lima (lunes 00:00) |
 | Adjuntos | `models/reserva/adjuntos.go` | validación por contenido, cuarentena, análisis, estados y puerto de almacenamiento |
-| Almacén | `internal/adapters/almacen_adjuntos.go` | archivos con nombre opaco de 32 hex, permisos 0600, directorio 0700 |
+| Almacén | `internal/infrastructure/storage/almacen_adjuntos.go` | archivos con nombre opaco de 32 hex, permisos 0600, directorio 0700 |
 | Enlaces privados | `controllers/reserva/controlador.go` | descarga autenticada solo para participantes y solo si el adjunto está `validado` |
-| Vista | `frontend/src/views/reserva/FormularioReserva.jsx` | sube los archivos después de confirmar y muestra el estado de cada uno |
+| Vista | `frontend/src/presentation/pages/reserva/FormularioReserva.jsx` | sube los archivos después de confirmar y muestra el estado de cada uno |
 
 ## Cómo funciona la reserva transaccional
 
@@ -53,7 +53,7 @@ reserva confirmada con descarga validada, cuarentena sin análisis y pruebas HTT
 ```bash
 cd backend && gofmt -l . && go vet ./... && go test ./...
 # con base real (crea una base aislada por paquete y aplica 001-007):
-TEST_DATABASE_URL=postgres://... go test -count=1 ./internal/models/reserva
+TEST_DATABASE_URL=postgres://... go test -count=1 ./internal/domain/reserva ./internal/application/reserva ./internal/adapters/repositories/postgres/reserva
 cd frontend && npm test && npm run build
 ```
 
