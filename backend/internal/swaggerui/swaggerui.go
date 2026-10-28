@@ -9,11 +9,8 @@ import (
 	assets "github.com/flowchartsman/swaggerui"
 )
 
-// Prefijo es la ruta pública donde se monta Swagger UI.
 const Prefijo = "/swagger"
 
-// initializerJS habilita el envío de cookies de sesión para que "Try it out"
-// funcione contra los endpoints protegidos desde el mismo origen.
 const initializerJS = `window.onload = function() {
   window.ui = SwaggerUIBundle({
     url: "./swagger_spec",
@@ -31,8 +28,6 @@ const initializerJS = `window.onload = function() {
 };
 `
 
-// Rutas sirve Swagger UI y el contrato OpenAPI indicado desde el propio backend.
-// No usa CDN: los recursos estáticos vienen embebidos en el binario.
 func Rutas(rutaEspecificacion string) (http.Handler, error) {
 	if strings.TrimSpace(rutaEspecificacion) == "" {
 		return nil, fmt.Errorf("falta la ruta del contrato OpenAPI")
