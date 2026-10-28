@@ -12,6 +12,7 @@ type SMTP struct{ Host, Puerto, Usuario, Clave, Remitente string }
 
 type Config struct {
 	Puerto               string
+	PuertoSwagger        string
 	DatabaseURL          string
 	OrigenFrontend       string
 	OrigenesFrontend     []string
@@ -96,6 +97,7 @@ func variableSecreta(clave string) (string, error) {
 func Cargar() (Config, error) {
 	configuracion := Config{
 		Puerto:               variableEntorno("PORT", "8080"),
+		PuertoSwagger:        variableEntorno("SWAGGER_PORT", "8081"),
 		DatabaseURL:          os.Getenv("DATABASE_URL"),
 		Entorno:              variableEntorno("APP_ENV", "dev"),
 		DominiosTutor:        variableEntorno("TUTOR_EMAIL_DOMAIN", "uni.edu.pe,uni.pe"),
