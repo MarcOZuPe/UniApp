@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -25,6 +26,7 @@ import (
 	modeloReserva "uniapp/internal/models/reserva"
 	modeloSesion "uniapp/internal/models/sesion"
 	modeloTutor "uniapp/internal/models/tutor"
+	"uniapp/internal/swaggerui"
 	"uniapp/migrations"
 )
 
@@ -118,7 +120,33 @@ func main() {
 	)
 
 	servidor := nuevoServidor(configuracion.Puerto, manejador)
-	servirHastaSenalDeParada(registro, servidor, ctx)
+
+	var servidorSwagger *http.Server
+	if manejadorSwagger, err := swaggerui.Rutas(rutaContratoOpenAPI()); err != nil {
+		registro.Printf("swagger: %v", err)
+	} else {
+		muxSwagger := http.NewServeMux()
+		// La API se expone también en este puerto para que "Try it out"
+		// de Swagger UI use el mismo origen y no dependa de CORS.
+		muxSwagger.Handle("/", manejador)
+		muxSwagger.Handle("/swagger", ctrl.Encadenar(
+			manejadorSwagger,
+			ctrl.Recuperar(registro),
+			ctrl.Registro(registro),
+			ctrl.CabecerasSeguras(),
+			ctrl.OrigenPermitido(configuracion.OrigenesFrontend...),
+		))
+		muxSwagger.Handle("/swagger/", ctrl.Encadenar(
+			manejadorSwagger,
+			ctrl.Recuperar(registro),
+			ctrl.Registro(registro),
+			ctrl.CabecerasSeguras(),
+			ctrl.OrigenPermitido(configuracion.OrigenesFrontend...),
+		))
+		servidorSwagger = nuevoServidor(configuracion.PuertoSwagger, muxSwagger)
+	}
+
+	servirHastaSenalDeParada(registro, servidor, servidorSwagger, ctx)
 }
 
 func construirServicio(
@@ -443,9 +471,32 @@ func limpiarRegistrosVencidosPeriodicamente(
 	}
 }
 
+func rutaContratoOpenAPI() string {
+	if valor := strings.TrimSpace(os.Getenv("OPENAPI_PATH")); valor != "" {
+		return valor
+	}
+	directorio, err := os.Getwd()
+	if err != nil {
+		return "docs/openapi.yaml"
+	}
+	for i := 0; i < 10; i++ {
+		candidato := filepath.Join(directorio, "docs", "openapi.yaml")
+		if info, err := os.Stat(candidato); err == nil && !info.IsDir() {
+			return candidato
+		}
+		padre := filepath.Dir(directorio)
+		if padre == directorio {
+			break
+		}
+		directorio = padre
+	}
+	return "docs/openapi.yaml"
+}
+
 func servirHastaSenalDeParada(
 	registro *log.Logger,
 	servidor *http.Server,
+	servidorSwagger *http.Server,
 	ctx context.Context,
 ) {
 	go func() {
@@ -455,6 +506,15 @@ func servirHastaSenalDeParada(
 		}
 	}()
 
+	if servidorSwagger != nil {
+		go func() {
+			registro.Printf("Swagger UI escuchando en %s", servidorSwagger.Addr)
+			if err := servidorSwagger.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				registro.Fatal(err)
+			}
+		}()
+	}
+
 	senalDeParada := make(chan os.Signal, 1)
 	signal.Notify(senalDeParada, os.Interrupt, syscall.SIGTERM)
 	<-senalDeParada
@@ -462,6 +522,9 @@ func servirHastaSenalDeParada(
 	contextoDeCierre, cancelar := context.WithTimeout(ctx, 10*time.Second)
 	defer cancelar()
 	_ = servidor.Shutdown(contextoDeCierre)
+	if servidorSwagger != nil {
+		_ = servidorSwagger.Shutdown(contextoDeCierre)
+	}
 }
 
 // Primer dominio no vacío de la lista.

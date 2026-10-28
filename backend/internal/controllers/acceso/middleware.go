@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	modelo "uniapp/internal/models/acceso"
@@ -108,7 +110,7 @@ type decoradorOrigen struct {
 
 func (d *decoradorOrigen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if cambiaEstado(r.Method) {
-		if origen := r.Header.Get("Origin"); origen != "" && !d.permite(origen) {
+		if origen := r.Header.Get("Origin"); origen != "" && !d.permite(origen) && !mismoOrigen(origen, r.Host) {
 			vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusForbidden, Codigo: "origen_no_permitido", Mensaje: "Origen no permitido."})
 			return
 		}
@@ -127,6 +129,14 @@ func (d *decoradorOrigen) permite(origen string) bool {
 
 func cambiaEstado(metodo string) bool {
 	return metodo != http.MethodGet && metodo != http.MethodHead && metodo != http.MethodOptions
+}
+
+func mismoOrigen(origen, host string) bool {
+	u, err := url.Parse(origen)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return strings.EqualFold(u.Host, host)
 }
 
 type claveContexto struct{}
