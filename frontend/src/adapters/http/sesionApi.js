@@ -15,3 +15,7 @@ export function obtenerSesionPorReserva(reservaID) {
     `/api/sesion/por-reserva/${encodeURIComponent(reservaID)}`
   );
 }
+
+export function reportarAusencia(id) {
+  return cliente.post(`/api/sesion/${encodeURIComponent(id)}/ausencias`);
+}

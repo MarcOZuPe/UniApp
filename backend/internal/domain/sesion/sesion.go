@@ -46,6 +46,7 @@ type Sesion struct {
 	inicio      time.Time
 	fin         time.Time
 	asistencias []Asistencia
+	ausencias   []Ausencia
 }
 
 func NuevaSesion(
@@ -141,6 +142,12 @@ func (s *Sesion) DeclararAsistencia(
 		return ErrNoAutorizado
 	}
 
+	for _, ausencia := range s.ausencias {
+		if ausencia.usuarioID == usuarioID {
+			return ErrDeclaracionContradictoria
+		}
+	}
+
 	for _, asistencia := range s.asistencias {
 		if asistencia.usuarioID == usuarioID {
 			return ErrAsistenciaDuplicada
@@ -156,9 +163,10 @@ func (s *Sesion) DeclararAsistencia(
 	return nil
 }
 
-// Clonar devuelve una copia independiente de la sesión y de sus asistencias.
+// Clonar devuelve una copia independiente de la sesion y sus declaraciones.
 func (s *Sesion) Clonar() *Sesion {
 	copia := *s
 	copia.asistencias = append([]Asistencia(nil), s.asistencias...)
+	copia.ausencias = append([]Ausencia(nil), s.ausencias...)
 	return &copia
 }

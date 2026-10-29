@@ -97,3 +97,19 @@ func (r *RepositorioMemoria) DeclararAsistencia(
 	asistencias := s.Asistencias()
 	return asistencias[len(asistencias)-1], nil
 }
+
+func (r *RepositorioMemoria) ReportarAusencia(
+	_ context.Context, sesionID string, usuarioID string, ahora time.Time,
+) (Ausencia, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	s, existe := r.sesiones[sesionID]
+	if !existe {
+		return Ausencia{}, ErrSesionNoEncontrada
+	}
+	if err := s.ReportarAusencia(usuarioID, ahora); err != nil {
+		return Ausencia{}, err
+	}
+	ausencias := s.Ausencias()
+	return ausencias[len(ausencias)-1], nil
+}

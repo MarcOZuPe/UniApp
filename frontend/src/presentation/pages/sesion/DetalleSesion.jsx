@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import {
   obtenerSesion,
   declararAsistencia,
+  reportarAusencia,
 } from '../../../adapters/http/sesionApi.js';
 
 import { useSesion } from '../../hooks/useSesion.js';
@@ -64,7 +65,8 @@ export default function DetalleSesion() {
   async function registrarAsistencia() {
     if (declarando.current || !sesion ||
       (usuario?.id !== sesion.tutor_id && usuario?.id !== sesion.escolar_id) ||
-      sesion.asistencias?.some(a => a.usuario_id === usuario?.id)) return;
+      sesion.asistencias?.some(a => a.usuario_id === usuario?.id) ||
+      sesion.ausencias?.some(a => a.usuario_id === usuario?.id)) return;
     declarando.current = true;
     setEnviando(true);
     setError('');
@@ -79,6 +81,32 @@ export default function DetalleSesion() {
         setSesion(await obtenerSesion(id));
       } catch {
         setError('Tu asistencia se guardó, pero no pudimos actualizar los demás estados. Vuelve a entrar para consultarlos.');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      declarando.current = false;
+      setEnviando(false);
+    }
+  }
+
+  async function registrarAusencia() {
+    if (declarando.current || !sesion ||
+      (usuario?.id !== sesion.tutor_id && usuario?.id !== sesion.escolar_id) ||
+      sesion.asistencias?.some(a => a.usuario_id === usuario?.id) ||
+      sesion.ausencias?.some(a => a.usuario_id === usuario?.id)) return;
+    declarando.current = true;
+    setEnviando(true);
+    setError('');
+    setMensaje('');
+    try {
+      const ausencia = await reportarAusencia(id);
+      setSesion(anterior => ({ ...anterior, ausencias: [...(anterior.ausencias ?? []), ausencia] }));
+      setMensaje('Tu ausencia fue reportada correctamente.');
+      try {
+        setSesion(await obtenerSesion(id));
+      } catch {
+        setError('Tu ausencia se guardó, pero no pudimos actualizar los demás estados. Vuelve a entrar para consultarlos.');
       }
     } catch (err) {
       setError(err.message);
@@ -109,6 +137,10 @@ export default function DetalleSesion() {
   }
 
   const asistencias = sesion.asistencias ?? [];
+  const ausencias = sesion.ausencias ?? [];
+  const ausenciaPropia = ausencias.find(a => a.usuario_id === usuario?.id);
+  const estadoParticipante = participanteID => asistencias.some(a => a.usuario_id === participanteID)
+    ? 'Declarada' : ausencias.some(a => a.usuario_id === participanteID) ? 'Ausencia reportada' : 'Pendiente';
 
   const asistenciaPropia = asistencias.find(
     (asistencia) => asistencia.usuario_id === usuario?.id
@@ -125,7 +157,7 @@ export default function DetalleSesion() {
       <header className="sesion-encabezado">
         <p className="sesion-sobrelinea">FLUJO E · SESIÓN Y ASISTENCIA</p>
         <h1>Detalle de tutoría</h1>
-        <p>Consulta tu sesión y declara tu propia asistencia.</p>
+        <p>Consulta tu sesión y declara tu propia asistencia o ausencia.</p>
       </header>
       {sesion.id === 'sesion-i05-demo' && (
         <p className="sesion-demo">Demostración I05 · Sesión sintética de prueba</p>
@@ -148,12 +180,12 @@ export default function DetalleSesion() {
 
         <p>
           <strong>Tutor:</strong>{' '}
-          <span className={asistencias.some(a => a.usuario_id === sesion.tutor_id) ? 'sesion-estado declarada' : 'sesion-estado'}>{asistencias.some(a => a.usuario_id === sesion.tutor_id) ? 'Declarada' : 'Pendiente'}</span>
+          <span className={asistencias.some(a => a.usuario_id === sesion.tutor_id) ? 'sesion-estado declarada' : 'sesion-estado'}>{estadoParticipante(sesion.tutor_id)}</span>
         </p>
 
         <p>
           <strong>Escolar:</strong>{' '}
-          <span className={asistencias.some(a => a.usuario_id === sesion.escolar_id) ? 'sesion-estado declarada' : 'sesion-estado'}>{asistencias.some(a => a.usuario_id === sesion.escolar_id) ? 'Declarada' : 'Pendiente'}</span>
+          <span className={asistencias.some(a => a.usuario_id === sesion.escolar_id) ? 'sesion-estado declarada' : 'sesion-estado'}>{estadoParticipante(sesion.escolar_id)}</span>
         </p>
 
         {esParticipante && (
@@ -161,7 +193,7 @@ export default function DetalleSesion() {
             className="sesion-declarar"
             type="button"
             onClick={registrarAsistencia}
-            disabled={enviando || Boolean(asistenciaPropia)}
+            disabled={enviando || Boolean(asistenciaPropia) || Boolean(ausenciaPropia)}
           >
             {enviando
               ? 'Registrando...'
@@ -170,6 +202,18 @@ export default function DetalleSesion() {
                 : 'Declarar mi asistencia'}
           </button>
         )}
+
+        {esParticipante && (
+          <button
+            className="sesion-declarar"
+            type="button"
+            onClick={registrarAusencia}
+            disabled={enviando || Boolean(asistenciaPropia) || Boolean(ausenciaPropia)}
+          >
+            {ausenciaPropia ? 'Ausencia ya reportada' : 'Reportar mi ausencia'}
+          </button>
+        )}
+        <p><small>Solo puedes reportar tu propia ausencia. No puedes declarar asistencia y ausencia para la misma sesión.</small></p>
 
         <p>
           <small>

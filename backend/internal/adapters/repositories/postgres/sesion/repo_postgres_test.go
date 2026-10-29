@@ -13,7 +13,8 @@ import (
 )
 
 // Tablas temporales en una única conexión: nunca escribe ni borra tablas públicas.
-func TestI05PostgresPersistenciaAislada(t *testing.T) {
+func prepararPostgresSesionAislado(t *testing.T) (*sql.DB, context.Context) {
+	t.Helper()
 	conexion := os.Getenv("I05_TEST_DATABASE_URL")
 	if conexion == "" {
 		t.Skip("I05_TEST_DATABASE_URL no definida; requiere PostgreSQL disponible")
@@ -35,11 +36,11 @@ func TestI05PostgresPersistenciaAislada(t *testing.T) {
 	if err != nil {
 		t.Fatal("no se pudo abrir PostgreSQL")
 	}
-	defer db.Close()
+	t.Cleanup(func() { db.Close() })
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 	if err := db.PingContext(ctx); err != nil {
 		t.Fatal("PostgreSQL no disponible")
 	}
@@ -47,14 +48,21 @@ func TestI05PostgresPersistenciaAislada(t *testing.T) {
 	if _, err := db.ExecContext(ctx, "SET search_path TO pg_temp"); err != nil {
 		t.Fatal("no se pudo aislar el esquema")
 	}
-	migracion, err := migrations.FS.ReadFile("005_sesion.up.sql")
-	if err != nil {
-		t.Fatal(err)
+	for _, nombre := range []string{"005_sesion.up.sql", "010_sesion_ausencias.up.sql"} {
+		migracion, err := migrations.FS.ReadFile(nombre)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sqlTemporal := strings.ReplaceAll(string(migracion), "CREATE TABLE", "CREATE TEMP TABLE")
+		if _, err := db.ExecContext(ctx, sqlTemporal); err != nil {
+			t.Fatal("no se pudieron crear tablas temporales")
+		}
 	}
-	sqlTemporal := strings.ReplaceAll(string(migracion), "CREATE TABLE", "CREATE TEMP TABLE")
-	if _, err := db.ExecContext(ctx, sqlTemporal); err != nil {
-		t.Fatal("no se pudieron crear tablas temporales")
-	}
+	return db, ctx
+}
+
+func TestI05PostgresPersistenciaAislada(t *testing.T) {
+	db, ctx := prepararPostgresSesionAislado(t)
 	inicio := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
 	s, err := NuevaSesion("sesion-test-aislada", "reserva-test-aislada", "tutor-test", "escolar-test", inicio, inicio.Add(time.Hour))
 	if err != nil {
@@ -88,5 +96,51 @@ func TestI05PostgresPersistenciaAislada(t *testing.T) {
 		if guardada.Asistencias()[i].Rol() != rol {
 			t.Fatal("rol persistido incorrecto")
 		}
+	}
+}
+
+func TestI11PostgresAusenciaAislada(t *testing.T) {
+	db, ctx := prepararPostgresSesionAislado(t)
+	inicio := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+	s, err := NuevaSesion("sesion-i11", "reserva-i11", "tutor", "escolar", inicio, inicio.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := RepositorioPostgres{DB: db}
+	if err := repo.CrearSesion(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.ReportarAusencia(ctx, s.ID(), "ajeno", inicio); !errors.Is(err, ErrNoAutorizado) {
+		t.Fatalf("autorizacion: %v", err)
+	}
+	a, err := repo.ReportarAusencia(ctx, s.ID(), s.TutorID(), inicio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.UsuarioID() != s.TutorID() || a.Rol() != RolTutor {
+		t.Fatal("identidad incorrecta")
+	}
+	if _, err := repo.ReportarAusencia(ctx, s.ID(), s.TutorID(), inicio); !errors.Is(err, ErrAusenciaDuplicada) {
+		t.Fatalf("duplicado: %v", err)
+	}
+	if _, err := repo.DeclararAsistencia(ctx, s.ID(), s.TutorID(), inicio); !errors.Is(err, ErrDeclaracionContradictoria) {
+		t.Fatalf("contradiccion: %v", err)
+	}
+	if _, err := repo.DeclararAsistencia(ctx, s.ID(), s.EscolarID(), inicio); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.ReportarAusencia(ctx, s.ID(), s.EscolarID(), inicio); !errors.Is(err, ErrDeclaracionContradictoria) {
+		t.Fatalf("contradiccion inversa: %v", err)
+	}
+	otra := RepositorioPostgres{DB: db}
+	guardada, err := otra.SesionPorID(ctx, s.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(guardada.Ausencias()) != 1 || len(guardada.Asistencias()) != 1 {
+		t.Fatal("declaraciones no persistidas")
+	}
+	if guardada.Ausencias()[0].UsuarioID() != s.TutorID() || !guardada.Ausencias()[0].ReportadaEn().Equal(inicio) {
+		t.Fatal("ausencia persistida incorrecta")
 	}
 }

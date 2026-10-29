@@ -189,6 +189,9 @@ func cargarSesion(
 	if err := cargarAsistencias(ctx, tx, s); err != nil {
 		return nil, err
 	}
+	if err := cargarAusencias(ctx, tx, s); err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }

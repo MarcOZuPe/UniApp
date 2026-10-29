@@ -50,6 +50,8 @@ func Rutas(
 		autenticar(http.HandlerFunc(c.declarar)),
 	)
 
+	mux.Handle("POST /api/sesion/{id}/ausencias", autenticar(http.HandlerFunc(c.reportarAusencia)))
+
 	return mux
 }
 
@@ -76,7 +78,13 @@ func (c *Controlador) consultar(w http.ResponseWriter, r *http.Request) {
 		asistencias = append(asistencias, presentarAsistencia(a))
 	}
 
+	ausencias := make([]map[string]any, 0, len(s.Ausencias()))
+	for _, a := range s.Ausencias() {
+		ausencias = append(ausencias, presentarAusencia(a))
+	}
+
 	vista.EscribirJSON(w, http.StatusOK, map[string]any{
+		"ausencias":   ausencias,
 		"id":          s.ID(),
 		"reserva_id":  s.ReservaID(),
 		"tutor_id":    s.TutorID(),
@@ -169,6 +177,10 @@ func responderErrorRepositorio(w http.ResponseWriter, err error) {
 		responderError(w, http.StatusNotFound, "sesion_no_encontrada", err.Error())
 	case errors.Is(err, modelo.ErrNoAutorizado):
 		responderError(w, http.StatusForbidden, "no_autorizado", err.Error())
+	case errors.Is(err, modelo.ErrAusenciaDuplicada):
+		responderError(w, http.StatusConflict, "ausencia_duplicada", err.Error())
+	case errors.Is(err, modelo.ErrDeclaracionContradictoria):
+		responderError(w, http.StatusConflict, "declaracion_contradictoria", err.Error())
 	case errors.Is(err, modelo.ErrAsistenciaDuplicada):
 		responderError(w, http.StatusConflict, "asistencia_duplicada", err.Error())
 	case errors.Is(err, modelo.ErrSesionInvalida):

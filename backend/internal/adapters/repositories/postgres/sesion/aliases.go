@@ -6,6 +6,7 @@ import dominio "uniapp/internal/domain/sesion"
 
 type (
 	Asistencia        = dominio.Asistencia
+	Ausencia          = dominio.Ausencia
 	Bandeja           = dominio.Bandeja
 	Entrega           = dominio.Entrega
 	Repositorio       = dominio.Repositorio
@@ -23,12 +24,14 @@ const (
 )
 
 var (
-	ErrAsistenciaDuplicada = dominio.ErrAsistenciaDuplicada
-	ErrNoAutorizado        = dominio.ErrNoAutorizado
-	ErrReclamoVencido      = dominio.ErrReclamoVencido
-	ErrSesionDuplicada     = dominio.ErrSesionDuplicada
-	ErrSesionInvalida      = dominio.ErrSesionInvalida
-	ErrSesionNoEncontrada  = dominio.ErrSesionNoEncontrada
+	ErrAsistenciaDuplicada       = dominio.ErrAsistenciaDuplicada
+	ErrAusenciaDuplicada         = dominio.ErrAusenciaDuplicada
+	ErrDeclaracionContradictoria = dominio.ErrDeclaracionContradictoria
+	ErrNoAutorizado              = dominio.ErrNoAutorizado
+	ErrReclamoVencido            = dominio.ErrReclamoVencido
+	ErrSesionDuplicada           = dominio.ErrSesionDuplicada
+	ErrSesionInvalida            = dominio.ErrSesionInvalida
+	ErrSesionNoEncontrada        = dominio.ErrSesionNoEncontrada
 )
 
 var (

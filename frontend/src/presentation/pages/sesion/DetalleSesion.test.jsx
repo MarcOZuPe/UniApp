@@ -4,11 +4,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom';
 import App from '../../../app/App.jsx';
 import Inicio from '../acceso/Inicio.jsx';
-import { obtenerSesion, declararAsistencia } from '../../../adapters/http/sesionApi.js';
+import { obtenerSesion, declararAsistencia, reportarAusencia } from '../../../adapters/http/sesionApi.js';
 const estado = vi.hoisted(() => ({ usuario: null, cargando: false }));
 vi.mock('../../hooks/useSesion.js', () => ({ useSesion: () => estado }));
 vi.mock('../../../application/acceso/acciones.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
-vi.mock('../../../adapters/http/sesionApi.js', () => ({ obtenerSesion: vi.fn(), declararAsistencia: vi.fn() }));
+vi.mock('../../../adapters/http/sesionApi.js', () => ({ obtenerSesion: vi.fn(), declararAsistencia: vi.fn(), reportarAusencia: vi.fn() }));
 const sesion = { id: 'sesion-i05-demo', reserva_id: 'reserva-i05-demo', tutor_id: 'tutor-001', escolar_id: 'escolar-001', inicio: '2026-10-20T15:00:00Z', fin: '2026-10-20T16:00:00Z', asistencias: [] };
 const asistencia = rol => ({ usuario_id: rol + '-001', rol, declarada_en: sesion.inicio });
 function abrir(ruta = '/sesiones/sesion-i05-demo') { window.history.replaceState({}, '', ruta); return render(<App />); }
@@ -124,5 +124,53 @@ describe('Inicio y modo demo', () => {
   it.each([['tutor', ['Mi expediente de tutor', 'Gestionar disponibilidad semanal']], ['escolar', ['Reservar una tutoría']], ['coordinador', ['Zona de coordinación']]])('conserva navegación del %s', (rol, enlaces) => {
     estado.usuario = { id: 'otro', rol }; render(<MemoryRouter><Inicio /></MemoryRouter>);
     enlaces.forEach(name => expect(screen.getByRole('link', { name })).toBeTruthy());
+  });
+});
+
+describe('Ausencias I11', () => {
+  it.each(['tutor', 'escolar'])('%s reporta su ausencia y bloquea declaraciones contradictorias', async rol => {
+    estado.usuario = { id: rol + '-001', rol };
+    const ausencia = { usuario_id: estado.usuario.id, rol, reportada_en: sesion.fin };
+    obtenerSesion.mockResolvedValueOnce(sesion).mockResolvedValue({ ...sesion, ausencias: [ausencia] });
+    let completar;
+    reportarAusencia.mockImplementation(() => new Promise(resolve => { completar = resolve; }));
+    abrir();
+    const boton = await screen.findByRole('button', { name: 'Reportar mi ausencia' });
+    expect(reportarAusencia).not.toHaveBeenCalled();
+    expect(declararAsistencia).not.toHaveBeenCalled();
+    fireEvent.click(boton);
+    fireEvent.click(boton);
+    expect(boton.disabled).toBe(true);
+    expect(reportarAusencia).toHaveBeenCalledTimes(1);
+    expect(reportarAusencia).toHaveBeenCalledWith(sesion.id);
+    completar(ausencia);
+    expect(await screen.findByText('Tu ausencia fue reportada correctamente.')).toBeTruthy();
+    expect((await screen.findByRole('button', { name: 'Ausencia ya reportada' })).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Declarar mi asistencia' }).disabled).toBe(true);
+    expect(screen.getByText('Ausencia reportada')).toBeTruthy();
+  });
+  it('conserva la ausencia confirmada aunque falle la recarga', async () => {
+    obtenerSesion.mockResolvedValueOnce(sesion).mockRejectedValue(new Error('Sin red'));
+    reportarAusencia.mockResolvedValue({ usuario_id: 'tutor-001', rol: 'tutor', reportada_en: sesion.fin });
+    abrir();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reportar mi ausencia' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Tu ausencia se guardó');
+    expect(screen.getByRole('button', { name: 'Ausencia ya reportada' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Declarar mi asistencia' }).disabled).toBe(true);
+  });
+  it('muestra conflictos del servidor y no anuncia éxito', async () => {
+    reportarAusencia.mockRejectedValue(new Error('Ausencia ya reportada.'));
+    abrir();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reportar mi ausencia' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Ausencia ya reportada');
+    expect(screen.queryByText('Tu ausencia fue reportada correctamente.')).toBeNull();
+  });
+  it('impide reportar ausencia cuando la asistencia ya está guardada', async () => {
+    obtenerSesion.mockResolvedValue({ ...sesion, asistencias: [asistencia('tutor')] });
+    abrir();
+    const boton = await screen.findByRole('button', { name: 'Reportar mi ausencia' });
+    expect(boton.disabled).toBe(true);
+    fireEvent.click(boton);
+    expect(reportarAusencia).not.toHaveBeenCalled();
   });
 });
