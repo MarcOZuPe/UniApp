@@ -64,6 +64,29 @@ func (r RepositorioPostgres) SesionPorID(
 	return s, nil
 }
 
+func (r RepositorioPostgres) SesionPorReservaID(
+	ctx context.Context,
+	reservaID string,
+) (*Sesion, error) {
+	var sesionID string
+
+	err := r.DB.QueryRowContext(ctx, `
+        SELECT id
+        FROM sesion_sesiones
+        WHERE reserva_id = $1
+    `, reservaID).Scan(&sesionID)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrSesionNoEncontrada
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return r.SesionPorID(ctx, sesionID)
+}
+
 func (r RepositorioPostgres) DeclararAsistencia(
 	ctx context.Context,
 	sesionID string,

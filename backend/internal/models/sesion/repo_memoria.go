@@ -60,6 +60,22 @@ func (r *RepositorioMemoria) SesionPorID(
 	return copiarSesion(s), nil
 }
 
+func (r *RepositorioMemoria) SesionPorReservaID(
+	_ context.Context,
+	reservaID string,
+) (*Sesion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, s := range r.sesiones {
+		if s.ReservaID() == reservaID {
+			return copiarSesion(s), nil
+		}
+	}
+
+	return nil, ErrSesionNoEncontrada
+}
+
 func (r *RepositorioMemoria) DeclararAsistencia(
 	_ context.Context,
 	sesionID string,

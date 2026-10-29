@@ -39,6 +39,12 @@ func Rutas(
 		autenticar(http.HandlerFunc(c.consultar)),
 	)
 
+	// I05: consultar la sesion asociada a una reserva.
+	mux.Handle(
+		"GET /api/sesion/por-reserva/{reservaID}",
+		autenticar(http.HandlerFunc(c.consultarPorReserva)),
+	)
+
 	mux.Handle(
 		"POST /api/sesion/{id}/asistencias",
 		autenticar(http.HandlerFunc(c.declarar)),
@@ -78,6 +84,34 @@ func (c *Controlador) consultar(w http.ResponseWriter, r *http.Request) {
 		"inicio":      s.Inicio(),
 		"fin":         s.Fin(),
 		"asistencias": asistencias,
+	})
+}
+
+// I05: obtener el ID real de la sesion mediante su reserva.
+func (c *Controlador) consultarPorReserva(w http.ResponseWriter, r *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		responderError(w, http.StatusUnauthorized, "no_autenticado", "Debes iniciar sesion.")
+		return
+	}
+
+	s, err := c.repositorio.SesionPorReservaID(
+		r.Context(),
+		r.PathValue("reservaID"),
+	)
+	if err != nil {
+		responderErrorRepositorio(w, err)
+		return
+	}
+
+	if usuario.ID != s.TutorID() && usuario.ID != s.EscolarID() {
+		responderError(w, http.StatusForbidden, "no_autorizado", "No participas en esta sesion.")
+		return
+	}
+
+	vista.EscribirJSON(w, http.StatusOK, map[string]any{
+		"id":         s.ID(),
+		"reserva_id": s.ReservaID(),
 	})
 }
 
