@@ -1,0 +1,5 @@
+# Mantiene la carpeta del flujo A en el repositorio.
+
+Esta carpeta está reservada para la documentación del flujo A (acceso, cuentas,
+apoderados e incidentes). Se agregó este archivo para que Git conserve la
+estructura aunque todavía no haya documentos.

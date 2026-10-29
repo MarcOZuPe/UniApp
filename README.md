@@ -32,8 +32,6 @@ Plataforma académica de tutorías solidarias entre estudiantes UNI y escolares.
 
 ## Organización
 
-Arquitectura MVC, con cada integrante responsable de un flujo completo:
-
 | Flujo | Responsable | Alcance |
 |---|---|---|
 | A | Víctor | Acceso, cuentas, apoderados e incidentes |
@@ -44,27 +42,44 @@ Arquitectura MVC, con cada integrante responsable de un flujo completo:
 
 El lenguaje y framework se acuerdan en E02. Esta entrega configura la colaboración; no implementa ni declara terminada la aplicación. n8n y Telegram no son dependencias del MVP.
 
-## Estructura del backend
+## Estructura
+
+Arquitectura Clean (capas `domain`, `application`, `adapters`, `infrastructure`) con una
+subcarpeta por feature. La regla de dependencias se verifica en
+`backend/tests/architecture`.
 
 ```text
 backend/
-├── cmd/server/main.go       # composition root
+├── cmd/api/main.go          # composition root
 ├── migrations/              # migraciones SQL
 ├── fixtures/                # datos de apoyo
+├── tests/architecture/      # reglas de dependencias
 └── internal/
-    ├── models/              # dominio, con subcarpeta por flujo
-    ├── views/               # serialización JSON
-    ├── controllers/         # HTTP y middleware
-    ├── infra/               # hash, correo, bus de eventos y observadores
-    ├── arquitectura/        # pruebas de reglas MVC
-    └── config/              # configuración de entorno
+    ├── domain/              # entidades, reglas y puertos
+    │   └── <feature>/
+    ├── application/         # casos de uso y orquestación
+    │   └── <feature>/
+    ├── adapters/            # interface adapters
+    │   ├── http/            # controladores y middleware
+    │   ├── presentation/    # serialización JSON
+    │   └── repositories/    # postgres / memoria
+    │       ├── postgres/<feature>/
+    │       └── memory/<feature>/
+    └── infrastructure/      # config, crypto, mail, storage, events, swaggerui
+
+frontend/
+└── src/
+    ├── app/                 # App, router y arranque
+    ├── domain/              # roles, validadores y errores
+    ├── application/         # casos de uso del cliente
+    ├── adapters/            # clientes HTTP y storage
+    ├── infrastructure/      # fetch, configuración
+    └── presentation/        # páginas, componentes, hooks y estilos
 ```
 
-    El catálogo escolar y sus permisos forman parte del flujo B (I07) en
-    `backend/internal/{models,views,controllers}/catalogo`; el expediente y sus perfiles
-    públicos se mantienen en el modelo I02 de tutores.
-
-`models` no importa `infra`; la infraestructura implementa los contratos del dominio y se inyecta en `main.go`.
+`domain` no importa capas externas; `application` no importa adaptadores ni
+infraestructura; una feature no importa el dominio de otra salvo `acceso`. Las
+implementaciones concretas se inyectan en `cmd/api/main.go`.
 
 ## Preparación local
 

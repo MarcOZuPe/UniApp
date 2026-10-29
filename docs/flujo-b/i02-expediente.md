@@ -22,7 +22,7 @@ El contrato OpenAPI en `docs/openapi.yaml` es la referencia para cuerpos y respu
 
 ## Persistencia y arquitectura
 
-- El dominio y sus reglas viven en `backend/internal/models/tutor`.
+- El dominio y sus reglas viven en `backend/internal/domain/tutor`.
 - La API y autorización siguen MVC por flujo; el permiso de coordinación se verifica en el servidor.
 - `Repositorio` aísla PostgreSQL; hay implementación en memoria para pruebas.
 - `AlmacenDocumentos` es el puerto de archivos y `AlmacenDocumentosFS` el adaptador. Los nombres originales solo son metadatos: los archivos se guardan con identificadores aleatorios en `TUTOR_DOCUMENTS_DIR` (por defecto `backend/data/tutor-documents` al arrancar desde `backend/`).

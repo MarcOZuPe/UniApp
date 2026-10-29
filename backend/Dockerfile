@@ -8,7 +8,7 @@ COPY docs/ ./docs/
 
 WORKDIR /src/backend
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/api
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata
