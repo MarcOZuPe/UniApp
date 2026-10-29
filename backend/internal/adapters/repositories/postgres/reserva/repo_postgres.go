@@ -87,7 +87,7 @@ func (r RepositorioPostgres) ReservarTransaccional(ctx context.Context, reserva 
 		return nil, false, traducirError(err)
 	}
 	// I05: crear la sesion asociada a la reserva confirmada.
-		if reserva.Estado == EstadoConfirmada {
+	if reserva.Estado == EstadoConfirmada {
 		sesionID := "sesion-" + id
 
 		_, err := tx.ExecContext(ctx, `
