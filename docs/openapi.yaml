@@ -1,19 +1,151 @@
 openapi: 3.0.3
 info:
-  title: UniApp · Flujo A (Acceso) · I01/I06
-  version: 0.3.0
+  title: UniApp · API completa
+  version: 0.4.0
   description: Contrato de cuentas, sesión, vinculación y autorización de nuevas reservas. Los demás flujos lo consumen vía API (nunca por tablas).
-servers: [{ url: http://localhost:8080 }]
+servers: [{ url: / }]
 tags:
   - { name: A-acceso, description: "Flujo A · Víctor · implementado en I01 e I06" }
   - { name: B-tutor, description: "Flujo B · expediente y revisión mínima (I02)" }
   - { name: B-catalogo, description: "Flujo B · catálogo de cursos y perfil público (I07)" }
   - { name: C-oferta, description: "Flujo C · Mateo · esqueleto (I03)" }
-  - { name: D-reserva, description: "Flujo D · Jhon · esqueleto (I04)" }
+  - { name: D-reserva, description: "Flujo D · Jhon · reserva transaccional y adjuntos (I04, I09), documentado con ejemplos y errores" }
   - { name: E-sesion, description: "Flujo E · Marco · esqueleto (I05)" }
 components:
   securitySchemes:
     sesion: { type: apiKey, in: cookie, name: uniapp_sesion }
+  examples:
+    SaludReservaEjemplo:
+      summary: Estado del flujo
+      value: { flujo: reserva, estado: implementado }
+    SlotsEjemplo:
+      summary: Dos horarios, uno disponible y otro fuera del horizonte
+      value:
+        slots:
+          - id: slot-i04-cercano
+            tutor_id: de749037-15ef-4e69-8bfd-826fe844a476
+            tutor_nombre: Tutor de prueba
+            curso: Álgebra
+            inicio: "2026-10-30T14:00:00Z"
+            fin: "2026-10-30T15:00:00Z"
+            inicio_lima: "2026-10-30 09:00"
+            fin_lima: "2026-10-30 10:00"
+            disponible: true
+            motivo: ""
+          - id: slot-i04-lejano
+            tutor_id: de749037-15ef-4e69-8bfd-826fe844a476
+            tutor_nombre: Tutor de prueba
+            curso: Geometría
+            inicio: "2026-11-28T20:00:00Z"
+            fin: "2026-11-28T21:00:00Z"
+            inicio_lima: "2026-11-28 15:00"
+            fin_lima: "2026-11-28 16:00"
+            disponible: false
+            motivo: fuera del horizonte de 28 días
+    ReservaEntradaEjemplo:
+      summary: Reserva de Álgebra a más de 48 horas
+      value:
+        slot_id: slot-i04-cercano
+        tema: "Álgebra: ecuaciones lineales de primer grado"
+        objetivo: "Resolver diez ejercicios de ecuaciones lineales y verificar cada resultado"
+        grado: "2° de secundaria"
+    ReservaCreadaEjemplo:
+      summary: Reserva confirmada con identificador propio
+      value:
+        id: 6f1c2a9e-3b7d-4c1a-9f2e-8d4b5a6c7e8f
+        slot_id: slot-i04-cercano
+        tutor_id: de749037-15ef-4e69-8bfd-826fe844a476
+        tutor_nombre: Tutor de prueba
+        curso: Álgebra
+        grado: "2° de secundaria"
+        tema: "Álgebra: ecuaciones lineales de primer grado"
+        objetivo: "Resolver diez ejercicios de ecuaciones lineales y verificar cada resultado"
+        estado: confirmada
+        inicio: "2026-10-30T14:00:00Z"
+        fin: "2026-10-30T15:00:00Z"
+        inicio_lima: "2026-10-30 09:00"
+        fin_lima: "2026-10-30 10:00"
+        creada_en: "2026-10-29T12:00:00Z"
+        adjuntos: []
+    AdjuntosEjemplo:
+      summary: Un adjunto validado y otro en cuarentena
+      value:
+        adjuntos:
+          - id: 1b2c3d4e-5f60-4a7b-8c9d-0e1f2a3b4c5d
+            nombre: guia-ejercicios.pdf
+            tipo: application/pdf
+            tamano_bytes: 128000
+            estado: validado
+            motivo: ""
+            descargable: true
+            creado_en: "2026-10-29 11:58"
+          - id: 2c3d4e5f-6071-4b8c-9d0e-1f2a3b4c5d6e
+            nombre: foto-cuaderno.jpg
+            tipo: image/jpeg
+            tamano_bytes: 84000
+            estado: en_cuarentena
+            motivo: el análisis de adjuntos no está disponible
+            descargable: false
+            creado_en: "2026-10-29 11:59"
+    AdjuntoCreadoEjemplo:
+      summary: Adjunto recibido y en cuarentena
+      value:
+        id: 2c3d4e5f-6071-4b8c-9d0e-1f2a3b4c5d6e
+        nombre: foto-cuaderno.jpg
+        tipo: image/jpeg
+        tamano_bytes: 84000
+        estado: en_cuarentena
+        motivo: el análisis de adjuntos no está disponible
+        descargable: false
+        creado_en: "2026-10-29 11:59"
+    ErrorSolicitudInvalida:
+      summary: Cuerpo ausente o mal formado
+      value: { codigo: solicitud_invalida, mensaje: "El cuerpo de la solicitud no es válido." }
+    ErrorNoAutenticado:
+      summary: Sin cookie de sesión
+      value: { codigo: no_autenticado, mensaje: "Debes iniciar sesión." }
+    ErrorSinAutorizacion:
+      summary: El menor no tiene autorización vigente
+      value: { codigo: sin_autorizacion, mensaje: "No hay una autorización vigente del apoderado." }
+    ErrorNoAutorizado:
+      summary: La reserva es de otra cuenta
+      value: { codigo: no_autorizado, mensaje: "No puedes acceder a esta reserva." }
+    ErrorSoloEscolar:
+      summary: Rol distinto de escolar
+      value: { codigo: solo_escolar, mensaje: "Solo el escolar dueño de la reserva sube adjuntos." }
+    ErrorSlotInexistente:
+      summary: El horario no existe
+      value: { codigo: slot_inexistente, mensaje: "El horario solicitado no existe." }
+    ErrorReservaInexistente:
+      summary: La reserva no existe
+      value: { codigo: reserva_inexistente, mensaje: "La reserva no existe." }
+    ErrorAdjuntoInexistente:
+      summary: El adjunto no existe en esa reserva
+      value: { codigo: adjunto_inexistente, mensaje: "El adjunto no existe." }
+    ErrorSlotOcupado:
+      summary: Otra reserva ganó el horario
+      value:
+        codigo: slot_ocupado
+        mensaje: "El horario ya fue reservado."
+        campos: { slot_id: "El horario ya fue reservado." }
+    ErrorAnticipacion:
+      summary: Menos de 48 horas de anticipación
+      value:
+        codigo: anticipacion_insuficiente
+        mensaje: "La reserva requiere al menos 48 horas de anticipación."
+        campos: { slot_id: "La reserva requiere al menos 48 horas de anticipación." }
+    ErrorAdjuntosLlenos:
+      summary: La reserva ya tiene cinco adjuntos
+      value: { codigo: adjuntos_llenos, mensaje: "La reserva ya tiene el máximo de cinco adjuntos." }
+    ErrorAdjuntoGrande:
+      summary: El archivo supera 10 MB
+      value: { codigo: adjunto_muy_grande, mensaje: "Cada adjunto debe pesar como máximo 10 MB." }
+    ErrorAdjuntoInvalido:
+      summary: Tipo no permitido
+      value: { codigo: adjunto_invalido, mensaje: "El archivo no cumple el formato permitido (PDF, PNG, JPG, TXT o DOCX de hasta 10 MB)." }
+    ErrorAdjuntoCuarentena:
+      summary: El adjunto todavía no se puede descargar
+      value: { codigo: adjunto_en_cuarentena, mensaje: "El adjunto sigue en cuarentena." }
   schemas:
     Usuario:
       type: object
@@ -68,7 +200,7 @@ components:
         fin: { type: string, format: date-time, description: UTC }
         inicio_lima: { type: string, description: "America/Lima, por ejemplo 2026-10-22 15:00" }
         fin_lima: { type: string }
-        disponible: { type: boolean, description: falso si no cumple 48 h, horizonte o cupo }
+        disponible: { type: boolean, description: "falso si no cumple 48 h, horizonte o cupo" }
         motivo: { type: string, description: por qué no está disponible }
     AdjuntoReserva:
       type: object
@@ -211,12 +343,16 @@ paths:
         content: { application/json: { schema: { type: object, required: [email, nombre_uso, clave, rol], properties: { email: {type: string}, nombre_uso: {type: string}, clave: {type: string}, rol: {type: string, enum: [escolar, apoderado, tutor]} } } } }
       responses:
         '201': { description: Creado sin confirmar; se envió un enlace al correo, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
+        '400': { description: Solicitud inválida }
         '403': { description: Rol no permitido }
-        '409': { description: Correo en uso (un correo, un registro) }
+        '409': { description: "Correo en uso (un correo, un registro)" }
         '422': { description: Validación por campo, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/auth/ingreso:
     post:
       summary: Abre sesión (cookie HttpOnly, SameSite=Strict, 12 h)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email, clave], properties: { email: { type: string, format: email }, clave: { type: string } } } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
         '401': { description: Credenciales incorrectas (mensaje genérico; también cubre cuentas sin confirmar) }
@@ -226,10 +362,18 @@ paths:
   /api/auth/yo:
     get: { security: [{ sesion: [] }], summary: Usuario de la sesión, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }, '401': { description: Sin sesión } } }
   /api/auth/recuperar:
-    post: { summary: Solicita enlace (respuesta idéntica exista o no el correo), responses: { '202': { description: Aceptado } } }
+    post:
+      summary: Solicita enlace (respuesta idéntica exista o no el correo)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email], properties: { email: { type: string, format: email } } } } }
+      responses: { '202': { description: Aceptado } }
   /api/auth/restablecer:
     post:
       summary: Cambia la clave con token de un solo uso (vence en 1 h) y cierra todas las sesiones
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [token, clave], properties: { token: { type: string }, clave: { type: string } } } } }
       responses: { '200': { description: OK }, '400': { description: Token inválido o vencido }, '422': { description: Clave no cumple la política del rol } }
   /api/auth/confirmar:
     post:
@@ -237,7 +381,7 @@ paths:
       requestBody:
         required: true
         content: { application/json: { schema: { type: object, required: [token], properties: { token: { type: string } } } } }
-      responses: { '200': { description: Correo confirmado }, '400': { description: Token inválido, vencido o ya usado } }
+      responses: { '200': { description: Correo confirmado }, '400': { description: "Token inválido, vencido o ya usado" } }
   /api/auth/reenviar-confirmacion:
     post:
       summary: Reenvía el enlace (renueva 30 min; respuesta idéntica exista o no el correo, para no revelar registros)
@@ -313,7 +457,7 @@ paths:
       parameters:
         - { name: escolarID, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
-        '200': { description: Historial de cambios, del más reciente al más antiguo, content: { application/json: { schema: { type: object, properties: { autorizaciones: { type: array, items: { $ref: '#/components/schemas/Autorizacion' } } } } } } }
+        '200': { description: "Historial de cambios, del más reciente al más antiguo", content: { application/json: { schema: { type: object, properties: { autorizaciones: { type: array, items: { $ref: '#/components/schemas/Autorizacion' } } } } } } }
         '401': { description: Sin sesión }
         '403': { description: El usuario no es apoderado o no es el apoderado del escolar }
         '409': { description: El escolar no tiene un apoderado vinculado }
@@ -340,7 +484,7 @@ paths:
         content: { application/json: { schema: { type: object, required: [token], properties: { token: { type: string } } } } }
       responses:
         '200': { description: Vinculación aceptada; la relación no se puede desvincular, content: { application/json: { schema: { type: object, properties: { mensaje: { type: string }, vinculacion: { $ref: '#/components/schemas/Vinculacion' } } } } } }
-        '400': { description: Enlace inválido, vencido o ya usado }
+        '400': { description: "Enlace inválido, vencido o ya usado" }
         '401': { description: Sin sesión }
         '403': { description: El usuario no es escolar }
         '409': { description: El escolar ya tiene un apoderado aceptado }
@@ -460,7 +604,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PerfilPublicoTutor' }
-        '404': { description: Perfil no aprobado, vencido o inexistente }
+        '404': { description: "Perfil no aprobado, vencido o inexistente" }
   /api/tutor/perfiles:
     get:
       tags: [B-tutor]
@@ -527,7 +671,7 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/ImportacionCatalogo' } } }
         '401': { description: Sin sesión }
         '403': { description: Se requiere el permiso catalogo:gestionar }
-        '422': { description: Fuente, filas o duplicados inválidos }
+        '422': { description: "Fuente, filas o duplicados inválidos" }
   /api/catalogo/cursos/pendientes:
     get:
       tags: [B-catalogo]
@@ -616,21 +760,37 @@ paths:
         '401': { description: Sin sesión }
         '403': { description: Se requiere el permiso catalogo:gestionar }
   /api/oferta/salud:
-    get: { tags: [C-oferta], summary: Esqueleto. Mateo añade aquí su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [C-oferta], summary: Estado del flujo C, responses: { '200': { description: OK } } }
   /api/reserva/salud:
-    get: { tags: [D-reserva], summary: Estado del flujo D, responses: { '200': { description: OK } } }
+    get:
+      tags: [D-reserva]
+      summary: Estado del flujo de reserva
+      description: Endpoint público de salud; no exige sesión.
+      responses:
+        '200':
+          description: El flujo responde
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flujo: { type: string, example: reserva }
+                  estado: { type: string, example: implementado }
+              examples:
+                ok: { $ref: '#/components/examples/SaludReservaEjemplo' }
   /api/reserva/slots:
     get:
       tags: [D-reserva]
-      summary: Oferta disponible para reservar (I04, sintética)
+      summary: Oferta disponible para reservar (I04; sintética hasta I08)
       description: >
-        Devuelve los horarios con la marca disponible y el motivo del rechazo cuando no
-        cumple las 48 horas (RN-03), el horizonte de 28 días (D06) o ya está reservado.
-        La regla se evalúa en el modelo con la hora del servidor.
+        Devuelve los horarios con la marca disponible y el motivo cuando no cumple las
+        48 horas (RN-03), el horizonte de 28 días (D06) o ya está reservado. La regla se
+        evalúa en el servidor con su reloj; el navegador no decide. Hoy la oferta es
+        sintética y la reemplazará I08 sin cambiar este contrato.
       security: [{ sesion: [] }]
       responses:
         '200':
-          description: Lista de horarios
+          description: Lista de horarios con disponibilidad y motivo
           content:
             application/json:
               schema:
@@ -639,7 +799,15 @@ paths:
                   slots:
                     type: array
                     items: { $ref: '#/components/schemas/SlotReserva' }
-        '401': { description: Sin sesión }
+              examples:
+                dosHorarios: { $ref: '#/components/examples/SlotsEjemplo' }
+        '401':
+          description: 401
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutenticado' }
   /api/reserva:
     post:
       tags: [D-reserva]
@@ -659,45 +827,110 @@ paths:
             Clave del intento (8 a 128 caracteres). Repetirla con los mismos datos devuelve
             la misma reserva con 200 en lugar de 201.
           schema: { type: string, minLength: 8, maxLength: 128 }
+          example: reserva-2026-10-30-001
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/ReservaEntrada' }
+            examples:
+              algebra: { $ref: '#/components/examples/ReservaEntradaEjemplo' }
       responses:
         '201':
           description: Reserva confirmada
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReservaD' }
+              examples:
+                creada: { $ref: '#/components/examples/ReservaCreadaEjemplo' }
         '200':
           description: Reintento con la misma Idempotency-Key; devuelve la reserva ya creada
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReservaD' }
-        '400': { description: Cuerpo inválido }
-        '401': { description: Sin sesión }
-        '403': { description: "La cuenta no es de escolar o el apoderado no tiene una autorización vigente (código sin_autorizacion)" }
-        '404': { description: El horario no existe }
-        '409': { description: "Conflictos (códigos: slot_ocupado, slot_vencido, solapamiento, cuota_escolar, cuota_curso_semana, idempotencia_conflicto)" }
-        '422': { description: "Validación (códigos: validacion, anticipacion_insuficiente, horizonte_excedido)" }
+              examples:
+                reintento: { $ref: '#/components/examples/ReservaCreadaEjemplo' }
+        '400':
+          description: 400
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorSolicitudInvalida' }
+        '401':
+          description: 401
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutenticado' }
+        '403':
+          description: 403
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorSinAutorizacion' }
+        '404':
+          description: 404
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorSlotInexistente' }
+        '409':
+          description: 409
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorSlotOcupado' }
+        '422':
+          description: 422
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorAnticipacion' }
   /api/reserva/{id}:
     get:
       tags: [D-reserva]
       summary: Consultar una reserva propia
-      description: Solo el escolar dueño de la reserva recibe los datos; cualquier otra cuenta recibe 403.
+      description: >
+        Solo el escolar dueño de la reserva recibe los datos; cualquier otra cuenta recibe
+        403. El tutor asignado consulta la reserva por la agenda (flujo E), no por aquí.
       security: [{ sesion: [] }]
       parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, example: 6f1c2a9e-3b7d-4c1a-9f2e-8d4b5a6c7e8f }
       responses:
         '200':
-          description: Reserva
+          description: Reserva confirmada
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReservaD' }
-        '401': { description: Sin sesión }
-        '403': { description: La reserva es de otra persona }
-        '404': { description: La reserva no existe }
+              examples:
+                reserva: { $ref: '#/components/examples/ReservaCreadaEjemplo' }
+        '401':
+          description: 401
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutenticado' }
+        '403':
+          description: 403
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutorizado' }
+        '404':
+          description: 404
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorReservaInexistente' }
   /api/reserva/{id}/adjuntos:
     get:
       tags: [D-reserva]
@@ -711,7 +944,7 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
-          description: Adjuntos
+          description: Adjuntos de la reserva
           content:
             application/json:
               schema:
@@ -720,9 +953,29 @@ paths:
                   adjuntos:
                     type: array
                     items: { $ref: '#/components/schemas/AdjuntoReserva' }
-        '401': { description: Sin sesión }
-        '403': { description: La reserva es de otra persona }
-        '404': { description: La reserva no existe }
+              examples:
+                dosAdjuntos: { $ref: '#/components/examples/AdjuntosEjemplo' }
+        '401':
+          description: 401
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutenticado' }
+        '403':
+          description: 403
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutorizado' }
+        '404':
+          description: 404
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorReservaInexistente' }
     post:
       tags: [D-reserva]
       summary: Subir un adjunto a la reserva (I09)
@@ -736,26 +989,76 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
         required: true
+        description: >
+          Formulario con un único campo de archivo. En Swagger UI elige un PDF, PNG, JPG,
+          TXT o DOCX de hasta 10 MB; el nombre se conserva como referencia visible.
         content:
           multipart/form-data:
             schema:
               type: object
               required: [archivo]
               properties:
-                archivo: { type: string, format: binary }
+                archivo: { type: string, format: binary, description: Archivo a adjuntar }
+            encoding:
+              archivo:
+                contentType: application/pdf, image/png, image/jpeg, text/plain, application/vnd.openxmlformats-officedocument.wordprocessingml.document
       responses:
         '201':
           description: Adjunto recibido (puede quedar en cuarentena)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdjuntoReserva' }
-        '400': { description: Falta el archivo o el formulario no es multipart }
-        '401': { description: Sin sesión }
-        '403': { description: La reserva no es del escolar autenticado }
-        '404': { description: La reserva no existe }
-        '409': { description: "Límite alcanzado (código: adjuntos_llenos)" }
-        '413': { description: El archivo supera los 10 MB }
-        '422': { description: "Tipo no permitido (código: adjunto_invalido)" }
+              examples:
+                cuarentena: { $ref: '#/components/examples/AdjuntoCreadoEjemplo' }
+        '400':
+          description: 400
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorSolicitudInvalida' }
+        '401':
+          description: 401
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutenticado' }
+        '403':
+          description: 403
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorSoloEscolar' }
+        '404':
+          description: 404
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorReservaInexistente' }
+        '409':
+          description: 409
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorAdjuntosLlenos' }
+        '413':
+          description: 413
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorAdjuntoGrande' }
+        '422':
+          description: 422
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorAdjuntoInvalido' }
   /api/reserva/{id}/adjuntos/{adjuntoId}:
     get:
       tags: [D-reserva]
@@ -769,14 +1072,45 @@ paths:
         - { name: adjuntoId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
-          description: Contenido del archivo
+          description: Contenido del archivo con su nombre original
+          headers:
+            Content-Disposition:
+              description: Nombre del archivo como adjunto
+              schema: { type: string, example: 'attachment; filename="guia-ejercicios.pdf"' }
+            Content-Type:
+              description: Tipo detectado en el servidor
+              schema: { type: string, example: application/pdf }
           content:
             application/octet-stream:
               schema: { type: string, format: binary }
-        '401': { description: Sin sesión }
-        '403': { description: La reserva es de otra persona }
-        '404': { description: La reserva o el adjunto no existen }
-        '409': { description: "Adjunto en cuarentena o rechazado" }
+        '401':
+          description: 401
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutenticado' }
+        '403':
+          description: 403
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorNoAutorizado' }
+        '404':
+          description: 404
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorAdjuntoInexistente' }
+        '409':
+          description: 409
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                caso: { $ref: '#/components/examples/ErrorAdjuntoCuarentena' }
   /api/sesion/salud:
     get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
   /api/sesion/{id}:
@@ -831,3 +1165,155 @@ paths:
         '404': { description: Sesion inexistente }
         '409': { description: Asistencia duplicada }
         '422': { description: Declaracion invalida }
+
+  /api/salud:
+    get: { tags: [A-acceso], summary: Estado del servicio de acceso, responses: { '200': { description: OK } } }
+  /api/oferta/slots:
+    get:
+      tags: [C-oferta]
+      security: [{ sesion: [] }]
+      summary: Consultar la disponibilidad semanal del tutor autenticado
+      responses:
+        '200':
+          description: Cupo y slots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cupo_semanal_minutos: { type: integer }
+                  slots:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer, format: int64 }
+                        dia_semana: { type: integer, minimum: 0, maximum: 6 }
+                        inicio: { type: string }
+                        fin: { type: string }
+                        zona_horaria: { type: string }
+        '401': { description: Sin sesión }
+        '403': { description: Solo tutores }
+    post:
+      tags: [C-oferta]
+      security: [{ sesion: [] }]
+      summary: Agregar slots a la disponibilidad semanal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slots]
+              properties:
+                slots:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [dia_semana, inicio, fin]
+                    properties:
+                      dia_semana: { type: integer, minimum: 0, maximum: 6 }
+                      inicio: { type: string, example: "15:00" }
+                      fin: { type: string, example: "16:00" }
+      responses:
+        '201':
+          description: Slots creados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cupo_semanal_minutos: { type: integer }
+                  slots:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer, format: int64 }
+                        dia_semana: { type: integer }
+                        inicio: { type: string }
+                        fin: { type: string }
+                        zona_horaria: { type: string }
+        '400': { description: Cuerpo inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Solo tutores }
+        '409': { description: Solapamiento o cupo excedido }
+        '422': { description: Validación }
+  /api/oferta/slots/{id}:
+    delete:
+      tags: [C-oferta]
+      security: [{ sesion: [] }]
+      summary: Eliminar un slot de la disponibilidad semanal
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '204': { description: Eliminado }
+        '401': { description: Sin sesión }
+        '403': { description: Solo tutores }
+        '404': { description: Slot no encontrado }
+  /api/oferta/cupo:
+    put:
+      tags: [C-oferta]
+      security: [{ sesion: [] }]
+      summary: Cambiar el cupo semanal en minutos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [minutos]
+              properties:
+                minutos: { type: integer, minimum: 1 }
+      responses:
+        '200': { description: Cupo actualizado, content: { application/json: { schema: { type: object, properties: { cupo_semanal_minutos: { type: integer } } } } } }
+        '400': { description: Cuerpo inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Solo tutores }
+        '422': { description: Cupo inválido }
+  /api/agenda:
+    get:
+      tags: [E-sesion]
+      security: [{ sesion: [] }]
+      summary: Consultar la agenda del usuario autenticado
+      description: Devuelve las reservas del escolar o del tutor autenticado.
+      responses:
+        '200':
+          description: Reservas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservas:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReservaD' }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin acceso }
+  /api/notificaciones:
+    get:
+      tags: [E-sesion]
+      security: [{ sesion: [] }]
+      summary: Consultar las notificaciones del usuario autenticado
+      responses:
+        '200':
+          description: Notificaciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notificaciones:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer, format: int64 }
+                        reserva_id: { type: string }
+                        tipo: { type: string }
+                        asunto: { type: string }
+                        cuerpo: { type: string }
+                        fecha: { type: string, format: date-time }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin acceso }

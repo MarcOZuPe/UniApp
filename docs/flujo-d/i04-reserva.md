@@ -7,13 +7,13 @@
 
 | Capa | Archivos |
 |---|---|
-| Modelo | `backend/internal/models/reserva/`: `reserva.go` (entidades y reglas), `oferta.go` (puerto del flujo C + oferta sintética), `servicio.go`, `repositorio.go`, `repo_memoria.go`, `repo_postgres.go` |
-| Controlador | `backend/internal/controllers/reserva/controlador.go` |
-| Vista | `backend/internal/views/reserva/presentador.go` y `frontend/src/views/reserva/FormularioReserva.jsx` |
+| Modelo | `backend/internal/domain/reserva/`: `reserva.go` (entidades y reglas), `oferta.go` (puerto del flujo C + oferta sintética), `servicio.go`, `repositorio.go`, `repo_memoria.go`, `repo_postgres.go` |
+| Controlador | `backend/internal/adapters/http/reserva/controlador.go` |
+| Vista | `backend/internal/adapters/presentation/reserva/presentador.go` y `frontend/src/presentation/pages/reserva/FormularioReserva.jsx` |
 | Cliente | `frontend/src/controllers/reserva/apiReserva.js` + `frontend/src/models/reserva/validadores.js` |
 | Datos | `backend/migrations/004_reserva.{up,down}.sql`, `backend/fixtures/reserva.json` |
 | Contrato | `docs/openapi.yaml` (etiqueta `D-reserva`) |
-| Pruebas | `backend/internal/models/reserva/reserva_test.go`, `backend/internal/controllers/reserva/controlador_test.go`, `frontend/src/controllers/reserva/apiReserva.test.js` |
+| Pruebas | `backend/internal/application/reserva/reserva_test.go`, `backend/internal/adapters/http/reserva/controlador_test.go`, `frontend/src/adapters/http/reservaApi.test.js` |
 
 ## Reglas que se aplican en el modelo
 
@@ -65,7 +65,7 @@ listado, consulta solo por su dueño y recorrido HTTP completo (401/403/201/404/
 
 ## Demostración manual
 
-1. `SEED_SYNTHETIC=true` con `SEED_PASSWORD`, arrancar la API (`go run ./cmd/server`).
+1. `SEED_SYNTHETIC=true` con `SEED_PASSWORD`, arrancar la API (`go run ./cmd/api`).
 2. Entrar como `apoderado.prueba@example.test`: la semilla ya creó el vínculo aceptado con
    `escolar.prueba@example.test`. En `/panel_escolares` se ve la autorización vigente y su historial.
 3. Entrar como `escolar.prueba@example.test` y abrir `/reservar`: el horario a menos de 48 h aparece

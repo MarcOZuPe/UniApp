@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-uniapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambia-esto-en-local}
+      POSTGRES_DB: ${POSTGRES_DB:-uniapp}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uniapp} -d ${POSTGRES_DB:-uniapp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-uniapp}:${POSTGRES_PASSWORD:-cambia-esto-en-local}@db:5432/${POSTGRES_DB:-uniapp}?sslmode=disable"
+      APP_ENV: ${APP_ENV:-dev}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+      FRONTEND_PORT: ${FRONTEND_PORT:-5173}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TUTOR_EMAIL_DOMAIN: ${TUTOR_EMAIL_DOMAIN:-uni.edu.pe,uni.pe}
+      SEED_SYNTHETIC: ${SEED_SYNTHETIC:-true}
+      SEED_PASSWORD: ${SEED_PASSWORD:-Dev-Passw0rd!2026}
+      TUTOR_DOCUMENTS_DIR: /app/data/tutor-documents
+      RESERVA_ATTACHMENTS_DIR: /app/data/reserva-adjuntos
+      RESERVA_ATTACHMENTS_SCAN: ${RESERVA_ATTACHMENTS_SCAN:-basico}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-no-responder@uniapp.test}
+      OPENAPI_PATH: /app/docs/openapi.yaml
+      SWAGGER_PORT: "8081"
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+      - "${SWAGGER_PORT:-8081}:8081"
+    volumes:
+      - backend_data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
+volumes:
+  postgres_data:
+  backend_data:

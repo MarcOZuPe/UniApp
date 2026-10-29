@@ -61,7 +61,7 @@ Al volver al formulario, el horario reservado aparece con el motivo
 docker run -d --name uniapp-pg -e POSTGRES_USER=uniapp -e POSTGRES_PASSWORD=uniapp \
   -e POSTGRES_DB=uniapp -p 5433:5432 postgres:16-alpine
 cd backend && DATABASE_URL="postgres://uniapp:uniapp@localhost:5433/uniapp?sslmode=disable" \
-  SEED_SYNTHETIC=true SEED_PASSWORD="Clave-Segura-2026!" go run ./cmd/server
+  SEED_SYNTHETIC=true SEED_PASSWORD="Clave-Segura-2026!" go run ./cmd/api
 cd frontend && npm run dev
 # http://localhost:5173/ingreso · escolar.prueba@example.test / Clave-Segura-2026!
 ```
