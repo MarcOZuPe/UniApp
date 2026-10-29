@@ -305,8 +305,8 @@ func TestReservaConfirmadaCreaSesionI05(t *testing.T) {
 		t.Fatal("los participantes o la reserva no coinciden")
 	}
 
-	if !sesionInicio.Equal(guardada.Inicio) ||
-		!sesionFin.Equal(guardada.Fin) {
+	if !sesionInicio.Equal(guardada.Inicio.Round(time.Microsecond)) ||
+		!sesionFin.Equal(guardada.Fin.Round(time.Microsecond)) {
 		t.Fatal("el horario de sesión no coincide con la reserva")
 	}
 

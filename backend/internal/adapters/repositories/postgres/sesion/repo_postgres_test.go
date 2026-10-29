@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"uniapp/migrations"
 )
 
 // Tablas temporales en una única conexión: nunca escribe ni borra tablas públicas.
@@ -46,7 +47,7 @@ func TestI05PostgresPersistenciaAislada(t *testing.T) {
 	if _, err := db.ExecContext(ctx, "SET search_path TO pg_temp"); err != nil {
 		t.Fatal("no se pudo aislar el esquema")
 	}
-	migracion, err := os.ReadFile("../../../migrations/005_sesion.up.sql")
+	migracion, err := migrations.FS.ReadFile("005_sesion.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
