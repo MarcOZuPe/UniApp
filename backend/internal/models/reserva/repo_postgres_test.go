@@ -236,3 +236,107 @@ func TestAdjuntosEnPostgres(t *testing.T) {
 		t.Fatalf("adjunto inexistente: %v", err)
 	}
 }
+
+func TestReservaConfirmadaCreaSesionI05(t *testing.T) {
+	db := baseAislada(t)
+	repo := modelo.RepositorioPostgres{DB: db}
+	ctx := context.Background()
+
+	escolarID := crearEscolar(
+		t,
+		db,
+		"sesion-i05@example.test",
+	)
+
+	inicio := time.Now().UTC().Add(72 * time.Hour)
+
+	nuevaReserva := reservaPara(
+		escolarID,
+		"slot-sesion-i05",
+		inicio,
+	)
+
+	nuevaReserva.ClaveIdempotencia = "clave-i05-unica"
+
+	// Primera solicitud: debe crear la reserva.
+	guardada, creada, err := repo.ReservarTransaccional(
+		ctx,
+		nuevaReserva,
+		modelo.LimitesPorDefecto,
+	)
+
+	if err != nil {
+		t.Fatalf("crear reserva: %v", err)
+	}
+
+	if !creada {
+		t.Fatal("la primera solicitud debe crear la reserva")
+	}
+
+	// La sesión debe existir y estar vinculada a la reserva.
+	var sesionID, reservaID, tutorID, sesionEscolarID string
+	var sesionInicio, sesionFin time.Time
+
+	err = db.QueryRowContext(ctx, `
+        SELECT id, reserva_id, tutor_id, escolar_id, inicio, fin
+        FROM sesion_sesiones
+        WHERE reserva_id = $1
+    `, guardada.ID).Scan(
+		&sesionID,
+		&reservaID,
+		&tutorID,
+		&sesionEscolarID,
+		&sesionInicio,
+		&sesionFin,
+	)
+
+	if err != nil {
+		t.Fatalf("la sesión debería existir: %v", err)
+	}
+
+	if sesionID != "sesion-"+guardada.ID {
+		t.Fatalf("ID de sesión inesperado: %s", sesionID)
+	}
+
+	if reservaID != guardada.ID ||
+		tutorID != guardada.TutorID ||
+		sesionEscolarID != guardada.EscolarID {
+		t.Fatal("los participantes o la reserva no coinciden")
+	}
+
+	if !sesionInicio.Equal(guardada.Inicio) ||
+		!sesionFin.Equal(guardada.Fin) {
+		t.Fatal("el horario de sesión no coincide con la reserva")
+	}
+
+	// Segunda solicitud: no debe crear otra reserva ni sesión.
+	repetida, creadaOtraVez, err := repo.ReservarTransaccional(
+		ctx,
+		nuevaReserva,
+		modelo.LimitesPorDefecto,
+	)
+
+	if err != nil {
+		t.Fatalf("repetir reserva: %v", err)
+	}
+
+	if creadaOtraVez || repetida.ID != guardada.ID {
+		t.Fatal("la idempotencia de la reserva falló")
+	}
+
+	var cantidad int
+
+	err = db.QueryRowContext(ctx, `
+        SELECT COUNT(*)
+        FROM sesion_sesiones
+        WHERE reserva_id = $1
+    `, guardada.ID).Scan(&cantidad)
+
+	if err != nil {
+		t.Fatalf("contar sesiones: %v", err)
+	}
+
+	if cantidad != 1 {
+		t.Fatalf("se esperaba una sesión, existen %d", cantidad)
+	}
+}
