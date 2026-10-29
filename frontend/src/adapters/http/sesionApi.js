@@ -9,3 +9,9 @@ export function obtenerSesion(id) {
 export function declararAsistencia(id) {
   return cliente.post(`/api/sesion/${encodeURIComponent(id)}/asistencias`);
 }
+
+export function obtenerSesionPorReserva(reservaID) {
+  return cliente.get(
+    `/api/sesion/por-reserva/${encodeURIComponent(reservaID)}`
+  );
+}

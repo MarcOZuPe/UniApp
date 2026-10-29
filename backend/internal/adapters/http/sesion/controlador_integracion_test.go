@@ -400,3 +400,99 @@ func TestI05DeclaracionSinOrigin(t *testing.T) {
 		)
 	}
 }
+
+func TestI05ConsultaSesionPorReserva(t *testing.T) {
+	entorno := prepararEntornoI05(t)
+
+	tutor := iniciarSesionI05(
+		t,
+		entorno.handler,
+		"tutor.prueba@uni.edu.pe",
+	)
+
+	escolar := iniciarSesionI05(
+		t,
+		entorno.handler,
+		"escolar.prueba@example.test",
+	)
+
+	apoderado := iniciarSesionI05(
+		t,
+		entorno.handler,
+		"apoderado.prueba@example.test",
+	)
+
+	ruta := "/api/sesion/por-reserva/reserva-i05"
+
+	casos := []struct {
+		nombre string
+		cookie *http.Cookie
+		estado int
+	}{
+		{"sin autenticacion", nil, http.StatusUnauthorized},
+		{"consulta tutor", tutor, http.StatusOK},
+		{"consulta escolar", escolar, http.StatusOK},
+		{"usuario ajeno", apoderado, http.StatusForbidden},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			respuesta := solicitarI05(
+				entorno.handler,
+				http.MethodGet,
+				ruta,
+				caso.cookie,
+				"",
+			)
+
+			if respuesta.Code != caso.estado {
+				t.Fatalf(
+					"esperado %d, obtenido %d: %s",
+					caso.estado,
+					respuesta.Code,
+					respuesta.Body.String(),
+				)
+			}
+
+			if caso.estado == http.StatusOK {
+				var resultado struct {
+					ID        string `json:"id"`
+					ReservaID string `json:"reserva_id"`
+				}
+
+				if err := json.Unmarshal(
+					respuesta.Body.Bytes(),
+					&resultado,
+				); err != nil {
+					t.Fatal(err)
+				}
+
+				if resultado.ID != "sesion-i05" ||
+					resultado.ReservaID != "reserva-i05" {
+					t.Fatalf(
+						"sesion incorrecta: %+v",
+						resultado,
+					)
+				}
+			}
+		})
+	}
+
+	t.Run("reserva inexistente", func(t *testing.T) {
+		respuesta := solicitarI05(
+			entorno.handler,
+			http.MethodGet,
+			"/api/sesion/por-reserva/reserva-inexistente",
+			tutor,
+			"",
+		)
+
+		if respuesta.Code != http.StatusNotFound {
+			t.Fatalf(
+				"esperado 404, obtenido %d: %s",
+				respuesta.Code,
+				respuesta.Body.String(),
+			)
+		}
+	})
+}
