@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { obtenerAgenda } from '../../controllers/reserva/apiAgenda.js';
+import { obtenerSesionPorReserva } from '../../controllers/sesion/apiSesion.js';
 import { useSesion } from '../../controllers/acceso/useSesion.js';
 import '../i10.css';
 
@@ -10,6 +11,24 @@ function esProxima(reserva, ahora) {
 }
 
 function ListaReservas({ reservas }) {
+  const navigate = useNavigate();
+  const [abriendoReserva, setAbriendoReserva] = useState(null);
+  const [errorSesion, setErrorSesion] = useState('');
+
+  async function abrirSesion(reservaID) {
+    setAbriendoReserva(reservaID);
+    setErrorSesion('');
+
+    try {
+      const sesion = await obtenerSesionPorReserva(reservaID);
+      navigate(`/sesiones/${encodeURIComponent(sesion.id)}`);
+    } catch (err) {
+      setErrorSesion(err.message || 'No se pudo abrir la sesión.');
+    } finally {
+      setAbriendoReserva(null);
+    }
+  }
+
   if (reservas.length === 0) {
     return <p>No tienes tutorías en esta sección.</p>;
   }
@@ -44,9 +63,24 @@ function ListaReservas({ reservas }) {
             <p>
               <small>Reserva: {reserva.id}</small>
             </p>
+
+            <button
+              type="button"
+              onClick={() => abrirSesion(reserva.id)}
+              disabled={abriendoReserva !== null}
+            >
+              {abriendoReserva === reserva.id
+                ? 'Abriendo sesión...'
+                : 'Ver detalle de sesión'}
+            </button>
           </article>
         </li>
       ))}
+      {errorSesion && (
+        <li>
+          <p role="alert" className="error">{errorSesion}</p>
+        </li>
+      )}
     </ul>
   );
 }
