@@ -6,109 +6,74 @@ import (
 	"time"
 )
 
+type VinculacionService struct{ *Nucleo }
+
 const duracionVinculacion = 24 * time.Hour
 
-// SolicitarVinculacion crea un enlace de un solo uso para que el escolar
-// confirme a su apoderado. El apoderado puede tener varios escolares, pero un
-// escolar solo puede tener un apoderado aceptado.
-func (s *Servicio) SolicitarVinculacion(ctx context.Context, apoderado *Usuario, emailEscolar string) (*Vinculacion, error) {
-	if apoderado == nil || apoderado.Rol != RolApoderado || !apoderado.Activo {
-		return nil, ErrNoEsApoderado
-	}
-	emailEscolar = normalizarEmail(emailEscolar)
-	if emailEscolar == "" {
-		return nil, ErrValidacion{Campos: map[string]string{"email_escolar": "el correo es obligatorio"}}
-	}
-
-	escolar, err := s.repositorio.UsuarioPorEmail(ctx, emailEscolar)
-	if errors.Is(err, ErrNoEncontrado) {
-		return nil, ErrEscolarNoEncontrado
-	}
-	if err != nil {
-		return nil, err
-	}
-	if escolar.Rol != RolEscolar || !escolar.Activo || !escolar.EmailConfirmado {
-		return nil, ErrEscolarNoValido
-	}
-
-	if _, err := s.repositorio.VinculacionAceptadaDeEscolar(ctx, escolar.ID); err == nil {
-		return nil, ErrYaVinculado
-	} else if !errors.Is(err, ErrNoEncontrado) {
+func (servicio *VinculacionService) SolicitarVinculacion(ctx context.Context, apoderado *Usuario, emailEscolar string) (*Vinculacion, error) {
+	if err := servicio.validarApoderado(apoderado); err != nil {
 		return nil, err
 	}
 
-	if pendiente, err := s.repositorio.SolicitudPendienteDeEscolar(ctx, escolar.ID, s.ahora()); err == nil {
-		if pendiente.ApoderadoID == apoderado.ID {
-			return nil, ErrSolicitudPendiente
-		}
-		return nil, ErrSolicitudPendiente
-	} else if !errors.Is(err, ErrNoEncontrado) {
-		return nil, err
-	}
-
-	token, tokenHash, err := nuevoToken()
-	if err != nil {
-		return nil, err
-	}
-	momento := s.ahora()
-	vinculacion := Vinculacion{
-		ApoderadoID:     apoderado.ID,
-		EscolarID:       escolar.ID,
-		Estado:          EstadoVinculacionPendiente,
-		TokenHash:       tokenHash,
-		ExpiraEn:        momento.Add(duracionVinculacion),
-		CreadaEn:        momento,
-		ApoderadoNombre: apoderado.NombreUso,
-		ApoderadoEmail:  apoderado.Email,
-		EscolarNombre:   escolar.NombreUso,
-		EscolarEmail:    escolar.Email,
-	}
-	creada, err := s.repositorio.GuardarSolicitudVinculacion(ctx, vinculacion)
+	escolar, err := servicio.buscarYValidarEscolar(ctx, emailEscolar)
 	if err != nil {
 		return nil, err
 	}
 
-	s.bus.Notificar(Event{Nombre: VinculacionSolicitada, Payload: map[string]any{
-		"usuario_id":       apoderado.ID,
-		"rol":              string(apoderado.Rol),
-		"apoderado_id":     apoderado.ID,
-		"escolar_id":       escolar.ID,
-		"apoderado_nombre": apoderado.NombreUso,
-		"apoderado_email":  apoderado.Email,
-		"escolar_nombre":   escolar.NombreUso,
-		"email":            escolar.Email,
-		"token":            token,
-	}})
+	if err := servicio.validarEstadoVinculaciones(ctx, escolar.ID); err != nil {
+		return nil, err
+	}
+
+	token, tokenHash, err := servicio.Tokens.Nuevo()
+	if err != nil {
+		return nil, err
+	}
+
+	vinculacion := servicio.compilarVinculacion(apoderado, escolar, tokenHash)
+	creada, err := servicio.RepositorioVinculaciones.GuardarSolicitudVinculacion(ctx, vinculacion)
+	if err != nil {
+		return nil, err
+	}
+
+	servicio.notificarSolicitud(apoderado, escolar, token)
 	return creada, nil
 }
 
-func (s *Servicio) ConsultarVinculacion(ctx context.Context, escolar *Usuario, token string) (*Vinculacion, error) {
+func (servicio *VinculacionService) ConsultarVinculacion(ctx context.Context, escolar *Usuario, token string) (*Vinculacion, error) {
 	if escolar == nil || escolar.Rol != RolEscolar || !escolar.Activo {
 		return nil, ErrNoEsEscolar
 	}
 	if token == "" {
 		return nil, ErrTokenInvalido
 	}
-	vinculacion, err := s.repositorio.SolicitudVinculacionPorToken(ctx, hashToken(token), escolar.ID, s.ahora())
+	vinculacion, err := servicio.RepositorioVinculaciones.SolicitudVinculacionPorToken(ctx, ConsultaVinculacionPorToken{
+		TokenHash: servicio.Tokens.Hash(token),
+		EscolarID: escolar.ID,
+		Ahora:     servicio.Ahora(),
+	})
 	if errors.Is(err, ErrNoEncontrado) {
 		return nil, ErrTokenInvalido
 	}
 	return vinculacion, err
 }
 
-func (s *Servicio) AceptarVinculacion(ctx context.Context, escolar *Usuario, token string) (*Vinculacion, error) {
+func (servicio *VinculacionService) AceptarVinculacion(ctx context.Context, escolar *Usuario, token string) (*Vinculacion, error) {
 	if escolar == nil || escolar.Rol != RolEscolar || !escolar.Activo {
 		return nil, ErrNoEsEscolar
 	}
 	if token == "" {
 		return nil, ErrTokenInvalido
 	}
-	vinculacion, err := s.repositorio.ConsumirSolicitudVinculacion(ctx, hashToken(token), escolar.ID, s.ahora())
+	vinculacion, err := servicio.RepositorioVinculaciones.ConsumirSolicitudVinculacion(ctx, ConsultaVinculacionPorToken{
+		TokenHash: servicio.Tokens.Hash(token),
+		EscolarID: escolar.ID,
+		Ahora:     servicio.Ahora(),
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	s.bus.Notificar(Event{Nombre: VinculacionAceptada, Payload: map[string]any{
+	servicio.Bus.Notificar(Event{Nombre: VinculacionAceptada, Payload: map[string]any{
 		"usuario_id":       escolar.ID,
 		"rol":              string(escolar.Rol),
 		"apoderado_id":     vinculacion.ApoderadoID,
@@ -120,20 +85,91 @@ func (s *Servicio) AceptarVinculacion(ctx context.Context, escolar *Usuario, tok
 	return vinculacion, nil
 }
 
-func (s *Servicio) VinculacionesDeApoderado(ctx context.Context, apoderado *Usuario) ([]Vinculacion, error) {
-	if apoderado == nil || apoderado.Rol != RolApoderado || !apoderado.Activo {
-		return nil, ErrNoEsApoderado
+func (servicio *VinculacionService) VinculacionesDeApoderado(ctx context.Context, apoderado *Usuario) ([]Vinculacion, error) {
+	if err := servicio.validarApoderado(apoderado); err != nil {
+		return nil, err
 	}
-	return s.repositorio.VinculacionesDeApoderado(ctx, apoderado.ID, s.ahora())
+	return servicio.RepositorioVinculaciones.VinculacionesDeApoderado(ctx, apoderado.ID, servicio.Ahora())
 }
 
-func (s *Servicio) VinculacionDeEscolar(ctx context.Context, escolar *Usuario) (*Vinculacion, error) {
+func (servicio *VinculacionService) VinculacionDeEscolar(ctx context.Context, escolar *Usuario) (*Vinculacion, error) {
 	if escolar == nil || escolar.Rol != RolEscolar || !escolar.Activo {
 		return nil, ErrNoEsEscolar
 	}
-	vinculacion, err := s.repositorio.VinculacionAceptadaDeEscolar(ctx, escolar.ID)
+	vinculacion, err := servicio.RepositorioVinculaciones.VinculacionAceptadaDeEscolar(ctx, escolar.ID)
 	if errors.Is(err, ErrNoEncontrado) {
 		return nil, nil
 	}
 	return vinculacion, err
+}
+
+func (servicio *VinculacionService) validarApoderado(apoderado *Usuario) error {
+	if apoderado == nil || apoderado.Rol != RolApoderado || !apoderado.Activo {
+		return ErrNoEsApoderado
+	}
+	return nil
+}
+
+func (servicio *VinculacionService) buscarYValidarEscolar(ctx context.Context, email string) (*Usuario, error) {
+	email = normalizarEmail(email)
+	if email == "" {
+		return nil, ErrValidacion{Campos: map[string]string{"email_escolar": "el correo es obligatorio"}}
+	}
+
+	escolar, err := servicio.RepositorioUsuarios.UsuarioPorEmail(ctx, email)
+	if errors.Is(err, ErrNoEncontrado) {
+		return nil, ErrEscolarNoEncontrado
+	}
+	if err != nil {
+		return nil, err
+	}
+	if escolar.Rol != RolEscolar || !escolar.Activo || !escolar.EmailConfirmado {
+		return nil, ErrEscolarNoValido
+	}
+	return escolar, nil
+}
+
+func (servicio *VinculacionService) validarEstadoVinculaciones(ctx context.Context, escolarID string) error {
+	if _, err := servicio.RepositorioVinculaciones.VinculacionAceptadaDeEscolar(ctx, escolarID); err == nil {
+		return ErrYaVinculado
+	} else if !errors.Is(err, ErrNoEncontrado) {
+		return err
+	}
+
+	if _, err := servicio.RepositorioVinculaciones.SolicitudPendienteDeEscolar(ctx, escolarID, servicio.Ahora()); err == nil {
+		return ErrSolicitudPendiente
+	} else if !errors.Is(err, ErrNoEncontrado) {
+		return err
+	}
+	return nil
+}
+
+func (servicio *VinculacionService) compilarVinculacion(apoderado, escolar *Usuario, tokenHash []byte) Vinculacion {
+	momento := servicio.Ahora()
+	return Vinculacion{
+		ApoderadoID:     apoderado.ID,
+		EscolarID:       escolar.ID,
+		Estado:          EstadoVinculacionPendiente,
+		TokenHash:       tokenHash,
+		ExpiraEn:        momento.Add(duracionVinculacion),
+		CreadaEn:        momento,
+		ApoderadoNombre: apoderado.NombreUso,
+		ApoderadoEmail:  apoderado.Email,
+		EscolarNombre:   escolar.NombreUso,
+		EscolarEmail:    escolar.Email,
+	}
+}
+
+func (servicio *VinculacionService) notificarSolicitud(apoderado, escolar *Usuario, token string) {
+	servicio.Bus.Notificar(Event{Nombre: VinculacionSolicitada, Payload: map[string]any{
+		"usuario_id":       apoderado.ID,
+		"rol":              string(apoderado.Rol),
+		"apoderado_id":     apoderado.ID,
+		"escolar_id":       escolar.ID,
+		"apoderado_nombre": apoderado.NombreUso,
+		"apoderado_email":  apoderado.Email,
+		"escolar_nombre":   escolar.NombreUso,
+		"email":            escolar.Email,
+		"token":            token,
+	}})
 }
