@@ -10,55 +10,81 @@ import (
 	modelo "uniapp/internal/application/acceso"
 )
 
-func TestMapeadorDeErroresSeExtiendeSinCambiarElRespondedor(t *testing.T) {
+func TestMapeadorDeErroresSeExtiendeSinCambiarElRespondedor(testingT *testing.T) {
 	mapeador := NuevoMapeadorDeErrores()
-	errPropio := errors.New("error propio")
+	errorPropio := errors.New("error propio")
 	mapeador.Registrar(
-		func(err error) bool { return errors.Is(err, errPropio) },
+		func(err error) bool { return errors.Is(err, errorPropio) },
 		respuestaConEstado(http.StatusTeapot, "propio"),
 	)
 
-	w := httptest.NewRecorder()
-	mapeador.Escribir(w, errPropio)
-	if w.Code != http.StatusTeapot || !strings.Contains(w.Body.String(), `"codigo":"propio"`) {
-		t.Fatalf("regla propia: %d %s", w.Code, w.Body)
-	}
+	respuesta := httptest.NewRecorder()
+	mapeador.Escribir(respuesta, errorPropio)
+	verificarRespuestaError(testingT, respuesta, expectativaError{
+		codigo:    http.StatusTeapot,
+		fragmento: `"codigo":"propio"`,
+	})
 
-	w = httptest.NewRecorder()
-	mapeador.Escribir(w, errors.New("desconocido"))
-	if w.Code != http.StatusInternalServerError || !strings.Contains(w.Body.String(), `"codigo":"error_interno"`) {
-		t.Fatalf("respuesta por defecto: %d %s", w.Code, w.Body)
-	}
+	respuesta = httptest.NewRecorder()
+	mapeador.Escribir(respuesta, errors.New("desconocido"))
+	verificarRespuestaError(testingT, respuesta, expectativaError{
+		codigo:    http.StatusInternalServerError,
+		fragmento: `"codigo":"error_interno"`,
+	})
 }
 
-func TestMapeadorDeErroresRespetaElOrdenDeLaCadena(t *testing.T) {
+func TestMapeadorDeErroresRespetaElOrdenDeLaCadena(testingT *testing.T) {
 	mapeador := NuevoMapeadorDeErrores()
-	errPropio := errors.New("error propio")
+	errorPropio := errors.New("error propio")
 	mapeador.Registrar(
-		func(err error) bool { return errors.Is(err, errPropio) },
+		func(err error) bool { return errors.Is(err, errorPropio) },
 		respuestaConEstado(http.StatusTeapot, "primero"),
 	)
 	mapeador.Registrar(
-		func(err error) bool { return errors.Is(err, errPropio) },
+		func(err error) bool { return errors.Is(err, errorPropio) },
 		respuestaConEstado(http.StatusInternalServerError, "segundo"),
 	)
 
-	w := httptest.NewRecorder()
-	mapeador.Escribir(w, errPropio)
-	if w.Code != http.StatusTeapot || !strings.Contains(w.Body.String(), `"codigo":"primero"`) {
-		t.Fatalf("debe ganar la primera regla: %d %s", w.Code, w.Body)
-	}
+	respuesta := httptest.NewRecorder()
+	mapeador.Escribir(respuesta, errorPropio)
+	verificarRespuestaError(testingT, respuesta, expectativaError{
+		codigo:    http.StatusTeapot,
+		fragmento: `"codigo":"primero"`,
+	})
 }
 
-func TestMapeadorDeErroresDeCuentaMantieneValidacion(t *testing.T) {
+func TestMapeadorDeErroresDeCuentaMantieneValidacion(testingT *testing.T) {
 	mapeador := NuevoMapeadorDeErrores()
 	registrarErroresDeCuenta(mapeador)
 
-	w := httptest.NewRecorder()
-	mapeador.Escribir(w, modelo.ErrValidacion{Campos: map[string]string{"email": "obligatorio"}})
-	if w.Code != http.StatusUnprocessableEntity ||
-		!strings.Contains(w.Body.String(), `"codigo":"validacion"`) ||
-		!strings.Contains(w.Body.String(), `"email":"obligatorio"`) {
-		t.Fatalf("validación: %d %s", w.Code, w.Body)
+	respuesta := httptest.NewRecorder()
+	mapeador.Escribir(respuesta, modelo.ErrValidacion{Campos: map[string]string{"email": "obligatorio"}})
+	verificarRespuestaError(testingT, respuesta, expectativaError{
+		codigo:    http.StatusUnprocessableEntity,
+		fragmento: `"codigo":"validacion"`,
+	})
+	if !strings.Contains(respuesta.Body.String(), `"email":"obligatorio"`) {
+		testingT.Fatalf("validación sin campos: %s", respuesta.Body)
+	}
+}
+
+type expectativaError struct {
+	codigo    int
+	fragmento string
+}
+
+func verificarRespuestaError(
+	testingT *testing.T,
+	respuesta *httptest.ResponseRecorder,
+	expected expectativaError,
+) {
+	testingT.Helper()
+
+	if respuesta.Code != expected.codigo {
+		testingT.Fatalf("código esperado %d, recibido %d: %s",
+			expected.codigo, respuesta.Code, respuesta.Body)
+	}
+	if expected.fragmento != "" && !strings.Contains(respuesta.Body.String(), expected.fragmento) {
+		testingT.Fatalf("la respuesta no contiene %q: %s", expected.fragmento, respuesta.Body)
 	}
 }
