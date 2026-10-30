@@ -9,9 +9,6 @@ const (
 	AutorizacionRevocada EstadoAutorizacion = "no_autorizado"
 )
 
-// Autorizacion registra cada cambio de permiso que un apoderado hace sobre su
-// escolar. El estado vigente es siempre el último registro, de modo que el
-// historial conserva quién cambió qué y cuándo.
 type Autorizacion struct {
 	ID              string
 	VinculacionID   string
@@ -25,6 +22,14 @@ type Autorizacion struct {
 	EscolarEmail    string
 }
 
-func (a Autorizacion) Vigente() bool {
-	return a.Estado == AutorizacionOtorgada
+func (autorizacion Autorizacion) Vigente() bool {
+	return autorizacion.Estado == AutorizacionOtorgada
+}
+
+type CambioAutorizacion struct {
+	VinculacionID string
+	EscolarID     string
+	ApoderadoID   string
+	Estado        EstadoAutorizacion
+	Momento       time.Time
 }

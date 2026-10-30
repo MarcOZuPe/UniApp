@@ -7,7 +7,7 @@ import Inicio from '../acceso/Inicio.jsx';
 import { obtenerSesion, declararAsistencia } from '../../../adapters/http/sesionApi.js';
 const estado = vi.hoisted(() => ({ usuario: null, cargando: false }));
 vi.mock('../../hooks/useSesion.js', () => ({ useSesion: () => estado }));
-vi.mock('../../../application/acceso/acciones.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
+vi.mock('../../../application/acceso/sesion.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
 vi.mock('../../../adapters/http/sesionApi.js', () => ({ obtenerSesion: vi.fn(), declararAsistencia: vi.fn() }));
 const sesion = { id: 'sesion-i05-demo', reserva_id: 'reserva-i05-demo', tutor_id: 'tutor-001', escolar_id: 'escolar-001', inicio: '2026-10-20T15:00:00Z', fin: '2026-10-20T16:00:00Z', asistencias: [] };
 const asistencia = rol => ({ usuario_id: rol + '-001', rol, declarada_en: sesion.inicio });

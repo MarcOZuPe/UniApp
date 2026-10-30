@@ -1,52 +1,63 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
-import { ingresar } from '../../../application/acceso/acciones.js';
+import { useFormulario } from '../../hooks/useFormulario.js';
+import { ingresar } from '../../../application/acceso/sesion.js';
 import { validarIngreso } from '../../../domain/acceso/validadores.js';
 
 const FORMULARIO_INICIAL = { email: '', clave: '' };
 
 export default function Ingreso() {
-  const [formulario, setFormulario] = useState(FORMULARIO_INICIAL);
-  const [errores, setErrores] = useState({});
-  const [mensaje, setMensaje] = useState('');
-  const [enviando, setEnviando] = useState(false);
+  const { formulario, actualizarCampo } = useFormulario(FORMULARIO_INICIAL);
+  const [erroresFormulario, setErroresFormulario] = useState({});
+  const [mensajeError, setMensajeError] = useState('');
+  const [enviandoIngreso, setEnviandoIngreso] = useState(false);
   const navegar = useNavigate();
   const [parametros] = useSearchParams();
-  const solicitado = parametros.get('next');
-  const esDestinoInterno = solicitado?.startsWith('/') && !solicitado.startsWith('//') && !solicitado.startsWith('/\\');
-  const destino = esDestinoInterno ? solicitado : '/';
-  const cambiarCampo = (campo) => (evento) =>
-    setFormulario({ ...formulario, [campo]: evento.target.value });
+  const destinoSolicitado = parametros.get('next');
+  const destinoIngreso = obtenerDestinoSeguro(destinoSolicitado);
 
-  async function enviarFormulario(evento) {
+  async function enviarIngreso(evento) {
     evento.preventDefault();
     const erroresValidacion = validarIngreso(formulario);
-    setErrores(erroresValidacion);
-    setMensaje('');
+    setErroresFormulario(erroresValidacion);
+    setMensajeError('');
     if (Object.keys(erroresValidacion).length) return;
-    setEnviando(true);
+
+    setEnviandoIngreso(true);
     try {
-      await ingresar(formulario.email.trim(), formulario.clave);
-      navegar(destino, { replace: true });
-    } catch (error) {
-      setMensaje(error.message);
+      await ingresar({
+        email: formulario.email.trim(),
+        clave: formulario.clave,
+      });
+      navegar(destinoIngreso, { replace: true });
+    } catch (errorIngreso) {
+      setMensajeError(errorIngreso.message);
     } finally {
-      setEnviando(false);
+      setEnviandoIngreso(false);
     }
   }
 
   return (
     <main>
       <h1>Ingresar</h1>
-      {solicitado && <p>Inicia sesión para continuar.</p>}
-      <form onSubmit={enviarFormulario} noValidate>
-        <Campo etiqueta="Correo" type="email" autoComplete="username" value={formulario.email} onChange={cambiarCampo('email')} error={errores.email} />
-        <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={formulario.clave} onChange={cambiarCampo('clave')} error={errores.clave} />
-        {mensaje && <p className="error" role="alert">{mensaje}</p>}
-        <button disabled={enviando}>{enviando ? 'Ingresando…' : 'Ingresar'}</button>
+      {destinoSolicitado && <p>Inicia sesión para continuar.</p>}
+      <form onSubmit={enviarIngreso} noValidate>
+        <Campo etiqueta="Correo" type="email" autoComplete="username" value={formulario.email} onChange={actualizarCampo('email')} error={erroresFormulario.email} />
+        <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={formulario.clave} onChange={actualizarCampo('clave')} error={erroresFormulario.clave} />
+        {mensajeError && <p className="error" role="alert">{mensajeError}</p>}
+        <button disabled={enviandoIngreso}>
+          {enviandoIngreso ? 'Ingresando…' : 'Ingresar'}
+        </button>
       </form>
       <p><Link to="/recuperar">¿Olvidaste tu contraseña?</Link> · <Link to="/registro">Crear cuenta</Link></p>
     </main>
   );
+}
+
+function obtenerDestinoSeguro(destinoSolicitado) {
+  const esDestinoInterno = destinoSolicitado?.startsWith('/') &&
+    !destinoSolicitado.startsWith('//') &&
+    !destinoSolicitado.startsWith('/\\');
+  return esDestinoInterno ? destinoSolicitado : '/';
 }

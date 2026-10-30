@@ -1,31 +1,54 @@
-import { politicaDeRol, requiereCorreoInstitucional } from './roles.js';
+import { requiereCorreoInstitucional } from './roles.js';
+import { crearPolitica, crearPoliticaBasica } from './politicas.js';
 
-const MINIMO_BASICA = 10;
-const MINIMO_ESTRICTA = 12;
+export { crearPolitica, crearPoliticaBasica, crearPoliticaEstricta } from './politicas.js';
+
 const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMINIOS_INSTITUCIONALES = 'uni.edu.pe,uni.pe';
 
-export const politicaBasica = (minimo = MINIMO_BASICA) => (clave, email = '') => {
-  const observaciones = [];
-  if ([...clave].length < minimo) observaciones.push(`debe tener al menos ${minimo} caracteres`);
-  const nombreLocal = email.split('@')[0].toLowerCase();
-  if (nombreLocal && clave.toLowerCase() === nombreLocal) observaciones.push('no puede ser igual a tu correo');
-  return observaciones;
-};
+export function validarRegistro(formularioRegistro, dominiosTutor = DOMINIOS_INSTITUCIONALES) {
+  const erroresPorCampo = {};
+  const email = normalizarEmail(formularioRegistro.email);
+  const errorCorreo = validarCorreo(email);
 
-export const politicaEstricta = (minimo = MINIMO_ESTRICTA) => (clave, email = '') => {
-  const observaciones = politicaBasica(minimo)(clave, email);
-  const combinaClases = /[A-Z]/.test(clave) && /[a-z]/.test(clave) && /\d/.test(clave) && /[^A-Za-z0-9]/.test(clave);
-  if (!combinaClases) observaciones.push('debe combinar mayúscula, minúscula, número y símbolo');
-  return observaciones;
-};
+  if (errorCorreo) {
+    erroresPorCampo.email = errorCorreo;
+  } else if (requiereCorreoInstitucional(formularioRegistro.rol) &&
+    !esCorreoInstitucional(email, dominiosTutor)) {
+    erroresPorCampo.email = `Los tutores usan su correo institucional (${correosInstitucionales(dominiosTutor)})`;
+  }
 
-const POLITICAS = {
-  basica: () => politicaBasica(MINIMO_BASICA),
-  estricta: () => politicaEstricta(MINIMO_ESTRICTA),
-};
+  validarNombreUso(erroresPorCampo, formularioRegistro.nombre_uso);
+  validarClave(erroresPorCampo, {
+    clave: formularioRegistro.clave || '',
+    email,
+    rol: formularioRegistro.rol,
+  });
+  validarConfirmacionClave(erroresPorCampo, formularioRegistro);
+  return erroresPorCampo;
+}
 
-export const crearPolitica = (rol) => (POLITICAS[politicaDeRol(rol)] ?? POLITICAS.basica)();
+export function validarIngreso(formularioIngreso) {
+  const erroresPorCampo = {};
+  registrarErrorCorreo(erroresPorCampo, normalizarEmail(formularioIngreso.email));
+  if (!formularioIngreso.clave) {
+    erroresPorCampo.clave = 'Ingresa tu contraseña';
+  }
+  return erroresPorCampo;
+}
+
+export function validarRecuperar(formularioRecuperacion) {
+  const erroresPorCampo = {};
+  registrarErrorCorreo(erroresPorCampo, normalizarEmail(formularioRecuperacion.email));
+  return erroresPorCampo;
+}
+
+export function validarRestablecer(formularioRestablecimiento) {
+  const erroresPorCampo = {};
+  validarClaveBasica(erroresPorCampo, formularioRestablecimiento.clave || '');
+  validarConfirmacionClave(erroresPorCampo, formularioRestablecimiento);
+  return erroresPorCampo;
+}
 
 export function dominiosDe(dominios) {
   return String(dominios ?? '')
@@ -39,50 +62,48 @@ export function correosInstitucionales(dominios = DOMINIOS_INSTITUCIONALES) {
   return correos.length ? correos.join(' o ') : 'correo institucional';
 }
 
+function normalizarEmail(email) {
+  return String(email ?? '').trim().toLowerCase();
+}
+
+function registrarErrorCorreo(erroresPorCampo, email) {
+  const errorCorreo = validarCorreo(email);
+  if (errorCorreo) {
+    erroresPorCampo.email = errorCorreo;
+  }
+}
+
+function validarNombreUso(erroresPorCampo, nombreUso) {
+  const longitudNombre = [...String(nombreUso ?? '').trim()].length;
+  if (longitudNombre < 2 || longitudNombre > 60) {
+    erroresPorCampo.nombre_uso = 'Entre 2 y 60 caracteres';
+  }
+}
+
+function validarClave(erroresPorCampo, datosClave) {
+  const observacionesClave = crearPolitica(datosClave.rol)(datosClave);
+  if (observacionesClave.length) {
+    erroresPorCampo.clave = 'La contraseña ' + observacionesClave.join('; ');
+  }
+}
+
+function validarClaveBasica(erroresPorCampo, clave) {
+  const observacionesClave = crearPoliticaBasica()({ clave });
+  if (observacionesClave.length) {
+    erroresPorCampo.clave = 'La contraseña ' + observacionesClave.join('; ');
+  }
+}
+
+function validarConfirmacionClave(erroresPorCampo, datosConClave) {
+  if (datosConClave.clave !== datosConClave.confirmar) {
+    erroresPorCampo.confirmar = 'Las contraseñas no coinciden';
+  }
+}
+
 function esCorreoInstitucional(email, dominios) {
   return dominiosDe(dominios).some((dominio) => email.endsWith('@' + dominio));
 }
 
 function validarCorreo(email) {
   return CORREO_VALIDO.test(email) ? '' : 'Correo no válido';
-}
-
-export function validarRegistro(datos, dominiosTutor = DOMINIOS_INSTITUCIONALES) {
-  const errores = {};
-  const email = (datos.email || '').trim().toLowerCase();
-  const problemaCorreo = validarCorreo(email);
-  if (problemaCorreo) {
-    errores.email = problemaCorreo;
-  } else if (requiereCorreoInstitucional(datos.rol) && !esCorreoInstitucional(email, dominiosTutor)) {
-    errores.email = `Los tutores usan su correo institucional (${correosInstitucionales(dominiosTutor)})`;
-  }
-  const longitud = [...(datos.nombre_uso || '').trim()].length;
-  if (longitud < 2 || longitud > 60) errores.nombre_uso = 'Entre 2 y 60 caracteres';
-  const observaciones = crearPolitica(datos.rol)(datos.clave || '', email);
-  if (observaciones.length) errores.clave = 'La contraseña ' + observaciones.join('; ');
-  if (datos.clave !== datos.confirmar) errores.confirmar = 'Las contraseñas no coinciden';
-  return errores;
-}
-
-export function validarIngreso(datos) {
-  const errores = {};
-  const problemaCorreo = validarCorreo((datos.email || '').trim());
-  if (problemaCorreo) errores.email = problemaCorreo;
-  if (!datos.clave) errores.clave = 'Ingresa tu contraseña';
-  return errores;
-}
-
-export function validarRecuperar(datos) {
-  const errores = {};
-  const problemaCorreo = validarCorreo((datos.email || '').trim());
-  if (problemaCorreo) errores.email = problemaCorreo;
-  return errores;
-}
-
-export function validarRestablecer(datos) {
-  const errores = {};
-  const observaciones = politicaBasica(MINIMO_BASICA)(datos.clave || '');
-  if (observaciones.length) errores.clave = 'La contraseña ' + observaciones.join('; ');
-  if (datos.clave !== datos.confirmar) errores.confirmar = 'Las contraseñas no coinciden';
-  return errores;
 }

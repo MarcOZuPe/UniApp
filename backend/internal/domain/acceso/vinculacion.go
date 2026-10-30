@@ -12,8 +12,12 @@ const (
 	EstadoVinculacionAceptada  EstadoVinculacion = "aceptada"
 )
 
-// Vinculacion representa la relación entre un apoderado y un escolar.
-// Los campos de nombre y correo se rellenan para las respuestas de la API.
+type ConsultaVinculacionPorToken struct {
+	TokenHash []byte
+	EscolarID string
+	Ahora     time.Time
+}
+
 type Vinculacion struct {
 	ID          string
 	ApoderadoID string
@@ -30,8 +34,6 @@ type Vinculacion struct {
 	EscolarNombre   string
 	EscolarEmail    string
 
-	// Autorizacion es el último estado registrado. Solo existe para vínculos
-	// aceptados; nil significa que todavía no hay una autorización registrada.
 	Autorizacion *Autorizacion
 }
 

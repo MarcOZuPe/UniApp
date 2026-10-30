@@ -86,7 +86,7 @@ func prepararAgenda(t *testing.T) (
 	err := modeloAcceso.Sembrar(
 		context.Background(),
 		servicioAcceso,
-		modeloAcceso.OpcionesSiembra{
+		modeloAcceso.DatosSiembra{
 			DominioTutor: "uni.edu.pe",
 			Clave:        clave,
 		},
@@ -117,7 +117,7 @@ func TestAgendaEscolarConsultaSuIdentidad(t *testing.T) {
 		t, manejador, "escolar.prueba@example.test",
 	)
 
-	usuario, err := servicioAcceso.UsuarioDeSesion(
+	usuario, err := servicioAcceso.Sesion.UsuarioDeSesion(
 		context.Background(), cookie.Value,
 	)
 	if err != nil {
@@ -163,7 +163,7 @@ func TestAgendaTutorConsultaSuIdentidad(t *testing.T) {
 		t, manejador, "tutor.prueba@uni.edu.pe",
 	)
 
-	usuario, err := servicioAcceso.UsuarioDeSesion(
+	usuario, err := servicioAcceso.Sesion.UsuarioDeSesion(
 		context.Background(), cookie.Value,
 	)
 	if err != nil {

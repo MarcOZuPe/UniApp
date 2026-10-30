@@ -30,6 +30,7 @@ import (
 	modeloTutor "uniapp/internal/application/tutor"
 	infra "uniapp/internal/infrastructure"
 	"uniapp/internal/infrastructure/config"
+	"uniapp/internal/infrastructure/lockout"
 	storage "uniapp/internal/infrastructure/storage"
 	"uniapp/internal/infrastructure/swaggerui"
 	"uniapp/migrations"
@@ -72,13 +73,15 @@ func main() {
 	go limpiarRegistrosVencidosPeriodicamente(ctx, registro, servicio)
 
 	if configuracion.SembrarSintetico {
-		repoSesion := sesionRepo.RepositorioPostgres{DB: baseDatos}
+		repositorioSesion := sesionRepo.RepositorioPostgres{DB: baseDatos}
 
 		if err := sesionRepo.SembrarSintetico(
 			ctx,
-			baseDatos,
-			repoSesion,
-			primerDominio(configuracion.DominiosTutor),
+			sesionRepo.DependenciasSiembraSesion{
+				BaseDatos:    baseDatos,
+				Repositorio:  repositorioSesion,
+				DominioTutor: primerDominio(configuracion.DominiosTutor),
+			},
 		); err != nil {
 			registro.Fatalf("semilla I05: %v", err)
 		}
@@ -102,7 +105,7 @@ func main() {
 
 	// Reservas I09: mantiene la autorización del flujo A.
 	// I10 agrega la anticipación de recordatorios.
-	reservas := construirServicioReserva(baseDatos, configuracion, servicio)
+	reservas := construirServicioReserva(baseDatos, configuracion, servicio.Autorizacion)
 
 	// Sesiones I05: conserva el catálogo y las rutas existentes.
 	manejadorSesion := construirManejadorConSesion(
@@ -170,9 +173,10 @@ func construirServicio(
 		Fabrica:     fabrica,
 		Hasher:      hasher,
 		Bus:         bus,
+		Lockout:     lockout.NuevaMemoria(),
 	})
 
-	if liberados, err := servicio.LimpiarRegistrosVencidos(ctx); err != nil {
+	if liberados, err := servicio.Confirmacion.LimpiarRegistrosVencidos(ctx); err != nil {
 		registro.Printf("limpieza de registros sin confirmar: %v", err)
 	} else if liberados > 0 {
 		registro.Printf("registros sin confirmar vencidos liberados: %d", liberados)
@@ -182,7 +186,7 @@ func construirServicio(
 		if err := modelo.Sembrar(
 			ctx,
 			servicio,
-			modelo.OpcionesSiembra{
+			modelo.DatosSiembra{
 				DominioTutor: configuracion.DominiosTutor,
 				Clave:        configuracion.ClaveSemilla,
 			},
@@ -193,8 +197,10 @@ func construirServicio(
 		if err := modelo.SembrarVinculacion(
 			ctx,
 			servicio,
-			modelo.EmailApoderadoSintetico,
-			modelo.EmailEscolarSintetico,
+			modelo.DatosSiembraVinculacion{
+				EmailApoderado: modelo.EmailApoderadoSintetico,
+				EmailEscolar:   modelo.EmailEscolarSintetico,
+			},
 		); err != nil {
 			registro.Fatalf("semilla de vinculación: %v", err)
 		}
@@ -465,7 +471,7 @@ func limpiarRegistrosVencidosPeriodicamente(
 	for {
 		select {
 		case <-ticker.C:
-			if liberados, err := servicio.LimpiarRegistrosVencidos(ctx); err != nil {
+			if liberados, err := servicio.Confirmacion.LimpiarRegistrosVencidos(ctx); err != nil {
 				registro.Printf("limpieza de registros sin confirmar: %v", err)
 			} else if liberados > 0 {
 				registro.Printf("registros sin confirmar vencidos liberados: %d", liberados)

@@ -9,84 +9,89 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"uniapp/migrations"
 )
 
-// Tablas temporales en una única conexión: nunca escribe ni borra tablas públicas.
-func TestI05PostgresPersistenciaAislada(t *testing.T) {
-	conexion := os.Getenv("I05_TEST_DATABASE_URL")
-	if conexion == "" {
-		t.Skip("I05_TEST_DATABASE_URL no definida; requiere PostgreSQL disponible")
+func TestI05PostgresPersistenciaAislada(testingT *testing.T) {
+	cadenaConexion := os.Getenv("I05_TEST_DATABASE_URL")
+	if cadenaConexion == "" {
+		testingT.Skip("I05_TEST_DATABASE_URL no definida; requiere PostgreSQL disponible")
 	}
-	// El aislamiento se aplica también a cualquier reconexión del driver.
-	if strings.HasPrefix(conexion, "postgres://") || strings.HasPrefix(conexion, "postgresql://") {
-		u, err := url.Parse(conexion)
+
+	if strings.HasPrefix(cadenaConexion, "postgres://") || strings.HasPrefix(cadenaConexion, "postgresql://") {
+		urlPostgres, err := url.Parse(cadenaConexion)
 		if err != nil {
-			t.Fatal("URL de PostgreSQL inválida")
+			testingT.Fatal("URL de PostgreSQL inválida")
 		}
-		q := u.Query()
-		q.Set("search_path", "pg_temp")
-		u.RawQuery = q.Encode()
-		conexion = u.String()
+		parametros := urlPostgres.Query()
+		parametros.Set("search_path", "pg_temp")
+		urlPostgres.RawQuery = parametros.Encode()
+		cadenaConexion = urlPostgres.String()
 	} else {
-		conexion += " search_path=pg_temp"
+		cadenaConexion += " search_path=pg_temp"
 	}
-	db, err := sql.Open("postgres", conexion)
+
+	baseDatos, err := sql.Open("postgres", cadenaConexion)
 	if err != nil {
-		t.Fatal("no se pudo abrir PostgreSQL")
+		testingT.Fatal("no se pudo abrir PostgreSQL")
 	}
-	defer db.Close()
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
-		t.Fatal("PostgreSQL no disponible")
+	defer baseDatos.Close()
+	baseDatos.SetMaxOpenConns(1)
+	baseDatos.SetMaxIdleConns(1)
+
+	contexto, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancelar()
+	if err := baseDatos.PingContext(contexto); err != nil {
+		testingT.Fatal("PostgreSQL no disponible")
 	}
-	// Si se pierde la conexión, el search_path impide caer en las tablas públicas.
-	if _, err := db.ExecContext(ctx, "SET search_path TO pg_temp"); err != nil {
-		t.Fatal("no se pudo aislar el esquema")
+	if _, err := baseDatos.ExecContext(contexto, "SET search_path TO pg_temp"); err != nil {
+		testingT.Fatal("no se pudo aislar el esquema")
 	}
-	migracion, err := migrations.FS.ReadFile("005_sesion.up.sql")
+
+	migracionSQL, err := os.ReadFile("../../../migrations/005_sesion.up.sql")
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
-	sqlTemporal := strings.ReplaceAll(string(migracion), "CREATE TABLE", "CREATE TEMP TABLE")
-	if _, err := db.ExecContext(ctx, sqlTemporal); err != nil {
-		t.Fatal("no se pudieron crear tablas temporales")
+	sqlTemporal := strings.ReplaceAll(string(migracionSQL), "CREATE TABLE", "CREATE TEMP TABLE")
+	if _, err := baseDatos.ExecContext(contexto, sqlTemporal); err != nil {
+		testingT.Fatal("no se pudieron crear tablas temporales")
 	}
+
 	inicio := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
-	s, err := NuevaSesion("sesion-test-aislada", "reserva-test-aislada", "tutor-test", "escolar-test", inicio, inicio.Add(time.Hour))
+	sesion, err := NuevaSesion(
+		"sesion-test-aislada", "reserva-test-aislada",
+		"tutor-test", "escolar-test", inicio, inicio.Add(time.Hour),
+	)
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
-	repo := RepositorioPostgres{DB: db}
-	if err := repo.CrearSesion(ctx, s); err != nil {
-		t.Fatal("falló crear sesión temporal")
+
+	repositorio := RepositorioPostgres{DB: baseDatos}
+	if err := repositorio.CrearSesion(contexto, sesion); err != nil {
+		testingT.Fatal("falló crear sesión temporal")
 	}
 	for _, usuario := range []string{"tutor-test", "escolar-test"} {
-		if _, err := repo.DeclararAsistencia(ctx, s.ID(), usuario, inicio); err != nil {
-			t.Fatal("falló persistir asistencia temporal")
+		if _, err := repositorio.DeclararAsistencia(contexto, sesion.ID(), usuario, inicio); err != nil {
+			testingT.Fatal("falló persistir asistencia temporal")
 		}
-		if _, err := repo.DeclararAsistencia(ctx, s.ID(), usuario, inicio); !errors.Is(err, ErrAsistenciaDuplicada) {
-			t.Fatal("no rechazó duplicado")
+		if _, err := repositorio.DeclararAsistencia(contexto, sesion.ID(), usuario, inicio); !errors.Is(err, ErrAsistenciaDuplicada) {
+			testingT.Fatal("no rechazó duplicado")
 		}
 	}
-	if _, err := repo.DeclararAsistencia(ctx, s.ID(), "ajeno", inicio); !errors.Is(err, ErrNoAutorizado) {
-		t.Fatal("no rechazó usuario ajeno")
+	if _, err := repositorio.DeclararAsistencia(contexto, sesion.ID(), "ajeno", inicio); !errors.Is(err, ErrNoAutorizado) {
+		testingT.Fatal("no rechazó usuario ajeno")
 	}
-	// Nueva instancia del repositorio: lectura del almacenamiento, no del objeto original.
-	otra := RepositorioPostgres{DB: db}
-	guardada, err := otra.SesionPorID(ctx, s.ID())
+
+	otroRepositorio := RepositorioPostgres{DB: baseDatos}
+	guardada, err := otroRepositorio.SesionPorID(contexto, sesion.ID())
 	if err != nil {
-		t.Fatal("falló recargar la sesión temporal")
+		testingT.Fatal("falló recargar la sesión temporal")
 	}
 	if len(guardada.Asistencias()) != 2 {
-		t.Fatal("asistencias no persistidas")
+		testingT.Fatal("asistencias no persistidas")
 	}
-	for i, rol := range []Rol{RolEscolar, RolTutor} {
-		if guardada.Asistencias()[i].Rol() != rol {
-			t.Fatal("rol persistido incorrecto")
+	for indice, rolEsperado := range []Rol{RolEscolar, RolTutor} {
+		if guardada.Asistencias()[indice].Rol() != rolEsperado {
+			testingT.Fatal("rol persistido incorrecto")
 		}
 	}
 }

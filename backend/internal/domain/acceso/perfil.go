@@ -1,15 +1,24 @@
 package acceso
 
-import (
-	"strings"
-)
+import "strings"
 
 type PerfilRol interface {
 	Rol() Rol
 	Politica() PoliticaClave
 	EsPublico() bool
+	ValidarExtra(solicitud SolicitudRegistro) map[string]string
+}
 
-	ValidarExtra(d DatosRegistro) map[string]string
+func ObtenerPerfil(rol Rol, dominiosTutor string) (PerfilRol, error) {
+	fabrica, err := FabricaParaRol(rol)
+	if err != nil {
+		return nil, err
+	}
+	perfil := fabrica.CrearPerfil(dominiosTutor)
+	if perfil == nil {
+		return nil, ErrValidacion{Campos: map[string]string{"rol": "rol desconocido"}}
+	}
+	return perfil, nil
 }
 
 type perfilBase struct {
@@ -18,10 +27,12 @@ type perfilBase struct {
 	publico  bool
 }
 
-func (p perfilBase) Rol() Rol                                     { return p.rol }
-func (p perfilBase) Politica() PoliticaClave                      { return p.politica }
-func (p perfilBase) EsPublico() bool                              { return p.publico }
-func (p perfilBase) ValidarExtra(DatosRegistro) map[string]string { return nil }
+func (perfil perfilBase) Rol() Rol                { return perfil.rol }
+func (perfil perfilBase) Politica() PoliticaClave { return perfil.politica }
+func (perfil perfilBase) EsPublico() bool         { return perfil.publico }
+func (perfil perfilBase) ValidarExtra(_ SolicitudRegistro) map[string]string {
+	return nil
+}
 
 type perfilEscolar struct{ perfilBase }
 
@@ -47,26 +58,32 @@ func nuevoPerfilTutor(dominios string) PerfilRol {
 	}
 }
 
-func (p *perfilTutor) ValidarExtra(d DatosRegistro) map[string]string {
-	for _, sufijo := range p.sufijos {
-		if strings.HasSuffix(d.Email, sufijo) {
+func (perfil *perfilTutor) ValidarExtra(solicitud SolicitudRegistro) map[string]string {
+	for _, sufijo := range perfil.sufijos {
+		if strings.HasSuffix(solicitud.Email, sufijo) {
 			return nil
 		}
 	}
-	if len(p.sufijos) == 0 {
+	if len(perfil.sufijos) == 0 {
 		return map[string]string{"email": "los tutores usan su correo institucional"}
 	}
-	return map[string]string{"email": "los tutores usan su correo institucional (" + strings.Join(p.sufijos, " o ") + ")"}
+	return map[string]string{"email": "los tutores usan su correo institucional (" + strings.Join(perfil.sufijos, " o ") + ")"}
+}
+
+type perfilCoordinador struct{ perfilBase }
+
+func nuevoPerfilCoordinador() PerfilRol {
+	return &perfilCoordinador{perfilBase{rol: RolCoordinador, politica: PoliticaEstricta{Min: 12}, publico: false}}
 }
 
 func DominiosDe(texto string) []string {
-	dominios := make([]string, 0, 2)
+	dominiosLimpios := make([]string, 0, 2)
 	for _, parte := range strings.Split(texto, ",") {
 		if dominio := strings.ToLower(strings.TrimSpace(parte)); dominio != "" {
-			dominios = append(dominios, dominio)
+			dominiosLimpios = append(dominiosLimpios, dominio)
 		}
 	}
-	return dominios
+	return dominiosLimpios
 }
 
 func sufijosDeDominios(texto string) []string {
@@ -76,22 +93,4 @@ func sufijosDeDominios(texto string) []string {
 		sufijos = append(sufijos, "@"+dominio)
 	}
 	return sufijos
-}
-
-type perfilCoordinador struct{ perfilBase }
-
-func nuevoPerfilCoordinador() PerfilRol {
-	return &perfilCoordinador{perfilBase{rol: RolCoordinador, politica: PoliticaEstricta{Min: 12}, publico: false}}
-}
-
-func ObtenerPerfil(rol Rol, dominiosTutor string) (PerfilRol, error) {
-	fabrica, err := FabricaParaRol(rol)
-	if err != nil {
-		return nil, err
-	}
-	perfil := fabrica.CrearPerfil(dominiosTutor)
-	if perfil == nil {
-		return nil, ErrValidacion{Campos: map[string]string{"rol": "rol desconocido"}}
-	}
-	return perfil, nil
 }

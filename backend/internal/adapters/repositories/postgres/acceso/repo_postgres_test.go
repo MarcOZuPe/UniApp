@@ -7,219 +7,225 @@ import (
 	"testing"
 	"time"
 
-	repo "uniapp/internal/adapters/repositories/postgres/acceso"
+	postgresRepo "uniapp/internal/adapters/repositories/postgres/acceso"
 	app "uniapp/internal/application/acceso"
 	modelo "uniapp/internal/domain/acceso"
 	infra "uniapp/internal/infrastructure"
 	"uniapp/migrations"
 )
 
-func TestRepositorioPostgresFlujoCompleto(t *testing.T) {
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL no definida")
+func TestRepositorioPostgresFlujoCompleto(testingT *testing.T) {
+	urlBaseDatos := os.Getenv("TEST_DATABASE_URL")
+	if urlBaseDatos == "" {
+		testingT.Skip("TEST_DATABASE_URL no definida")
 	}
-	ctx := context.Background()
-	d, err := migrations.Abrir(url)
+	contexto := context.Background()
+	baseDatos, err := migrations.Abrir(urlBaseDatos)
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
-	defer d.Close()
-	if err := migrations.Migrar(ctx, d, migrations.FS); err != nil {
-		t.Fatal(err)
+	defer baseDatos.Close()
+	if err := migrations.Migrar(contexto, baseDatos, migrations.FS); err != nil {
+		testingT.Fatal(err)
 	}
-	if err := migrations.Migrar(ctx, d, migrations.FS); err != nil {
-		t.Fatal(err)
+	if err := migrations.Migrar(contexto, baseDatos, migrations.FS); err != nil {
+		testingT.Fatal(err)
 	}
-	_, _ = d.Exec(`TRUNCATE usuarios CASCADE`)
+	_, _ = baseDatos.Exec(`TRUNCATE usuarios CASCADE`)
 
-	h := infra.PBKDF2Hasher{Iteraciones: 1000}
-	repo := repo.RepositorioPostgres{DB: d}
-	bus := infra.NuevoBus()
+	hasher := infra.PBKDF2Hasher{Iteraciones: 1000}
+	repositorio := postgresRepo.RepositorioPostgres{DB: baseDatos}
+	busEventos := infra.NuevoBus()
 	var tokenConfirmacion string
-	bus.Registrar(modelo.ConfirmacionSolicitada, infra.NuevoObservadorFunc("captura-confirmacion", func(e modelo.Event) {
-		tokenConfirmacion, _ = e.Payload["token"].(string)
+	busEventos.Registrar(modelo.ConfirmacionSolicitada, infra.NuevoObservadorFunc("captura-confirmacion", func(evento modelo.Event) {
+		tokenConfirmacion, _ = evento.Payload["token"].(string)
 	}))
-	s := app.NuevoServicio(app.Dependencias{
-		Repositorio: repo,
-		Fabrica:     app.NuevaFabrica(h, "uni.edu.pe"),
-		Hasher:      h,
-		Bus:         bus,
+	servicio := app.NuevoServicio(app.Dependencias{
+		Repositorio: repositorio,
+		Fabrica:     app.NuevaFabrica(hasher, "uni.edu.pe"),
+		Hasher:      hasher,
+		Bus:         busEventos,
 	})
-	registrado, err := s.Registrar(ctx, modelo.DatosRegistro{Email: "pg@example.com", NombreUso: "Pg", Clave: "clave-larga-ok", Rol: modelo.RolEscolar})
+	registrado, err := servicio.Registro.Registrar(contexto, modelo.SolicitudRegistro{Email: "pg@example.com", NombreUso: "Pg", Clave: "clave-larga-ok", Rol: modelo.RolEscolar})
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
 	if registrado.EmailConfirmado || tokenConfirmacion == "" {
-		t.Fatal("el registro público debe nacer sin confirmar y emitir el enlace")
+		testingT.Fatal("el registro público debe nacer sin confirmar y emitir el enlace")
 	}
-	if _, err := s.Registrar(ctx, modelo.DatosRegistro{Email: "PG@example.com", NombreUso: "Pg", Clave: "clave-larga-ok", Rol: modelo.RolEscolar}); !errors.Is(err, modelo.ErrEmailEnUso) {
-		t.Fatalf("unicidad: %v", err)
+	if _, err := servicio.Registro.Registrar(contexto, modelo.SolicitudRegistro{Email: "PG@example.com", NombreUso: "Pg", Clave: "clave-larga-ok", Rol: modelo.RolEscolar}); !errors.Is(err, modelo.ErrEmailEnUso) {
+		testingT.Fatalf("unicidad: %v", err)
 	}
-	if _, _, err := s.Ingresar(ctx, "pg@example.com", "clave-larga-ok"); !errors.Is(err, modelo.ErrCredenciales) {
-		t.Fatalf("sin confirmar debe ser invisible: %v", err)
+	if _, _, err := servicio.Sesion.Ingresar(contexto, app.CredencialesIngreso{Email: "pg@example.com", Clave: "clave-larga-ok"}); !errors.Is(err, modelo.ErrCredenciales) {
+		testingT.Fatalf("sin confirmar debe ser invisible: %v", err)
 	}
-	if err := s.ConfirmarCorreo(ctx, tokenConfirmacion); err != nil {
-		t.Fatal(err)
+	if err := servicio.Confirmacion.ConfirmarCorreo(contexto, tokenConfirmacion); err != nil {
+		testingT.Fatal(err)
 	}
-	if err := s.ConfirmarCorreo(ctx, tokenConfirmacion); !errors.Is(err, modelo.ErrTokenInvalido) {
-		t.Fatal("el enlace de confirmación es de un solo uso")
+	if err := servicio.Confirmacion.ConfirmarCorreo(contexto, tokenConfirmacion); !errors.Is(err, modelo.ErrTokenInvalido) {
+		testingT.Fatal("el enlace de confirmación es de un solo uso")
 	}
-	confirmado, err := repo.UsuarioPorEmail(ctx, "pg@example.com")
+	confirmado, err := repositorio.UsuarioPorEmail(contexto, "pg@example.com")
 	if err != nil || !confirmado.EmailConfirmado {
-		t.Fatalf("correo_confirmado debe persistir: %v", err)
+		testingT.Fatalf("correo_confirmado debe persistir: %v", err)
 	}
-	tok, u, err := s.Ingresar(ctx, "pg@example.com", "clave-larga-ok")
-	if err != nil || u.Rol != modelo.RolEscolar {
-		t.Fatal(err)
+	tokenSesion, usuario, err := servicio.Sesion.Ingresar(contexto, app.CredencialesIngreso{Email: "pg@example.com", Clave: "clave-larga-ok"})
+	if err != nil || usuario.Rol != modelo.RolEscolar {
+		testingT.Fatal(err)
 	}
-	if got, err := s.UsuarioDeSesion(ctx, tok); err != nil || got.UltimoIngreso == nil {
-		t.Fatalf("sesión: %v", err)
+	if usuarioSesion, err := servicio.Sesion.UsuarioDeSesion(contexto, tokenSesion); err != nil || usuarioSesion.UltimoIngreso == nil {
+		testingT.Fatalf("sesión: %v", err)
 	}
 
 	var tokenReset string
-	bus.Registrar(modelo.RecuperacionSolicitada, infra.NuevoObservadorFunc("captura-token-reset", func(e modelo.Event) {
-		tokenReset, _ = e.Payload["token"].(string)
+	busEventos.Registrar(modelo.RecuperacionSolicitada, infra.NuevoObservadorFunc("captura-token-reset", func(evento modelo.Event) {
+		tokenReset, _ = evento.Payload["token"].(string)
 	}))
-	_ = s.SolicitarRecuperacion(ctx, "pg@example.com")
-	if err := s.RestablecerClave(ctx, tokenReset, "nueva-clave-larga"); err != nil {
-		t.Fatal(err)
+	_ = servicio.Recuperacion.SolicitarRecuperacion(contexto, "pg@example.com")
+	if err := servicio.Recuperacion.RestablecerClave(contexto, app.SolicitudRestablecimiento{Token: tokenReset, NuevaClave: "nueva-clave-larga"}); err != nil {
+		testingT.Fatal(err)
 	}
-	if err := s.RestablecerClave(ctx, tokenReset, "nueva-clave-larga"); !errors.Is(err, modelo.ErrTokenInvalido) {
-		t.Fatal("un solo uso")
+	if err := servicio.Recuperacion.RestablecerClave(contexto, app.SolicitudRestablecimiento{Token: tokenReset, NuevaClave: "nueva-clave-larga"}); !errors.Is(err, modelo.ErrTokenInvalido) {
+		testingT.Fatal("un solo uso")
 	}
-	if _, err := s.UsuarioDeSesion(ctx, tok); err == nil {
-		t.Fatal("sesiones cerradas tras restablecer")
+	if _, err := servicio.Sesion.UsuarioDeSesion(contexto, tokenSesion); err == nil {
+		testingT.Fatal("sesiones cerradas tras restablecer")
 	}
 
-	if _, err := s.Registrar(ctx, modelo.DatosRegistro{Email: "vencido@example.com", NombreUso: "Vencido", Clave: "clave-larga-ok", Rol: modelo.RolEscolar}); err != nil {
-		t.Fatal(err)
+	if _, err := servicio.Registro.Registrar(contexto, modelo.SolicitudRegistro{Email: "vencido@example.com", NombreUso: "Vencido", Clave: "clave-larga-ok", Rol: modelo.RolEscolar}); err != nil {
+		testingT.Fatal(err)
 	}
-	liberados, err := repo.EliminarUsuariosSinConfirmar(ctx, time.Now().Add(31*time.Minute))
+	liberados, err := repositorio.EliminarUsuariosSinConfirmar(contexto, time.Now().Add(31*time.Minute))
 	if err != nil || liberados != 1 {
-		t.Fatalf("debía liberarse el registro vencido: %d (%v)", liberados, err)
+		testingT.Fatalf("debía liberarse el registro vencido: %d (%v)", liberados, err)
 	}
-	if _, err := repo.UsuarioPorEmail(ctx, "vencido@example.com"); !errors.Is(err, modelo.ErrNoEncontrado) {
-		t.Fatalf("el correo debe quedar libre: %v", err)
+	if _, err := repositorio.UsuarioPorEmail(contexto, "vencido@example.com"); !errors.Is(err, modelo.ErrNoEncontrado) {
+		testingT.Fatalf("el correo debe quedar libre: %v", err)
 	}
-	if confirmado, err := repo.UsuarioPorEmail(ctx, "pg@example.com"); err != nil || !confirmado.EmailConfirmado {
-		t.Fatalf("no debe borrar cuentas confirmadas: %v", err)
+	if confirmado, err := repositorio.UsuarioPorEmail(contexto, "pg@example.com"); err != nil || !confirmado.EmailConfirmado {
+		testingT.Fatalf("no debe borrar cuentas confirmadas: %v", err)
 	}
 }
-func TestRepositorioPostgresVinculacion(t *testing.T) {
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL no definida")
+func TestRepositorioPostgresVinculacion(testingT *testing.T) {
+	urlBaseDatos := os.Getenv("TEST_DATABASE_URL")
+	if urlBaseDatos == "" {
+		testingT.Skip("TEST_DATABASE_URL no definida")
 	}
-	ctx := context.Background()
-	d, err := migrations.Abrir(url)
+	contexto := context.Background()
+	baseDatos, err := migrations.Abrir(urlBaseDatos)
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
-	defer d.Close()
-	if err := migrations.Migrar(ctx, d, migrations.FS); err != nil {
-		t.Fatal(err)
+	defer baseDatos.Close()
+	if err := migrations.Migrar(contexto, baseDatos, migrations.FS); err != nil {
+		testingT.Fatal(err)
 	}
-	_, _ = d.Exec(`TRUNCATE usuarios CASCADE`)
+	_, _ = baseDatos.Exec(`TRUNCATE usuarios CASCADE`)
 
-	h := infra.PBKDF2Hasher{Iteraciones: 1000}
-	bus := infra.NuevoBus()
+	hasher := infra.PBKDF2Hasher{Iteraciones: 1000}
+	busEventos := infra.NuevoBus()
 	var tokenVinculacion string
-	bus.Registrar(modelo.VinculacionSolicitada, infra.NuevoObservadorFunc("captura-vinculacion-pg", func(e modelo.Event) {
-		tokenVinculacion, _ = e.Payload["token"].(string)
+	busEventos.Registrar(modelo.VinculacionSolicitada, infra.NuevoObservadorFunc("captura-vinculacion-pg", func(evento modelo.Event) {
+		tokenVinculacion, _ = evento.Payload["token"].(string)
 	}))
-	s := app.NuevoServicio(app.Dependencias{
-		Repositorio: repo.RepositorioPostgres{DB: d},
-		Fabrica:     app.NuevaFabrica(h, "uni.edu.pe"),
-		Hasher:      h,
-		Bus:         bus,
+	servicio := app.NuevoServicio(app.Dependencias{
+		Repositorio: postgresRepo.RepositorioPostgres{DB: baseDatos},
+		Fabrica:     app.NuevaFabrica(hasher, "uni.edu.pe"),
+		Hasher:      hasher,
+		Bus:         busEventos,
 	})
-	apoderado, err := s.CrearAdministrado(ctx, modelo.DatosRegistro{
+	apoderado, err := servicio.Registro.CrearAdministrado(contexto, modelo.SolicitudRegistro{
 		Email: "apoderado.pg@example.com", NombreUso: "Apoderado PG", Clave: "clave-larga-ok", Rol: modelo.RolApoderado,
 	})
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
-	escolar, err := s.CrearAdministrado(ctx, modelo.DatosRegistro{
+	escolar, err := servicio.Registro.CrearAdministrado(contexto, modelo.SolicitudRegistro{
 		Email: "escolar.pg@example.com", NombreUso: "Escolar PG", Clave: "clave-larga-ok", Rol: modelo.RolEscolar,
 	})
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
 
-	creada, err := s.SolicitarVinculacion(ctx, apoderado, escolar.Email)
+	creada, err := servicio.Vinculacion.SolicitarVinculacion(contexto, apoderado, escolar.Email)
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
 	if creada.Estado != modelo.EstadoVinculacionPendiente || tokenVinculacion == "" {
-		t.Fatalf("solicitud: %+v", creada)
+		testingT.Fatalf("solicitud: %+v", creada)
 	}
-	consultada, err := s.ConsultarVinculacion(ctx, escolar, tokenVinculacion)
+	consultada, err := servicio.Vinculacion.ConsultarVinculacion(contexto, escolar, tokenVinculacion)
 	if err != nil || consultada.ApoderadoEmail != apoderado.Email {
-		t.Fatalf("consulta: %+v (%v)", consultada, err)
+		testingT.Fatalf("consulta: %+v (%v)", consultada, err)
 	}
-	aceptada, err := s.AceptarVinculacion(ctx, escolar, tokenVinculacion)
+	aceptada, err := servicio.Vinculacion.AceptarVinculacion(contexto, escolar, tokenVinculacion)
 	if err != nil || aceptada.Estado != modelo.EstadoVinculacionAceptada || aceptada.AceptadaEn == nil {
-		t.Fatalf("aceptar: %+v (%v)", aceptada, err)
+		testingT.Fatalf("aceptar: %+v (%v)", aceptada, err)
 	}
 	if aceptada.Autorizacion == nil || !aceptada.Autorizacion.Vigente() {
-		t.Fatalf("autorización inicial: %+v", aceptada.Autorizacion)
+		testingT.Fatalf("autorización inicial: %+v", aceptada.Autorizacion)
 	}
-	if autorizado, err := s.AutorizacionVigente(ctx, escolar.ID); err != nil || !autorizado {
-		t.Fatalf("autorización vigente: %v (%v)", autorizado, err)
+	if autorizado, err := servicio.Autorizacion.AutorizacionVigente(contexto, escolar.ID); err != nil || !autorizado {
+		testingT.Fatalf("autorización vigente: %v (%v)", autorizado, err)
 	}
-	if _, err := s.CambiarAutorizacion(ctx, apoderado, escolar.ID, false); err != nil {
-		t.Fatal(err)
+	if _, err := servicio.Autorizacion.CambiarAutorizacion(contexto, app.SolicitudCambioAutorizacion{
+		SolicitudAutorizacion: app.SolicitudAutorizacion{Apoderado: apoderado, EscolarID: escolar.ID},
+		Autorizado:            false,
+	}); err != nil {
+		testingT.Fatal(err)
 	}
-	if autorizado, err := s.AutorizacionVigente(ctx, escolar.ID); err != nil || autorizado {
-		t.Fatalf("revocación persistida: %v (%v)", autorizado, err)
+	if autorizado, err := servicio.Autorizacion.AutorizacionVigente(contexto, escolar.ID); err != nil || autorizado {
+		testingT.Fatalf("revocación persistida: %v (%v)", autorizado, err)
 	}
-	if _, err := s.CambiarAutorizacion(ctx, apoderado, escolar.ID, true); err != nil {
-		t.Fatal(err)
+	if _, err := servicio.Autorizacion.CambiarAutorizacion(contexto, app.SolicitudCambioAutorizacion{
+		SolicitudAutorizacion: app.SolicitudAutorizacion{Apoderado: apoderado, EscolarID: escolar.ID},
+		Autorizado:            true,
+	}); err != nil {
+		testingT.Fatal(err)
 	}
 	var cambios int
-	if err := d.QueryRowContext(ctx,
+	if err := baseDatos.QueryRowContext(contexto,
 		`SELECT count(*) FROM autorizaciones_apoderado WHERE escolar_id=$1 AND apoderado_id=$2`,
 		escolar.ID, apoderado.ID).Scan(&cambios); err != nil || cambios != 3 {
-		t.Fatalf("historial de cambios: %d (%v)", cambios, err)
+		testingT.Fatalf("historial de cambios: %d (%v)", cambios, err)
 	}
-	historial, err := s.HistorialAutorizaciones(ctx, apoderado, escolar.ID)
+	historial, err := servicio.Autorizacion.HistorialAutorizaciones(contexto, app.SolicitudAutorizacion{Apoderado: apoderado, EscolarID: escolar.ID})
 	if err != nil || len(historial) != 3 {
-		t.Fatalf("historial del vínculo: %+v (%v)", historial, err)
+		testingT.Fatalf("historial del vínculo: %+v (%v)", historial, err)
 	}
 	esperado := []modelo.EstadoAutorizacion{
 		modelo.AutorizacionOtorgada, modelo.AutorizacionRevocada, modelo.AutorizacionOtorgada,
 	}
-	for i, estado := range esperado {
-		if historial[i].Estado != estado {
-			t.Fatalf("historial[%d]=%s, se esperaba %s", i, historial[i].Estado, estado)
+	for indice, estado := range esperado {
+		if historial[indice].Estado != estado {
+			testingT.Fatalf("historial[%d]=%s, se esperaba %s", indice, historial[indice].Estado, estado)
 		}
-		if historial[i].CreadaEn.IsZero() {
-			t.Fatalf("el cambio %d debe llevar fecha", i)
+		if historial[indice].CreadaEn.IsZero() {
+			testingT.Fatalf("el cambio %d debe llevar fecha", indice)
 		}
 	}
-	if _, err := s.AceptarVinculacion(ctx, escolar, tokenVinculacion); !errors.Is(err, modelo.ErrTokenInvalido) {
-		t.Fatalf("un solo uso: %v", err)
+	if _, err := servicio.Vinculacion.AceptarVinculacion(contexto, escolar, tokenVinculacion); !errors.Is(err, modelo.ErrTokenInvalido) {
+		testingT.Fatalf("un solo uso: %v", err)
 	}
 
-	actual, err := s.VinculacionDeEscolar(ctx, escolar)
+	actual, err := servicio.Vinculacion.VinculacionDeEscolar(contexto, escolar)
 	if err != nil || actual == nil || actual.ApoderadoID != apoderado.ID {
-		t.Fatalf("vínculo: %+v (%v)", actual, err)
+		testingT.Fatalf("vínculo: %+v (%v)", actual, err)
 	}
-	otro, err := s.CrearAdministrado(ctx, modelo.DatosRegistro{
+	otro, err := servicio.Registro.CrearAdministrado(contexto, modelo.SolicitudRegistro{
 		Email: "otro.pg@example.com", NombreUso: "Otro PG", Clave: "clave-larga-ok", Rol: modelo.RolApoderado,
 	})
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
-	if _, err := s.HistorialAutorizaciones(ctx, otro, escolar.ID); !errors.Is(err, modelo.ErrVinculacionAjena) {
-		t.Fatalf("otro apoderado no ve el historial: %v", err)
+	if _, err := servicio.Autorizacion.HistorialAutorizaciones(contexto, app.SolicitudAutorizacion{Apoderado: otro, EscolarID: escolar.ID}); !errors.Is(err, modelo.ErrVinculacionAjena) {
+		testingT.Fatalf("otro apoderado no ve el historial: %v", err)
 	}
-	if _, err := s.SolicitarVinculacion(ctx, otro, escolar.Email); !errors.Is(err, modelo.ErrYaVinculado) {
-		t.Fatalf("escolar ya vinculado: %v", err)
+	if _, err := servicio.Vinculacion.SolicitarVinculacion(contexto, otro, escolar.Email); !errors.Is(err, modelo.ErrYaVinculado) {
+		testingT.Fatalf("escolar ya vinculado: %v", err)
 	}
-	vinculaciones, err := s.VinculacionesDeApoderado(ctx, apoderado)
+	vinculaciones, err := servicio.Vinculacion.VinculacionesDeApoderado(contexto, apoderado)
 	if err != nil || len(vinculaciones) != 1 {
-		t.Fatalf("listado: %+v (%v)", vinculaciones, err)
+		testingT.Fatalf("listado: %+v (%v)", vinculaciones, err)
 	}
 }

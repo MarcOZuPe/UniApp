@@ -1,4 +1,4 @@
-import { api } from '../../application/acceso/acciones.js';
+import { api } from './apiAcceso.js';
 
 export const solicitarVinculacion = (emailEscolar) =>
   api.post('/api/apoderado/vinculaciones', { email_escolar: emailEscolar });
