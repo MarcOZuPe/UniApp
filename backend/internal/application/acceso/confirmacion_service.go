@@ -6,53 +6,50 @@ import (
 	"time"
 )
 
+type ConfirmacionService struct{ *Nucleo }
+
 const duracionConfirmacion = 30 * time.Minute
 
-// LimpiarRegistrosVencidos borra las cuentas sin confirmar que ya no tienen
-// ningún enlace vigente, liberando su correo para un nuevo registro.
-func (s *Servicio) LimpiarRegistrosVencidos(ctx context.Context) (int64, error) {
-	return s.repositorio.EliminarUsuariosSinConfirmar(ctx, s.ahora())
+func (servicio *ConfirmacionService) LimpiarRegistrosVencidos(ctx context.Context) (int64, error) {
+	return servicio.RepositorioUsuarios.EliminarUsuariosSinConfirmar(ctx, servicio.Ahora())
 }
 
-func (s *Servicio) SolicitarConfirmacion(ctx context.Context, usuario *Usuario) error {
+func (servicio *ConfirmacionService) SolicitarConfirmacion(ctx context.Context, usuario *Usuario) error {
 	if usuario.EmailConfirmado {
 		return nil
 	}
-	token, tokenHash, err := nuevoToken()
+	token, tokenHash, err := servicio.Tokens.Nuevo()
 	if err != nil {
 		return err
 	}
-	tokenConfirmacion := TokenConfirmacion{TokenHash: tokenHash, UsuarioID: usuario.ID, ExpiraEn: s.ahora().Add(duracionConfirmacion)}
-	if err := s.repositorio.GuardarTokenConfirmacion(ctx, tokenConfirmacion); err != nil {
+	tokenConfirmacion := TokenConfirmacion{TokenHash: tokenHash, UsuarioID: usuario.ID, ExpiraEn: servicio.Ahora().Add(duracionConfirmacion)}
+	if err := servicio.RepositorioTokens.GuardarTokenConfirmacion(ctx, tokenConfirmacion); err != nil {
 		return err
 	}
-	s.bus.Notificar(Event{Nombre: ConfirmacionSolicitada, Payload: map[string]any{
+	servicio.Bus.Notificar(Event{Nombre: ConfirmacionSolicitada, Payload: map[string]any{
 		"usuario_id": usuario.ID, "rol": string(usuario.Rol), "email": usuario.Email, "token": token}})
 	return nil
 }
 
-func (s *Servicio) ReenviarConfirmacion(ctx context.Context, email string) error {
-	if _, err := s.LimpiarRegistrosVencidos(ctx); err != nil {
-		return err
-	}
-	usuario, err := s.repositorio.UsuarioPorEmail(ctx, normalizarEmail(email))
+func (servicio *ConfirmacionService) ReenviarConfirmacion(ctx context.Context, email string) error {
+	usuario, err := servicio.RepositorioUsuarios.UsuarioPorEmail(ctx, normalizarEmail(email))
 	if errors.Is(err, ErrNoEncontrado) || (err == nil && (!usuario.Activo || usuario.EmailConfirmado)) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	return s.SolicitarConfirmacion(ctx, usuario)
+	return servicio.SolicitarConfirmacion(ctx, usuario)
 }
 
-func (s *Servicio) ConfirmarCorreo(ctx context.Context, token string) error {
-	idUsuario, err := s.repositorio.ConsumirTokenConfirmacion(ctx, hashToken(token), s.ahora())
+func (servicio *ConfirmacionService) ConfirmarCorreo(ctx context.Context, token string) error {
+	idUsuario, err := servicio.RepositorioTokens.ConsumirTokenConfirmacion(ctx, servicio.Tokens.Hash(token), servicio.Ahora())
 	if err != nil {
 		return err
 	}
-	if err := s.repositorio.MarcarCorreoConfirmado(ctx, idUsuario); err != nil {
+	if err := servicio.RepositorioUsuarios.MarcarCorreoConfirmado(ctx, idUsuario); err != nil {
 		return err
 	}
-	s.bus.Notificar(Event{Nombre: CorreoConfirmado, Payload: map[string]any{"usuario_id": idUsuario, "rol": "-"}})
+	servicio.Bus.Notificar(Event{Nombre: CorreoConfirmado, Payload: map[string]any{"usuario_id": idUsuario, "rol": "-"}})
 	return nil
 }
