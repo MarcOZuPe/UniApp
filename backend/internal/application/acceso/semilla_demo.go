@@ -33,6 +33,12 @@ func Sembrar(ctx context.Context, servicio *Servicio, datos DatosSiembra) error 
 		{Email: "coord.prueba@example.test", NombreUso: "Coordinación Prueba", Clave: datos.Clave, Rol: RolCoordinador},
 	}
 	for _, cuenta := range cuentas {
+		if _, err := servicio.RepositorioUsuarios.UsuarioPorEmail(ctx, normalizarEmail(cuenta.Email)); err == nil {
+			continue
+		} else if !errors.Is(err, ErrNoEncontrado) {
+			return err
+		}
+
 		if _, err := servicio.Registro.CrearAdministrado(ctx, cuenta); err != nil && !errors.Is(err, ErrEmailEnUso) {
 			return err
 		}

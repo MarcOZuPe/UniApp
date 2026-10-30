@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CalendarioSemanal from '../../components/CalendarioSemanal.jsx';
-import { salir } from '../../../application/acceso/acciones.js';
+import { salir } from '../../../application/acceso/sesion.js';
 import {
   diasSemana,
   modoDemoOferta,

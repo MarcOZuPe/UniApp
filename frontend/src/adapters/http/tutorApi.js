@@ -1,4 +1,4 @@
-import { api } from '../../application/acceso/acciones.js';
+import { api } from './apiAcceso.js';
 
 export const obtenerMiExpediente = () => api.get('/api/tutor/mi-expediente');
 export const obtenerPerfilesPublicos = () => api.get('/api/tutor/perfiles');

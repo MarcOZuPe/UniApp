@@ -37,6 +37,12 @@ func SembrarSintetico(ctx context.Context, dependencias DependenciasSiembraSesio
 		return fmt.Errorf("crear sesion sintetica: %w", err)
 	}
 
+	if _, err := dependencias.Repositorio.SesionPorID(ctx, "sesion-i05-demo"); err == nil {
+		return nil
+	} else if !errors.Is(err, ErrSesionNoEncontrada) {
+		return err
+	}
+
 	err = dependencias.Repositorio.CrearSesion(ctx, sesion)
 	if errors.Is(err, ErrSesionDuplicada) {
 		return nil

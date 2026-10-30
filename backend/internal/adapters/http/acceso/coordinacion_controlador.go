@@ -26,4 +26,3 @@ func (controlador *CoordinacionControlador) mostrarPanel(response http.ResponseW
 
 	vista.EscribirJSON(response, http.StatusOK, panel)
 }
-

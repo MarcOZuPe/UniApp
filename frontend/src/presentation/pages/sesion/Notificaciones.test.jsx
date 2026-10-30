@@ -5,7 +5,7 @@ import App from '../../../app/App.jsx';
 import { obtenerNotificaciones } from '../../../adapters/http/notificacionesApi.js';
 const sesion = vi.hoisted(() => ({ usuario: null, cargando: false }));
 vi.mock('../../hooks/useSesion.js', () => ({ useSesion: () => sesion }));
-vi.mock('../../../application/acceso/acciones.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
+vi.mock('../../../application/acceso/sesion.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
 vi.mock('../../../adapters/http/notificacionesApi.js', () => ({ obtenerNotificaciones: vi.fn() }));
 const dato = { id: 1, asunto: 'Reserva confirmada', cuerpo: 'Tutoría reservada.', fecha: '2026-10-22T15:00:00Z' };
 beforeEach(() => { vi.resetAllMocks(); sesion.usuario = { id: 'tutor', rol: 'tutor', nombre_uso: 'Tutor' }; obtenerNotificaciones.mockResolvedValue([dato]); });

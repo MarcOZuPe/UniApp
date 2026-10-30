@@ -1,4 +1,4 @@
-import { api } from '../../application/acceso/acciones.js';
+import { api } from './apiAcceso.js';
 
 export const obtenerCatalogo = () => api.get('/api/catalogo');
 export const importarCatalogo = (datos) => api.post('/api/catalogo/importaciones', datos);
