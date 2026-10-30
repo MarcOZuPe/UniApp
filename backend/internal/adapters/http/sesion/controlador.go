@@ -20,126 +20,134 @@ func Rutas(
 	autenticar func(http.Handler) http.Handler,
 	origenPermitido string,
 ) http.Handler {
-	c := &Controlador{
+	controlador := &Controlador{
 		repositorio:     repositorio,
 		origenPermitido: origenPermitido,
 	}
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /api/sesion/salud", func(w http.ResponseWriter, _ *http.Request) {
-		vista.EscribirJSON(w, http.StatusOK, map[string]string{
+	multiplexor := http.NewServeMux()
+	multiplexor.HandleFunc("GET /api/sesion/salud", func(response http.ResponseWriter, _ *http.Request) {
+		vista.EscribirJSON(response, http.StatusOK, map[string]string{
 			"flujo":  "sesion",
 			"estado": "implementado",
 		})
 	})
-
-	mux.Handle(
-		"GET /api/sesion/{id}",
-		autenticar(http.HandlerFunc(c.consultar)),
-	)
-
-	mux.Handle(
-		"POST /api/sesion/{id}/asistencias",
-		autenticar(http.HandlerFunc(c.declarar)),
-	)
-
-	return mux
+	multiplexor.Handle("GET /api/sesion/{id}", autenticar(http.HandlerFunc(controlador.consultar)))
+	multiplexor.Handle("POST /api/sesion/{id}/asistencias", autenticar(http.HandlerFunc(controlador.declarar)))
+	return multiplexor
 }
 
-func (c *Controlador) consultar(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
+func (controlador *Controlador) consultar(response http.ResponseWriter, request *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(request.Context())
 	if usuario == nil {
-		responderError(w, http.StatusUnauthorized, "no_autenticado", "Debes iniciar sesion.")
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnauthorized, codigo: "no_autenticado", mensaje: "Debes iniciar sesion.",
+		})
 		return
 	}
 
-	s, err := c.repositorio.SesionPorID(r.Context(), r.PathValue("id"))
+	sesion, err := controlador.repositorio.SesionPorID(request.Context(), request.PathValue("id"))
 	if err != nil {
-		responderErrorRepositorio(w, err)
+		responderErrorRepositorio(response, err)
 		return
 	}
 
-	if usuario.ID != s.TutorID() && usuario.ID != s.EscolarID() {
-		responderError(w, http.StatusForbidden, "no_autorizado", "No participas en esta sesion.")
+	if usuario.ID != sesion.TutorID() && usuario.ID != sesion.EscolarID() {
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusForbidden, codigo: "no_autorizado", mensaje: "No participas en esta sesion.",
+		})
 		return
 	}
 
-	asistencias := make([]map[string]any, 0, len(s.Asistencias()))
-	for _, a := range s.Asistencias() {
-		asistencias = append(asistencias, presentarAsistencia(a))
+	asistencias := make([]map[string]any, 0, len(sesion.Asistencias()))
+	for _, asistencia := range sesion.Asistencias() {
+		asistencias = append(asistencias, presentarAsistencia(asistencia))
 	}
 
-	vista.EscribirJSON(w, http.StatusOK, map[string]any{
-		"id":          s.ID(),
-		"reserva_id":  s.ReservaID(),
-		"tutor_id":    s.TutorID(),
-		"escolar_id":  s.EscolarID(),
-		"inicio":      s.Inicio(),
-		"fin":         s.Fin(),
+	vista.EscribirJSON(response, http.StatusOK, map[string]any{
+		"id":          sesion.ID(),
+		"reserva_id":  sesion.ReservaID(),
+		"tutor_id":    sesion.TutorID(),
+		"escolar_id":  sesion.EscolarID(),
+		"inicio":      sesion.Inicio(),
+		"fin":         sesion.Fin(),
 		"asistencias": asistencias,
 	})
 }
 
-func (c *Controlador) declarar(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
+func (controlador *Controlador) declarar(response http.ResponseWriter, request *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(request.Context())
 	if usuario == nil {
-		responderError(w, http.StatusUnauthorized, "no_autenticado", "Debes iniciar sesion.")
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnauthorized, codigo: "no_autenticado", mensaje: "Debes iniciar sesion.",
+		})
 		return
 	}
 
-	// Este endpoint no recibe un identificador de usuario del cliente.
-	if r.Body != nil && r.Body != http.NoBody {
-		responderError(w, http.StatusBadRequest, "solicitud_invalida", "No se admite un cuerpo.")
+	if request.Body != nil && request.Body != http.NoBody {
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusBadRequest, codigo: "solicitud_invalida", mensaje: "No se admite un cuerpo.",
+		})
 		return
 	}
 
-	a, err := c.repositorio.DeclararAsistencia(
-		r.Context(),
-		r.PathValue("id"),
+	asistencia, err := controlador.repositorio.DeclararAsistencia(
+		request.Context(),
+		request.PathValue("id"),
 		usuario.ID,
 		time.Now().UTC(),
 	)
 	if err != nil {
-		responderErrorRepositorio(w, err)
+		responderErrorRepositorio(response, err)
 		return
 	}
 
-	vista.EscribirJSON(w, http.StatusCreated, presentarAsistencia(a))
+	vista.EscribirJSON(response, http.StatusCreated, presentarAsistencia(asistencia))
 }
 
-func presentarAsistencia(a modelo.Asistencia) map[string]any {
+func presentarAsistencia(asistencia modelo.Asistencia) map[string]any {
 	return map[string]any{
-		"usuario_id":   a.UsuarioID(),
-		"rol":          string(a.Rol()),
-		"declarada_en": a.DeclaradaEn(),
+		"usuario_id":   asistencia.UsuarioID(),
+		"rol":          string(asistencia.Rol()),
+		"declarada_en": asistencia.DeclaradaEn(),
 	}
 }
 
-func responderError(
-	w http.ResponseWriter,
-	estado int,
-	codigo string,
-	mensaje string,
-) {
-	vista.EscribirError(w, vista.RespuestaError{
-		Estado:  estado,
-		Codigo:  codigo,
-		Mensaje: mensaje,
+type detalleErrorHTTP struct {
+	estado  int
+	codigo  string
+	mensaje string
+}
+
+func responderError(response http.ResponseWriter, detalle detalleErrorHTTP) {
+	vista.EscribirError(response, vista.RespuestaError{
+		Estado:  detalle.estado,
+		Codigo:  detalle.codigo,
+		Mensaje: detalle.mensaje,
 	})
 }
 
-func responderErrorRepositorio(w http.ResponseWriter, err error) {
+func responderErrorRepositorio(response http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, modelo.ErrSesionNoEncontrada):
-		responderError(w, http.StatusNotFound, "sesion_no_encontrada", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusNotFound, codigo: "sesion_no_encontrada", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrNoAutorizado):
-		responderError(w, http.StatusForbidden, "no_autorizado", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusForbidden, codigo: "no_autorizado", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrAsistenciaDuplicada):
-		responderError(w, http.StatusConflict, "asistencia_duplicada", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusConflict, codigo: "asistencia_duplicada", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrSesionInvalida):
-		responderError(w, http.StatusUnprocessableEntity, "sesion_invalida", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnprocessableEntity, codigo: "sesion_invalida", mensaje: err.Error(),
+		})
 	default:
-		responderError(w, http.StatusInternalServerError, "error_interno", "Ocurrio un error inesperado.")
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusInternalServerError, codigo: "error_interno", mensaje: "Ocurrio un error inesperado.",
+		})
 	}
 }
