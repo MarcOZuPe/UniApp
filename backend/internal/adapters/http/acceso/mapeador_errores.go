@@ -7,8 +7,6 @@ import (
 	vista "uniapp/internal/adapters/presentation/acceso"
 )
 
-// Patrón aplicado: Chain of Responsibility.
-// Cada regla decide si maneja el error; si no, lo delega a la siguiente.
 type manejadorDeError interface {
 	manejar(error) (vista.RespuestaError, bool)
 	establecerSiguiente(manejadorDeError)
