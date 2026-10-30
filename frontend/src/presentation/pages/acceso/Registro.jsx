@@ -1,95 +1,143 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
-import { registrar, reenviarConfirmacion } from '../../../application/acceso/acciones.js';
+import { useFormulario } from '../../hooks/useFormulario.js';
+import { registrar } from '../../../application/acceso/registro.js';
+import { reenviarConfirmacion } from '../../../application/acceso/confirmacion.js';
 import { ROLES_REGISTRO, etiquetaRol, requiereCorreoInstitucional } from '../../../domain/acceso/roles.js';
 import { correosInstitucionales, validarRegistro } from '../../../domain/acceso/validadores.js';
 
 const DOMINIOS_INSTITUCIONALES = import.meta.env?.VITE_TUTOR_EMAIL_DOMAIN || 'uni.edu.pe,uni.pe';
 
-const FORMULARIO_INICIAL = { email: '', nombre_uso: '', clave: '', confirmar: '', rol: 'escolar' };
+const FORMULARIO_INICIAL = {
+  email: '',
+  nombre_uso: '',
+  clave: '',
+  confirmar: '',
+  rol: 'escolar',
+};
 
 export default function Registro() {
-  const [formulario, setFormulario] = useState(FORMULARIO_INICIAL);
-  const [errores, setErrores] = useState({});
-  const [mensaje, setMensaje] = useState('');
-  const [creado, setCreado] = useState(false);
-  const [aviso, setAviso] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  const cambiarCampo = (campo) => (evento) =>
-    setFormulario({ ...formulario, [campo]: evento.target.value });
+  const { formulario, actualizarCampo } = useFormulario(FORMULARIO_INICIAL);
+  const [erroresFormulario, setErroresFormulario] = useState({});
+  const [mensajeError, setMensajeError] = useState('');
+  const [registroCreado, setRegistroCreado] = useState(false);
+  const [avisoReenvio, setAvisoReenvio] = useState('');
+  const [enviandoReenvio, setEnviandoReenvio] = useState(false);
+  const requiereCorreo = requiereCorreoInstitucional(formulario.rol);
+  const ayudaCorreo = requiereCorreo
+    ? `Correo institucional (${correosInstitucionales(DOMINIOS_INSTITUCIONALES)})`
+    : undefined;
 
-  async function enviarFormulario(evento) {
+  async function enviarRegistro(evento) {
     evento.preventDefault();
     const erroresValidacion = validarRegistro(formulario, DOMINIOS_INSTITUCIONALES);
-    setErrores(erroresValidacion);
-    setMensaje('');
+    setErroresFormulario(erroresValidacion);
+    setMensajeError('');
     if (Object.keys(erroresValidacion).length) return;
+
     try {
       await registrar(formulario);
-      setCreado(true);
-    } catch (error) {
-      setErrores(error.campos || {});
-      setMensaje(error.message);
+      setRegistroCreado(true);
+    } catch (errorRegistro) {
+      setErroresFormulario(errorRegistro.campos || {});
+      setMensajeError(errorRegistro.message);
     }
   }
 
-  async function reenviar() {
-    setEnviando(true);
-    setAviso('');
+  async function reenviarCorreo() {
+    setEnviandoReenvio(true);
+    setAvisoReenvio('');
     try {
-      const respuesta = await reenviarConfirmacion(formulario.email.trim());
-      setAviso(respuesta.mensaje);
-    } catch (error) {
-      setAviso(error.message);
+      const respuestaReenvio = await reenviarConfirmacion(formulario.email.trim());
+      setAvisoReenvio(respuestaReenvio.mensaje);
+    } catch (errorReenvio) {
+      setAvisoReenvio(errorReenvio.message);
     } finally {
-      setEnviando(false);
+      setEnviandoReenvio(false);
     }
   }
 
-  if (creado) {
+  if (registroCreado) {
     return (
-      <main>
-        <h1>Revisa tu correo</h1>
-        <p>
-          Te enviamos un enlace a <strong>{formulario.email}</strong> para confirmar la cuenta.
-          Ábrelo para poder ingresar.
-        </p>
-        <p>
-          El enlace vence en <strong>30 minutos</strong>. Si no lo confirmas, el correo
-          quedará libre y podrás registrarte de nuevo.
-        </p>
-        {aviso && <p role="status">{aviso}</p>}
-        <p>
-          <button type="button" onClick={reenviar} disabled={enviando}>
-            {enviando ? 'Enviando…' : 'Reenviar enlace'}
-          </button>
-        </p>
-        <p><Link to="/ingreso">Ya confirmé mi correo</Link></p>
-      </main>
+      <PantallaCorreoEnviado
+        email={formulario.email}
+        reenvio={{ aviso: avisoReenvio, enviando: enviandoReenvio, alReenviar: reenviarCorreo }}
+      />
     );
   }
+
   return (
     <main>
       <h1>Crear cuenta</h1>
-      <form onSubmit={enviarFormulario} noValidate>
+      <form onSubmit={enviarRegistro} noValidate>
         <div className="campo">
           <label htmlFor="rol">Soy</label>
-          <select id="rol" value={formulario.rol} onChange={cambiarCampo('rol')}>
+          <select id="rol" value={formulario.rol} onChange={actualizarCampo('rol')}>
             {ROLES_REGISTRO.map((rol) => <option key={rol} value={rol}>{etiquetaRol(rol)}</option>)}
           </select>
         </div>
-        <Campo etiqueta="Nombre de uso" autoComplete="nickname" value={formulario.nombre_uso} onChange={cambiarCampo('nombre_uso')} error={errores.nombre_uso}
-          ayuda="No pedimos DNI ni dirección." />
-        <Campo etiqueta="Correo" type="email" autoComplete="email" value={formulario.email} onChange={cambiarCampo('email')} error={errores.email}
-          ayuda={requiereCorreoInstitucional(formulario.rol) ? `Correo institucional (${correosInstitucionales(DOMINIOS_INSTITUCIONALES)})` : undefined} />
-        <Campo etiqueta="Contraseña" type="password" autoComplete="new-password" value={formulario.clave} onChange={cambiarCampo('clave')} error={errores.clave} />
-        <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={formulario.confirmar} onChange={cambiarCampo('confirmar')} error={errores.confirmar} />
-        {mensaje && <p className="error" role="alert">{mensaje}</p>}
+        <Campo
+          etiqueta="Nombre de uso"
+          autoComplete="nickname"
+          value={formulario.nombre_uso}
+          onChange={actualizarCampo('nombre_uso')}
+          error={erroresFormulario.nombre_uso}
+          ayuda="No pedimos DNI ni dirección."
+        />
+        <Campo
+          etiqueta="Correo"
+          type="email"
+          autoComplete="email"
+          value={formulario.email}
+          onChange={actualizarCampo('email')}
+          error={erroresFormulario.email}
+          ayuda={ayudaCorreo}
+        />
+        <Campo
+          etiqueta="Contraseña"
+          type="password"
+          autoComplete="new-password"
+          value={formulario.clave}
+          onChange={actualizarCampo('clave')}
+          error={erroresFormulario.clave}
+        />
+        <Campo
+          etiqueta="Repite la contraseña"
+          type="password"
+          autoComplete="new-password"
+          value={formulario.confirmar}
+          onChange={actualizarCampo('confirmar')}
+          error={erroresFormulario.confirmar}
+        />
+        {mensajeError && <p className="error" role="alert">{mensajeError}</p>}
         <p><small>Te enviaremos un enlace de confirmación válido por 30 minutos.</small></p>
         <button>Crear cuenta</button>
       </form>
       <p>¿Ya tienes cuenta? <Link to="/ingreso">Ingresar</Link></p>
+    </main>
+  );
+}
+
+function PantallaCorreoEnviado({ email, reenvio }) {
+  return (
+    <main>
+      <h1>Revisa tu correo</h1>
+      <p>
+        Te enviamos un enlace a <strong>{email}</strong> para confirmar la cuenta.
+        Ábrelo para poder ingresar.
+      </p>
+      <p>
+        El enlace vence en <strong>30 minutos</strong>. Si no lo confirmas, el correo
+        quedará libre y podrás registrarte de nuevo.
+      </p>
+      {reenvio.aviso && <p role="status">{reenvio.aviso}</p>}
+      <p>
+        <button type="button" onClick={reenvio.alReenviar} disabled={reenvio.enviando}>
+          {reenvio.enviando ? 'Enviando…' : 'Reenviar enlace'}
+        </button>
+      </p>
+      <p><Link to="/ingreso">Ya confirmé mi correo</Link></p>
     </main>
   );
 }
