@@ -18,43 +18,53 @@ type SolicitudCambioAutorizacion struct {
 	Autorizado bool
 }
 
-func (s *AutorizacionService) CambiarAutorizacion(ctx context.Context, solicitud SolicitudCambioAutorizacion) (*Autorizacion, error) {
-	vinculacion, err := s.vinculacionDelApoderado(ctx, solicitud.SolicitudAutorizacion)
+func (servicio *AutorizacionService) CambiarAutorizacion(ctx context.Context, solicitud SolicitudCambioAutorizacion) (*Autorizacion, error) {
+	vinculacionActiva, err := servicio.obtenerVinculacionVerificada(ctx, solicitud.SolicitudAutorizacion)
 	if err != nil {
 		return nil, err
 	}
 
-	estado := AutorizacionRevocada
-	if solicitud.Autorizado {
-		estado = AutorizacionOtorgada
-	}
-	return s.repositorio.CambiarAutorizacion(ctx, CambioAutorizacion{
-		VinculacionID: vinculacion.ID,
-		EscolarID:     vinculacion.EscolarID,
-		ApoderadoID:   solicitud.Apoderado.ID,
-		Estado:        estado,
-		Momento:       s.ahora(),
-	})
+	estadoDestino := servicio.determinarEstadoDestino(solicitud.Autorizado)
+	cambio := servicio.compilarCambioAutorizacion(solicitud.Apoderado, vinculacionActiva, estadoDestino)
+
+	return servicio.RepositorioAutorizaciones.CambiarAutorizacion(ctx, cambio)
 }
 
-func (s *AutorizacionService) HistorialAutorizaciones(ctx context.Context, solicitud SolicitudAutorizacion) ([]Autorizacion, error) {
-	vinculacion, err := s.vinculacionDelApoderado(ctx, solicitud)
+func (servicio *AutorizacionService) HistorialAutorizaciones(ctx context.Context, solicitud SolicitudAutorizacion) ([]Autorizacion, error) {
+	vinculacionActiva, err := servicio.obtenerVinculacionVerificada(ctx, solicitud)
 	if err != nil {
 		return nil, err
 	}
-	return s.repositorio.AutorizacionesDeVinculacion(ctx, vinculacion.ID)
+	return servicio.RepositorioAutorizaciones.AutorizacionesDeVinculacion(ctx, vinculacionActiva.ID)
 }
 
-func (s *AutorizacionService) vinculacionDelApoderado(ctx context.Context, solicitud SolicitudAutorizacion) (*Vinculacion, error) {
-	if solicitud.Apoderado == nil || solicitud.Apoderado.Rol != RolApoderado || !solicitud.Apoderado.Activo {
-		return nil, ErrNoEsApoderado
-	}
-	escolarID := strings.TrimSpace(solicitud.EscolarID)
-	if escolarID == "" {
-		return nil, ErrValidacion{Campos: map[string]string{"escolar_id": "el escolar es obligatorio"}}
+func (servicio *AutorizacionService) AutorizacionVigente(ctx context.Context, escolarID string) (bool, error) {
+	identificador := strings.TrimSpace(escolarID)
+	if identificador == "" {
+		return false, nil
 	}
 
-	vinculacion, err := s.repositorio.VinculacionAceptadaDeEscolar(ctx, escolarID)
+	autorizacionActual, err := servicio.RepositorioAutorizaciones.AutorizacionVigenteDeEscolar(ctx, identificador)
+	if errors.Is(err, ErrNoEncontrado) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return autorizacionActual.Vigente(), nil
+}
+
+func (servicio *AutorizacionService) obtenerVinculacionVerificada(ctx context.Context, solicitud SolicitudAutorizacion) (*Vinculacion, error) {
+	if err := servicio.validarApoderado(solicitud.Apoderado); err != nil {
+		return nil, err
+	}
+
+	identificadorEscolar, err := servicio.extraerIdentificadorEscolar(solicitud.EscolarID)
+	if err != nil {
+		return nil, err
+	}
+
+	vinculacion, err := servicio.RepositorioVinculaciones.VinculacionAceptadaDeEscolar(ctx, identificadorEscolar)
 	if errors.Is(err, ErrNoEncontrado) {
 		return nil, ErrSinApoderado
 	}
@@ -67,13 +77,34 @@ func (s *AutorizacionService) vinculacionDelApoderado(ctx context.Context, solic
 	return vinculacion, nil
 }
 
-func (s *AutorizacionService) AutorizacionVigente(ctx context.Context, escolarID string) (bool, error) {
-	autorizacion, err := s.repositorio.AutorizacionVigenteDeEscolar(ctx, strings.TrimSpace(escolarID))
-	if errors.Is(err, ErrNoEncontrado) {
-		return false, nil
+func (servicio *AutorizacionService) validarApoderado(apoderado *Usuario) error {
+	if apoderado == nil || apoderado.Rol != RolApoderado || !apoderado.Activo {
+		return ErrNoEsApoderado
 	}
-	if err != nil {
-		return false, err
+	return nil
+}
+
+func (servicio *AutorizacionService) extraerIdentificadorEscolar(escolarID string) (string, error) {
+	identificador := strings.TrimSpace(escolarID)
+	if identificador == "" {
+		return "", ErrValidacion{Campos: map[string]string{"escolar_id": "el escolar es obligatorio"}}
 	}
-	return autorizacion.Vigente(), nil
+	return identificador, nil
+}
+
+func (servicio *AutorizacionService) determinarEstadoDestino(autorizado bool) EstadoAutorizacion {
+	if autorizado {
+		return AutorizacionOtorgada
+	}
+	return AutorizacionRevocada
+}
+
+func (servicio *AutorizacionService) compilarCambioAutorizacion(apoderado *Usuario, vinculacion *Vinculacion, estado EstadoAutorizacion) CambioAutorizacion {
+	return CambioAutorizacion{
+		VinculacionID: vinculacion.ID,
+		EscolarID:     vinculacion.EscolarID,
+		ApoderadoID:   apoderado.ID,
+		Estado:        estado,
+		Momento:       servicio.Ahora(),
+	}
 }
