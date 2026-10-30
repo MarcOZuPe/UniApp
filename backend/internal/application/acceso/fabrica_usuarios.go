@@ -16,71 +16,71 @@ func NuevaFabrica(hasher PasswordHasher, dominiosTutor string) *Fabrica {
 	return &Fabrica{hasher: hasher, dominiosTutor: dominiosTutor}
 }
 
-func (f *Fabrica) PoliticaPara(rol Rol) PoliticaClave {
-	if perfil, err := f.perfilDe(rol); err == nil {
+func (fabrica *Fabrica) PoliticaPara(rol Rol) PoliticaClave {
+	if perfil, err := fabrica.perfilDe(rol); err == nil {
 		return perfil.Politica()
 	}
 	return PoliticaEstricta{Min: 12}
 }
 
-func (f *Fabrica) ValidadorPara(rol Rol) *ValidadorClave {
-	return NuevoValidadorClave(f.PoliticaPara(rol))
+func (fabrica *Fabrica) ValidadorPara(rol Rol) *ValidadorClave {
+	return NuevoValidadorClave(fabrica.PoliticaPara(rol))
 }
 
-func (f *Fabrica) CrearPublico(datos DatosRegistro) (*Usuario, error) {
-	perfil, err := f.perfilDe(datos.Rol)
+func (fabrica *Fabrica) CrearPublico(datos SolicitudRegistro) (*Usuario, error) {
+	perfil, err := fabrica.perfilDe(datos.Rol)
 	if err != nil {
 		return nil, err
 	}
 	if !perfil.EsPublico() {
 		return nil, ErrRolNoPermitido
 	}
-	return f.construirValidado(datos, perfil, false)
+	return fabrica.construirValidado(datos, perfil, false)
 }
 
-func (f *Fabrica) CrearInterno(datos DatosRegistro) (*Usuario, error) {
-	perfil, err := f.perfilDe(datos.Rol)
+func (fabrica *Fabrica) CrearInterno(datos SolicitudRegistro) (*Usuario, error) {
+	perfil, err := fabrica.perfilDe(datos.Rol)
 	if err != nil {
 		return nil, err
 	}
-	return f.construirValidado(datos, perfil, true)
+	return fabrica.construirValidado(datos, perfil, true)
 }
 
-func (f *Fabrica) perfilDe(rol Rol) (PerfilRol, error) {
-	return ObtenerPerfil(rol, f.dominiosTutor)
+func (fabrica *Fabrica) perfilDe(rol Rol) (PerfilRol, error) {
+	return ObtenerPerfil(rol, fabrica.dominiosTutor)
 }
 
-func (f *Fabrica) construirValidado(datos DatosRegistro, perfil PerfilRol, confirmado bool) (*Usuario, error) {
+func (fabrica *Fabrica) construirValidado(datos SolicitudRegistro, perfil PerfilRol, cuentaConfirmada bool) (*Usuario, error) {
 	datos = normalizarRegistro(datos)
 	if errores := validarRegistro(datos, perfil); len(errores) > 0 {
 		return nil, ErrValidacion{Campos: errores}
 	}
-	return f.construirUsuario(datos, confirmado)
+	return fabrica.construirUsuario(datos, cuentaConfirmada)
 }
 
-func normalizarRegistro(datos DatosRegistro) DatosRegistro {
+func normalizarRegistro(datos SolicitudRegistro) SolicitudRegistro {
 	datos.Email = strings.ToLower(strings.TrimSpace(datos.Email))
 	datos.NombreUso = strings.TrimSpace(datos.NombreUso)
 	return datos
 }
 
-func validarRegistro(datos DatosRegistro, perfil PerfilRol) map[string]string {
-	errores := map[string]string{}
+func validarRegistro(datos SolicitudRegistro, perfil PerfilRol) map[string]string {
+	erroresCampos := map[string]string{}
 	if !correoValido(datos.Email) {
-		errores["email"] = "correo no válido"
+		erroresCampos["email"] = "correo no válido"
 	}
 	if longitud := utf8.RuneCountInString(datos.NombreUso); longitud < 2 || longitud > 60 {
-		errores["nombre_uso"] = "entre 2 y 60 caracteres"
+		erroresCampos["nombre_uso"] = "entre 2 y 60 caracteres"
 	}
 	for campo, mensaje := range perfil.ValidarExtra(datos) {
-		if _, yaReportado := errores[campo]; !yaReportado {
-			errores[campo] = mensaje
+		if _, yaReportado := erroresCampos[campo]; !yaReportado {
+			erroresCampos[campo] = mensaje
 		}
 	}
 	if observaciones := NuevoValidadorClave(perfil.Politica()).Validar(datos.Clave, datos.Email); len(observaciones) > 0 {
-		errores["clave"] = strings.Join(observaciones, "; ")
+		erroresCampos["clave"] = strings.Join(observaciones, "; ")
 	}
-	return errores
+	return erroresCampos
 }
 
 func correoValido(email string) bool {
@@ -88,8 +88,8 @@ func correoValido(email string) bool {
 	return err == nil && direccion.Address == email && len(email) <= 254
 }
 
-func (f *Fabrica) construirUsuario(datos DatosRegistro, confirmado bool) (*Usuario, error) {
-	claveHash, err := f.hasher.Hash(datos.Clave)
+func (fabrica *Fabrica) construirUsuario(datos SolicitudRegistro, cuentaConfirmada bool) (*Usuario, error) {
+	claveHash, err := fabrica.hasher.Hash(datos.Clave)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (f *Fabrica) construirUsuario(datos DatosRegistro, confirmado bool) (*Usuar
 		ClaveHash:       claveHash,
 		Rol:             datos.Rol,
 		Activo:          true,
-		EmailConfirmado: confirmado,
+		EmailConfirmado: cuentaConfirmada,
 		CreadoEn:        time.Now().UTC(),
 	}, nil
 }
