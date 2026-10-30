@@ -86,6 +86,27 @@ func (r RepositorioPostgres) ReservarTransaccional(ctx context.Context, reserva 
 		}
 		return nil, false, traducirError(err)
 	}
+	// I05: crear la sesion asociada a la reserva confirmada.
+	if reserva.Estado == EstadoConfirmada {
+		sesionID := "sesion-" + id
+
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO sesion_sesiones (
+				id, reserva_id, tutor_id, escolar_id, inicio, fin
+			)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`,
+			sesionID,
+			id,
+			reserva.TutorID,
+			reserva.EscolarID,
+			reserva.Inicio,
+			reserva.Fin,
+		)
+		if err != nil {
+			return nil, false, err
+		}
+	}
 	// I10: persistir entregas en la misma transacción; I09 conserva sus validaciones.
 	if err := encolarNotificaciones(ctx, tx, id, reserva, r.AnticipacionRecordatorio); err != nil {
 		return nil, false, err
