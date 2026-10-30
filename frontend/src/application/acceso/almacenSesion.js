@@ -1,16 +1,24 @@
+const ESTADO_INICIAL = { usuario: null, cargando: true };
+
 export function crearAlmacen() {
-  let estado = { usuario: null, cargando: true };
+  let estadoSesion = { ...ESTADO_INICIAL };
   const suscriptores = new Set();
+
+  function notificarSuscriptores() {
+    suscriptores.forEach((suscriptor) => suscriptor());
+  }
+
   return {
-    getState: () => estado,
+    getState: () => estadoSesion,
     subscribe(suscriptor) {
       suscriptores.add(suscriptor);
       return () => suscriptores.delete(suscriptor);
     },
     set(cambios) {
-      estado = { ...estado, ...cambios };
-      suscriptores.forEach((suscriptor) => suscriptor());
+      estadoSesion = { ...estadoSesion, ...cambios };
+      notificarSuscriptores();
     },
   };
 }
+
 export const almacenSesion = crearAlmacen();
