@@ -10,13 +10,7 @@ vi.mock('../../../adapters/http/apoderadoApi.js', () => ({
   solicitarVinculacion: vi.fn(),
 }));
 
-function renderizar() {
-  return render(
-    <MemoryRouter>
-      <VincularEscolar />
-    </MemoryRouter>
-  );
-}
+const correoEscolar = 'escolar@example.com';
 
 describe('I06: vincular escolar', () => {
   beforeEach(() => {
@@ -30,20 +24,21 @@ describe('I06: vincular escolar', () => {
   it('envía el correo del escolar', async () => {
     solicitarVinculacion.mockResolvedValue({ vinculacion: { id: 'v-1' } });
 
-    renderizar();
+    renderizarVincularEscolar();
 
     expect(
       await screen.findByRole('heading', { name: 'Vincular a un escolar' })
     ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Ir al panel de escolares' })).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText('Correo del escolar'), {
-      target: { value: 'escolar@example.com' },
+    const campoCorreoEscolar = screen.getByLabelText('Correo del escolar');
+    fireEvent.change(campoCorreoEscolar, {
+      target: { value: correoEscolar },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Enviar solicitud' }));
 
     expect(await screen.findByText(/Solicitud enviada/)).toBeTruthy();
-    expect(solicitarVinculacion).toHaveBeenCalledWith('escolar@example.com');
+    expect(solicitarVinculacion).toHaveBeenCalledWith(correoEscolar);
   });
 
   it('muestra el error de validación del backend', async () => {
@@ -52,10 +47,11 @@ describe('I06: vincular escolar', () => {
       campos: { email_escolar: 'el correo es obligatorio' },
     });
 
-    renderizar();
+    renderizarVincularEscolar();
 
-    fireEvent.change(await screen.findByLabelText('Correo del escolar'), {
-      target: { value: 'escolar@example.com' },
+    const campoCorreoEscolar = await screen.findByLabelText('Correo del escolar');
+    fireEvent.change(campoCorreoEscolar, {
+      target: { value: correoEscolar },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Enviar solicitud' }));
 
@@ -63,3 +59,11 @@ describe('I06: vincular escolar', () => {
     expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
   });
 });
+
+function renderizarVincularEscolar() {
+  return render(
+    <MemoryRouter>
+      <VincularEscolar />
+    </MemoryRouter>
+  );
+}
