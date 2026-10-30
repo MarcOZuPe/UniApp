@@ -7,12 +7,6 @@ import (
 	modelo "uniapp/internal/application/acceso"
 )
 
-// registrarErroresDeVinculacion registra las conversiones de errores de
-// vínculo en respuestas HTTP.
-//
-// Patrón aplicado: Chain of Responsibility.
-// MapeadorDeErrores evalúa las reglas registradas hasta encontrar una que
-// reconozca el error.
 func registrarErroresDeVinculacion(errorMapper *MapeadorDeErrores) {
 	registrarErrorDeRolDeVinculacion(errorMapper)
 	registrarErrorDeEscolarNoEncontrado(errorMapper)
