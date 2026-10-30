@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ROLES, ROLES_REGISTRO, etiquetaRol, politicaDeRol, puedeAcceder, requiereCorreoInstitucional } from './roles.js';
 import { crearPolitica, validarRegistro, validarRestablecer } from './validadores.js';
-import { crearAlmacen } from '../../application/acceso/almacenSesion.js';
+import { getInstance } from '../../application/acceso/almacenSesion.js';
 import { crearClienteHttp, ErrorApi } from '../../infrastructure/http/fetchClient.js';
 import { conSesionExpirada } from '../../adapters/http/decoradores.js';
 
@@ -50,8 +50,12 @@ describe('modelo: validadores (Strategy + Factory)', () => {
 });
 
 describe('controlador: almacén (Observer)', () => {
+  it('devuelve siempre la misma instancia', () => {
+    expect(getInstance()).toBe(getInstance());
+  });
+
   it('notifica a suscriptores y permite darse de baja', () => {
-    const almacen = crearAlmacen();
+    const almacen = getInstance();
     const observador = vi.fn();
     const desuscribir = almacen.subscribe(observador);
     almacen.set({ usuario: { rol: 'escolar' }, cargando: false });

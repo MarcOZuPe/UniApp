@@ -1,6 +1,6 @@
 const ESTADO_INICIAL = { usuario: null, cargando: true };
 
-export function crearAlmacen() {
+function crearAlmacen() {
   let estadoSesion = { ...ESTADO_INICIAL };
   const suscriptores = new Set();
 
@@ -21,4 +21,13 @@ export function crearAlmacen() {
   };
 }
 
-export const almacenSesion = crearAlmacen();
+let instancia = null;
+
+export function getInstance() {
+  if (!instancia) {
+    instancia = crearAlmacen();
+  }
+  return instancia;
+}
+
+export const almacenSesion = getInstance();
