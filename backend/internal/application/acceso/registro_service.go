@@ -4,29 +4,30 @@ import (
 	"context"
 )
 
-func (s *Servicio) Registrar(ctx context.Context, datos DatosRegistro) (*Usuario, error) {
-	if _, err := s.LimpiarRegistrosVencidos(ctx); err != nil {
-		return nil, err
-	}
-	usuario, err := s.fabrica.CrearPublico(datos)
+type RegistroService struct {
+	*Nucleo
+}
+
+func (servicio *RegistroService) Registrar(ctx context.Context, datos SolicitudRegistro) (*Usuario, error) {
+	usuario, err := servicio.CreadorUsuarios.CrearPublico(datos)
 	if err != nil {
 		return nil, err
 	}
-	registrado, err := s.repositorio.CrearUsuario(ctx, usuario)
+
+	registrado, err := servicio.RepositorioUsuarios.CrearUsuario(ctx, usuario)
 	if err != nil {
 		return nil, err
 	}
-	s.bus.Notificar(eventoDeUsuario(UsuarioRegistrado, registrado))
-	if err := s.SolicitarConfirmacion(ctx, registrado); err != nil {
-		return nil, err
-	}
+
+	servicio.Bus.Notificar(eventoDeUsuario(UsuarioRegistrado, registrado))
+
 	return registrado, nil
 }
 
-func (s *Servicio) CrearAdministrado(ctx context.Context, datos DatosRegistro) (*Usuario, error) {
-	usuario, err := s.fabrica.CrearInterno(datos)
+func (servicio *RegistroService) CrearAdministrado(ctx context.Context, datos SolicitudRegistro) (*Usuario, error) {
+	usuario, err := servicio.CreadorUsuarios.CrearInterno(datos)
 	if err != nil {
 		return nil, err
 	}
-	return s.repositorio.CrearUsuario(ctx, usuario)
+	return servicio.RepositorioUsuarios.CrearUsuario(ctx, usuario)
 }
