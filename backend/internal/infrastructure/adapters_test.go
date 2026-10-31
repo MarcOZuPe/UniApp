@@ -91,3 +91,25 @@ func TestDecoratorsApilados(t *testing.T) {
 		t.Fatalf("err=%v llamadas=%d", err, falla.llamadas)
 	}
 }
+
+func TestSMTPMailerIncluyeCredencialesEnElEnvio(t *testing.T) {
+	transporte := &transporteFalso{}
+	mailer := SMTPMailer{
+		Host:       "smtp-relay.brevo.com",
+		Puerto:     "587",
+		Usuario:    "usuario-brevo",
+		Clave:      "clave-brevo",
+		Remitente:  "no-responder@uni.pe",
+		transporte: transporte,
+	}
+	if err := mailer.Enviar(context.Background(), modelo.Mensaje{Para: "destino@uni.pe"}); err != nil {
+		t.Fatal(err)
+	}
+	envio := transporte.envio
+	if envio.Host != "smtp-relay.brevo.com" ||
+		envio.Usuario != "usuario-brevo" ||
+		envio.Clave != "clave-brevo" ||
+		envio.Autenticacion == nil {
+		t.Fatalf("credenciales SMTP incompletas: %+v", envio)
+	}
+}
