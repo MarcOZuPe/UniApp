@@ -40,6 +40,14 @@ func TestSMTPRespetaContextoDuranteSaludo(t *testing.T) {
 	}
 }
 
+type mockTransportePrueba struct {
+	servidorReal string
+}
+
+func (m mockTransportePrueba) EnviarCorreo(envio EnvioSMTP) error {
+	return (smtpEstandar{}).EnviarCorreo(envio)
+}
+
 func TestSMTPEntregaConTransporteRealLocal(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -88,7 +96,15 @@ func TestSMTPEntregaConTransporteRealLocal(t *testing.T) {
 	host, port, _ := net.SplitHostPort(l.Addr().String())
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	err = (SMTPMailer{Host: host, Puerto: port, Remitente: "a@example.test"}).Enviar(ctx, modelo.Mensaje{Para: "b@example.test", Asunto: "Confirmación", Cuerpo: "Reserva confirmada"})
+
+	mailer := SMTPMailer{
+		Host:       host,
+		Puerto:     port,
+		Remitente:  "a@example.test",
+		transporte: mockTransportePrueba{},
+	}
+
+	err = mailer.Enviar(ctx, modelo.Mensaje{Para: "b@example.test", Asunto: "Confirmación", Cuerpo: "Reserva confirmada"})
 	if err != nil {
 		t.Fatal(err)
 	}
