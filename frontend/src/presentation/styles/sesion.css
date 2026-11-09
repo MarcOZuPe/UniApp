@@ -31,3 +31,5 @@
 .pagina-sesion .sesion-resultado { margin-top: 1.2rem; }
 .pagina-sesion .sesion-resultado textarea { display: block; box-sizing: border-box; width: 100%; margin-top: .6rem; padding: .75rem; border: 1px solid var(--borde); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; resize: vertical; }
 .pagina-sesion .sesion-resumen { white-space: pre-wrap; }
+.pagina-sesion .sesion-plazo { margin: .5rem 0; color: #4a5568; }
+.pagina-sesion .sesion-plazo-cerrado, .pagina-sesion .sesion-plazo-pendiente { color: #704b00; }
