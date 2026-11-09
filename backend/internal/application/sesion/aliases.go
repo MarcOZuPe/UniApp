@@ -9,6 +9,7 @@ type (
 	Ausencia          = dominio.Ausencia
 	Bandeja           = dominio.Bandeja
 	Entrega           = dominio.Entrega
+	Intervalo         = dominio.Intervalo
 	Repositorio       = dominio.Repositorio
 	RepositorioOutbox = dominio.RepositorioOutbox
 	Resultado         = dominio.Resultado
@@ -17,18 +18,22 @@ type (
 )
 
 const (
-	DuracionSesion         = dominio.DuracionSesion
-	MaxCaracteresResultado = dominio.MaxCaracteresResultado
-	MaxIntentosOutbox      = dominio.MaxIntentosOutbox
-	PlazoReclamoOutbox     = dominio.PlazoReclamoOutbox
-	RolEscolar             = dominio.RolEscolar
-	RolTutor               = dominio.RolTutor
+	AnticipacionDeclaracion = dominio.AnticipacionDeclaracion
+	DuracionSesion          = dominio.DuracionSesion
+	MaxCaracteresResultado  = dominio.MaxCaracteresResultado
+	MaxIntentosOutbox       = dominio.MaxIntentosOutbox
+	PlazoDeclaracion        = dominio.PlazoDeclaracion
+	PlazoReclamoOutbox      = dominio.PlazoReclamoOutbox
+	PlazoResultado          = dominio.PlazoResultado
+	RolEscolar              = dominio.RolEscolar
+	RolTutor                = dominio.RolTutor
 )
 
 var (
 	ErrAsistenciaDuplicada       = dominio.ErrAsistenciaDuplicada
 	ErrAusenciaDuplicada         = dominio.ErrAusenciaDuplicada
 	ErrDeclaracionContradictoria = dominio.ErrDeclaracionContradictoria
+	ErrFueraDePlazo              = dominio.ErrFueraDePlazo
 	ErrNoAutorizado              = dominio.ErrNoAutorizado
 	ErrReclamoVencido            = dominio.ErrReclamoVencido
 	ErrResultadoDuplicado        = dominio.ErrResultadoDuplicado

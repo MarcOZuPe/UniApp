@@ -54,7 +54,7 @@ func cargarAusencias(ctx context.Context, tx *sql.Tx, s *Sesion) error {
 		if err := filas.Scan(&usuarioID, &rol, &reportadaEn); err != nil {
 			return err
 		}
-		if err := s.ReportarAusencia(usuarioID, reportadaEn); err != nil {
+		if err := s.RestaurarAusencia(usuarioID, reportadaEn); err != nil {
 			return fmt.Errorf("ausencia almacenada invalida: %w", err)
 		}
 		ausencias := s.Ausencias()

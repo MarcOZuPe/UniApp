@@ -50,7 +50,7 @@ func cargarResultado(ctx context.Context, tx *sql.Tx, s *Sesion) error {
 	if err != nil {
 		return err
 	}
-	if err := s.RegistrarResultado(usuarioID, resumen, registradoEn); err != nil {
+	if err := s.RestaurarResultado(usuarioID, resumen, registradoEn); err != nil {
 		return fmt.Errorf("resultado almacenado invalido: %w", err)
 	}
 	return nil

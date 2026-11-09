@@ -181,3 +181,45 @@ func TestI11PostgresResultadoAislado(t *testing.T) {
 		t.Fatal("el resultado genero declaraciones")
 	}
 }
+
+// Los datos historicos declarados antes de existir la politica temporal deben
+// seguir cargando: la reconstitucion no aplica plazos, solo invariantes.
+func TestI11PostgresRehidrataDatosHistoricosFueraDePlazo(t *testing.T) {
+	db, ctx := prepararPostgresSesionAislado(t)
+	inicio := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+	s, err := NuevaSesion("historica-i11", "reserva-historica-i11", "tutor", "escolar", inicio, inicio.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := RepositorioPostgres{DB: db}
+	if err := repo.CrearSesion(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+
+	antes := inicio.Add(-30 * 24 * time.Hour)
+	despues := s.Fin().Add(30 * 24 * time.Hour)
+	inserciones := []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO sesion_asistencias (sesion_id, usuario_id, rol, declarada_en) VALUES ($1, $2, $3, $4)`,
+			[]any{s.ID(), s.TutorID(), string(RolTutor), antes}},
+		{`INSERT INTO sesion_ausencias (sesion_id, usuario_id, rol, reportada_en) VALUES ($1, $2, $3, $4)`,
+			[]any{s.ID(), s.EscolarID(), string(RolEscolar), despues}},
+		{`INSERT INTO sesion_resultados (sesion_id, usuario_id, resumen, registrado_en) VALUES ($1, $2, $3, $4)`,
+			[]any{s.ID(), s.TutorID(), "Resumen historico", despues}},
+	}
+	for _, insercion := range inserciones {
+		if _, err := db.ExecContext(ctx, insercion.sql, insercion.args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	guardada, err := repo.SesionPorID(ctx, s.ID())
+	if err != nil {
+		t.Fatalf("la rehidratacion no debe aplicar plazos: %v", err)
+	}
+	if len(guardada.Asistencias()) != 1 || len(guardada.Ausencias()) != 1 || guardada.Resultado() == nil {
+		t.Fatal("datos historicos incompletos")
+	}
+}

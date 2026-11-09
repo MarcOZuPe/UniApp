@@ -172,7 +172,16 @@ type comprobacionAsistencia struct {
 	esperado int
 }
 
+// inicioSesionI05 es el inicio fijo de la sesion sintetica de las pruebas.
+var inicioSesionI05 = time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+
+// prepararEntornoI05 fija el reloj a mitad de la sesion, dentro de todos los plazos.
 func prepararEntornoI05(testingT *testing.T) entornoI05 {
+	testingT.Helper()
+	return prepararEntornoI05EnMomento(testingT, inicioSesionI05.Add(30*time.Minute))
+}
+
+func prepararEntornoI05EnMomento(testingT *testing.T, momento time.Time) entornoI05 {
 	testingT.Helper()
 
 	contexto := context.Background()
@@ -202,10 +211,9 @@ func prepararEntornoI05(testingT *testing.T) entornoI05 {
 	}
 
 	repositorioSesion := memoriaSesion.NuevoRepositorioMemoria()
-	inicio := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
 	sesion, err := modeloSesion.NuevaSesion(
 		"sesion-i05", "reserva-i05", tutor.ID, escolar.ID,
-		inicio, inicio.Add(modeloSesion.DuracionSesion),
+		inicioSesionI05, inicioSesionI05.Add(modeloSesion.DuracionSesion),
 	)
 	if err != nil {
 		testingT.Fatal(err)
@@ -218,6 +226,7 @@ func prepararEntornoI05(testingT *testing.T) entornoI05 {
 	multiplexor := http.NewServeMux()
 	multiplexor.Handle("/api/sesion/", Rutas(
 		repositorioSesion, controladorAcceso.Autenticar(), origenI05,
+		ConReloj(func() time.Time { return momento }),
 	))
 	multiplexor.Handle("/", controladorAcceso.Rutas())
 

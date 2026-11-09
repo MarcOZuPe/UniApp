@@ -17,14 +17,7 @@ func TestI11ResultadoHTTP(t *testing.T) {
 	ruta := "/api/sesion/sesion-i05"
 	enviar := func(cookie *http.Cookie, cuerpo string, estado int) *httptest.ResponseRecorder {
 		t.Helper()
-		p := httptest.NewRequest("POST", ruta+"/resultado", strings.NewReader(cuerpo))
-		p.Header.Set("Origin", origenI05)
-		p.Header.Set("Content-Type", "application/json")
-		if cookie != nil {
-			p.AddCookie(cookie)
-		}
-		r := httptest.NewRecorder()
-		e.manejador.ServeHTTP(r, p)
+		r := solicitarResultadoI05(t, e.manejador, cookie, cuerpo)
 		if r.Code != estado {
 			t.Fatalf("esperado %d recibido %d: %s", estado, r.Code, r.Body.String())
 		}
@@ -86,4 +79,18 @@ func TestI11ResultadoHTTP(t *testing.T) {
 	if r := solicitarI05(opcionesSolicitudI05{manejador: e.manejador, metodo: "GET", ruta: ruta, cookie: ajeno, origen: ""}); r.Code != 403 {
 		t.Fatalf("consulta ajena: %d", r.Code)
 	}
+}
+
+// solicitarResultadoI05 envia POST /resultado con Origin permitido y JSON.
+func solicitarResultadoI05(t *testing.T, manejador http.Handler, cookie *http.Cookie, cuerpo string) *httptest.ResponseRecorder {
+	t.Helper()
+	peticion := httptest.NewRequest(http.MethodPost, "/api/sesion/sesion-i05/resultado", strings.NewReader(cuerpo))
+	peticion.Header.Set("Origin", origenI05)
+	peticion.Header.Set("Content-Type", "application/json")
+	if cookie != nil {
+		peticion.AddCookie(cookie)
+	}
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+	return respuesta
 }

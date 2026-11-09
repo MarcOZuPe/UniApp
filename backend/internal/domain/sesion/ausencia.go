@@ -28,41 +28,53 @@ func (s *Sesion) Ausencias() []Ausencia {
 	return resultado
 }
 
-// ReportarAusencia solo admite la ausencia propia. I11 no especifica permisos
-// para reportar por otra persona; no se amplian los permisos de los participantes.
+// ReportarAusencia es el comando de un participante para declarar su propia
+// ausencia dentro de la ventana de la sesion. I11 no especifica permisos para
+// reportar por otra persona; no se amplian los permisos de los participantes.
 func (s *Sesion) ReportarAusencia(usuarioID string, ahora time.Time) error {
-	if err := s.Validar(); err != nil {
+	if err := s.autorizarParticipante(usuarioID, ahora); err != nil {
 		return err
 	}
-	if ahora.IsZero() {
-		return ErrSesionInvalida
+	if err := exigirDentroDe(s.VentanaDeclaracion(), ahora); err != nil {
+		return err
 	}
+	return s.agregarAusencia(usuarioID, ahora)
+}
 
-	var rol Rol
-	switch usuarioID {
-	case s.tutorID:
-		rol = RolTutor
-	case s.escolarID:
-		rol = RolEscolar
-	default:
-		return ErrNoAutorizado
-	}
+// RestaurarAusencia reconstituye una ausencia persistida sin aplicar la
+// politica temporal.
+func (s *Sesion) RestaurarAusencia(usuarioID string, reportadaEn time.Time) error {
+	return s.agregarAusencia(usuarioID, reportadaEn)
+}
 
-	for _, ausencia := range s.ausencias {
-		if ausencia.usuarioID == usuarioID {
-			return ErrAusenciaDuplicada
-		}
+func (s *Sesion) agregarAusencia(usuarioID string, momento time.Time) error {
+	if err := s.validarMomento(momento); err != nil {
+		return err
 	}
-	for _, asistencia := range s.asistencias {
-		if asistencia.usuarioID == usuarioID {
-			return ErrDeclaracionContradictoria
-		}
+	rol, err := s.rolDe(usuarioID)
+	if err != nil {
+		return err
+	}
+	if s.tieneAusenciaDe(usuarioID) {
+		return ErrAusenciaDuplicada
+	}
+	if s.tieneAsistenciaDe(usuarioID) {
+		return ErrDeclaracionContradictoria
 	}
 
 	s.ausencias = append(s.ausencias, Ausencia{
 		usuarioID:   usuarioID,
 		rol:         rol,
-		reportadaEn: ahora.UTC(),
+		reportadaEn: momento.UTC(),
 	})
 	return nil
+}
+
+func (s *Sesion) tieneAusenciaDe(usuarioID string) bool {
+	for _, ausencia := range s.ausencias {
+		if ausencia.usuarioID == usuarioID {
+			return true
+		}
+	}
+	return false
 }
