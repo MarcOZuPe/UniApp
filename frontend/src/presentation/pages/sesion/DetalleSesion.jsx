@@ -8,6 +8,7 @@ import {
   registrarResultado,
 } from '../../../adapters/http/sesionApi.js';
 
+import { EstadoPlazo, estadoPlazo } from '../../../domain/sesion/plazos.js';
 import { useSesion } from '../../hooks/useSesion.js';
 
 import '../../styles/sesion.css';
@@ -18,6 +19,39 @@ function formatearFecha(valor) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(valor));
+}
+
+function esParticipanteDe(sesion, usuarioID) {
+  return usuarioID === sesion.tutor_id || usuarioID === sesion.escolar_id;
+}
+
+function yaDeclaro(sesion, usuarioID) {
+  return Boolean(
+    sesion.asistencias?.some(a => a.usuario_id === usuarioID) ||
+    sesion.ausencias?.some(a => a.usuario_id === usuarioID)
+  );
+}
+
+// Un participante declara una sola vez (asistencia o ausencia) y solo con el plazo abierto.
+function declaracionPermitida(sesion, usuarioID) {
+  return Boolean(sesion) &&
+    esParticipanteDe(sesion, usuarioID) &&
+    !yaDeclaro(sesion, usuarioID) &&
+    estadoPlazo(sesion.plazos?.declaracion) === EstadoPlazo.ABIERTO;
+}
+
+function AvisoPlazo({ plazo, accion }) {
+  if (!plazo?.desde || !plazo?.hasta) return null;
+
+  const rango = `${formatearFecha(plazo.desde)} y ${formatearFecha(plazo.hasta)}`;
+  const textos = {
+    [EstadoPlazo.PENDIENTE]: `Aún no puedes ${accion}. Estará disponible entre ${rango}.`,
+    [EstadoPlazo.ABIERTO]: `Puedes ${accion} entre ${rango}.`,
+    [EstadoPlazo.CERRADO]: `El plazo para ${accion} terminó (${rango}).`,
+  };
+  const estado = estadoPlazo(plazo);
+
+  return <p className={`sesion-plazo sesion-plazo-${estado}`}><small>{textos[estado]}</small></p>;
 }
 
 export default function DetalleSesion() {
@@ -67,10 +101,7 @@ export default function DetalleSesion() {
   }, [id]);
 
   async function registrarAsistencia() {
-    if (declarando.current || !sesion ||
-      (usuario?.id !== sesion.tutor_id && usuario?.id !== sesion.escolar_id) ||
-      sesion.asistencias?.some(a => a.usuario_id === usuario?.id) ||
-      sesion.ausencias?.some(a => a.usuario_id === usuario?.id)) return;
+    if (declarando.current || !declaracionPermitida(sesion, usuario?.id)) return;
     declarando.current = true;
     setEnviando(true);
     setError('');
@@ -95,10 +126,7 @@ export default function DetalleSesion() {
   }
 
   async function registrarAusencia() {
-    if (declarando.current || !sesion ||
-      (usuario?.id !== sesion.tutor_id && usuario?.id !== sesion.escolar_id) ||
-      sesion.asistencias?.some(a => a.usuario_id === usuario?.id) ||
-      sesion.ausencias?.some(a => a.usuario_id === usuario?.id)) return;
+    if (declarando.current || !declaracionPermitida(sesion, usuario?.id)) return;
     declarando.current = true;
     setEnviando(true);
     setError('');
@@ -122,7 +150,8 @@ export default function DetalleSesion() {
 
   async function guardarResultado(evento) {
     evento.preventDefault();
-    if (declarando.current || !sesion || usuario?.id !== sesion.tutor_id || sesion.resultado) return;
+    if (declarando.current || !sesion || usuario?.id !== sesion.tutor_id || sesion.resultado ||
+      estadoPlazo(sesion.plazos?.resultado) !== EstadoPlazo.ABIERTO) return;
     if (!resumen.trim() || Array.from(resumen.trim()).length > 2000) {
       setError('Escribe un resultado de entre 1 y 2.000 caracteres.');
       return;
@@ -176,9 +205,9 @@ export default function DetalleSesion() {
     (asistencia) => asistencia.usuario_id === usuario?.id
   );
 
-  const esParticipante =
-    usuario?.id === sesion.tutor_id ||
-    usuario?.id === sesion.escolar_id;
+  const esParticipante = esParticipanteDe(sesion, usuario?.id);
+  const puedeDeclarar = declaracionPermitida(sesion, usuario?.id);
+  const resultadoAbierto = estadoPlazo(sesion.plazos?.resultado) === EstadoPlazo.ABIERTO;
 
   return (
     <main className="pagina-sesion">
@@ -223,7 +252,7 @@ export default function DetalleSesion() {
             className="sesion-declarar"
             type="button"
             onClick={registrarAsistencia}
-            disabled={enviando || Boolean(asistenciaPropia) || Boolean(ausenciaPropia)}
+            disabled={enviando || !puedeDeclarar}
           >
             {enviando
               ? 'Registrando...'
@@ -238,10 +267,13 @@ export default function DetalleSesion() {
             className="sesion-declarar"
             type="button"
             onClick={registrarAusencia}
-            disabled={enviando || Boolean(asistenciaPropia) || Boolean(ausenciaPropia)}
+            disabled={enviando || !puedeDeclarar}
           >
             {ausenciaPropia ? 'Ausencia ya reportada' : 'Reportar mi ausencia'}
           </button>
+        )}
+        {esParticipante && !asistenciaPropia && !ausenciaPropia && (
+          <AvisoPlazo plazo={sesion.plazos?.declaracion} accion="declarar tu asistencia o ausencia" />
         )}
         <p><small>Solo puedes reportar tu propia ausencia. No puedes declarar asistencia y ausencia para la misma sesión.</small></p>
 
@@ -261,8 +293,11 @@ export default function DetalleSesion() {
             <p className="sesion-resumen">{sesion.resultado.resumen}</p>
             <p><small>Registrado por el tutor el {formatearFecha(sesion.resultado.registrado_en)}.</small></p>
           </>
+        ) : usuario?.id === sesion.tutor_id && !resultadoAbierto ? (
+          <AvisoPlazo plazo={sesion.plazos?.resultado} accion="registrar el resultado" />
         ) : usuario?.id === sesion.tutor_id ? (
           <form onSubmit={guardarResultado}>
+            <AvisoPlazo plazo={sesion.plazos?.resultado} accion="registrar el resultado" />
             <label htmlFor="resumen-resultado">Resumen del resultado</label>
             <textarea
               id="resumen-resultado"

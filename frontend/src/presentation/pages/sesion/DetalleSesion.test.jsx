@@ -236,3 +236,45 @@ describe('Resultado I11', () => {
     expect(registrarResultado).not.toHaveBeenCalled();
   });
 });
+
+describe('I11: plazos publicados por el backend', () => {
+  const dia = 24 * 60 * 60 * 1000;
+  const plazoRelativo = (desdeDias, hastaDias) => ({
+    desde: new Date(Date.now() + desdeDias * dia).toISOString(),
+    hasta: new Date(Date.now() + hastaDias * dia).toISOString(),
+  });
+
+  it('con el plazo de declaración cerrado bloquea asistencia y ausencia', async () => {
+    estado.usuario = { id: 'escolar-001', rol: 'escolar', nombre_uso: 'Escolar' };
+    obtenerSesion.mockResolvedValue({ ...sesion, plazos: { declaracion: plazoRelativo(-3, -1), resultado: plazoRelativo(-3, 5) } });
+    abrir();
+    expect((await screen.findByRole('button', { name: 'Declarar mi asistencia' })).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Reportar mi ausencia' }).disabled).toBe(true);
+    expect(screen.getByText(/El plazo para declarar tu asistencia o ausencia terminó/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Declarar mi asistencia' }));
+    expect(declararAsistencia).not.toHaveBeenCalled();
+  });
+
+  it('con el plazo de declaración abierto permite declarar e informa el rango', async () => {
+    estado.usuario = { id: 'escolar-001', rol: 'escolar', nombre_uso: 'Escolar' };
+    obtenerSesion.mockResolvedValue({ ...sesion, plazos: { declaracion: plazoRelativo(-1, 1), resultado: plazoRelativo(-1, 7) } });
+    abrir();
+    expect((await screen.findByRole('button', { name: 'Declarar mi asistencia' })).disabled).toBe(false);
+    expect(screen.getByText(/Puedes declarar tu asistencia o ausencia entre/)).toBeTruthy();
+  });
+
+  it('antes del inicio el tutor no ve el formulario de resultado', async () => {
+    obtenerSesion.mockResolvedValue({ ...sesion, plazos: { declaracion: plazoRelativo(1, 2), resultado: plazoRelativo(1, 8) } });
+    abrir();
+    expect(await screen.findByText(/Aún no puedes registrar el resultado/)).toBeTruthy();
+    expect(screen.queryByLabelText('Resumen del resultado')).toBeNull();
+    expect(screen.getByText(/Aún no puedes declarar tu asistencia o ausencia/)).toBeTruthy();
+  });
+
+  it('con el plazo de resultado abierto muestra el formulario y el rango', async () => {
+    obtenerSesion.mockResolvedValue({ ...sesion, plazos: { declaracion: plazoRelativo(-1, 1), resultado: plazoRelativo(-1, 7) } });
+    abrir();
+    expect(await screen.findByLabelText('Resumen del resultado')).toBeTruthy();
+    expect(screen.getByText(/Puedes registrar el resultado entre/)).toBeTruthy();
+  });
+});
