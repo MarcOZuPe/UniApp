@@ -13,16 +13,34 @@ import (
 type Controlador struct {
 	repositorio     modelo.Repositorio
 	origenPermitido string
+	reloj           func() time.Time
+}
+
+// Opcion configura el controlador sin ampliar la firma de Rutas
+// (patron functional options).
+type Opcion func(*Controlador)
+
+// ConReloj inyecta la fuente de la hora actual. Produccion usa time.Now;
+// las pruebas fijan un momento determinista dentro o fuera de los plazos.
+func ConReloj(reloj func() time.Time) Opcion {
+	return func(controlador *Controlador) {
+		controlador.reloj = reloj
+	}
 }
 
 func Rutas(
 	repositorio modelo.Repositorio,
 	autenticar func(http.Handler) http.Handler,
 	origenPermitido string,
+	opciones ...Opcion,
 ) http.Handler {
 	controlador := &Controlador{
 		repositorio:     repositorio,
 		origenPermitido: origenPermitido,
+		reloj:           time.Now,
+	}
+	for _, opcion := range opciones {
+		opcion(controlador)
 	}
 
 	multiplexor := http.NewServeMux()
@@ -83,6 +101,7 @@ func (controlador *Controlador) consultar(response http.ResponseWriter, request 
 		"fin":         sesion.Fin(),
 		"ausencias":   ausencias,
 		"resultado":   presentarResultado(sesion.Resultado()),
+		"plazos":      presentarPlazos(sesion),
 		"asistencias": asistencias,
 	})
 }
@@ -107,7 +126,7 @@ func (controlador *Controlador) declarar(response http.ResponseWriter, request *
 		request.Context(),
 		request.PathValue("id"),
 		usuario.ID,
-		time.Now().UTC(),
+		controlador.ahora(),
 	)
 	if err != nil {
 		responderErrorRepositorio(response, err)
@@ -143,6 +162,24 @@ func (controlador *Controlador) consultarPorReserva(response http.ResponseWriter
 		"id":         sesion.ID(),
 		"reserva_id": sesion.ReservaID(),
 	})
+}
+
+func (controlador *Controlador) ahora() time.Time {
+	return controlador.reloj().UTC()
+}
+
+func presentarPlazos(sesion *modelo.Sesion) map[string]any {
+	return map[string]any{
+		"declaracion": presentarIntervalo(sesion.VentanaDeclaracion()),
+		"resultado":   presentarIntervalo(sesion.VentanaResultado()),
+	}
+}
+
+func presentarIntervalo(intervalo modelo.Intervalo) map[string]any {
+	return map[string]any{
+		"desde": intervalo.Desde(),
+		"hasta": intervalo.Hasta(),
+	}
 }
 
 func presentarAsistencia(asistencia modelo.Asistencia) map[string]any {
@@ -196,6 +233,10 @@ func responderErrorRepositorio(response http.ResponseWriter, err error) {
 	case errors.Is(err, modelo.ErrAsistenciaDuplicada):
 		responderError(response, detalleErrorHTTP{
 			estado: http.StatusConflict, codigo: "asistencia_duplicada", mensaje: err.Error(),
+		})
+	case errors.Is(err, modelo.ErrFueraDePlazo):
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnprocessableEntity, codigo: "fuera_de_plazo", mensaje: err.Error(),
 		})
 	case errors.Is(err, modelo.ErrSesionInvalida):
 		responderError(response, detalleErrorHTTP{

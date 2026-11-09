@@ -33,25 +33,52 @@ func (s *Sesion) Resultado() *Resultado {
 	return &copia
 }
 
-// RegistrarResultado permite un unico registro del tutor asignado. No altera
-// las declaraciones independientes de cada participante ni verifica minutos.
+// RegistrarResultado es el comando del tutor asignado: un unico registro,
+// dentro de la ventana de resultado. No altera las declaraciones de los
+// participantes ni verifica minutos.
 func (s *Sesion) RegistrarResultado(usuarioID, resumen string, ahora time.Time) error {
-	if err := s.Validar(); err != nil {
+	if err := s.autorizarTutor(usuarioID, ahora); err != nil {
+		return err
+	}
+	if err := exigirDentroDe(s.VentanaResultado(), ahora); err != nil {
+		return err
+	}
+	return s.fijarResultado(usuarioID, resumen, ahora)
+}
+
+// RestaurarResultado reconstituye un resultado persistido sin aplicar la
+// politica temporal.
+func (s *Sesion) RestaurarResultado(usuarioID, resumen string, registradoEn time.Time) error {
+	return s.fijarResultado(usuarioID, resumen, registradoEn)
+}
+
+func (s *Sesion) autorizarTutor(usuarioID string, momento time.Time) error {
+	if err := s.validarMomento(momento); err != nil {
 		return err
 	}
 	if usuarioID != s.tutorID {
 		return ErrNoAutorizado
 	}
+	return nil
+}
+
+func (s *Sesion) fijarResultado(usuarioID, resumen string, momento time.Time) error {
+	if err := s.autorizarTutor(usuarioID, momento); err != nil {
+		return err
+	}
 	if s.resultado != nil {
 		return ErrResultadoDuplicado
 	}
-	if ahora.IsZero() {
-		return ErrSesionInvalida
-	}
 	resumen = strings.TrimSpace(resumen)
-	if resumen == "" || !utf8.ValidString(resumen) || utf8.RuneCountInString(resumen) > MaxCaracteresResultado {
+	if !resumenValido(resumen) {
 		return ErrResultadoInvalido
 	}
-	s.resultado = &Resultado{usuarioID: usuarioID, resumen: resumen, registradoEn: ahora.UTC()}
+	s.resultado = &Resultado{usuarioID: usuarioID, resumen: resumen, registradoEn: momento.UTC()}
 	return nil
+}
+
+func resumenValido(resumen string) bool {
+	return resumen != "" &&
+		utf8.ValidString(resumen) &&
+		utf8.RuneCountInString(resumen) <= MaxCaracteresResultado
 }

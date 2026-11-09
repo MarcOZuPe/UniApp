@@ -214,7 +214,7 @@ func cargarAsistencias(
 			return err
 		}
 
-		if err := sesion.DeclararAsistencia(usuarioID, declaradaEn); err != nil {
+		if err := sesion.RestaurarAsistencia(usuarioID, declaradaEn); err != nil {
 			return fmt.Errorf("asistencia almacenada invalida: %w", err)
 		}
 
