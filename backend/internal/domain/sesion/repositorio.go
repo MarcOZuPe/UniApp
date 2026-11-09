@@ -27,6 +27,14 @@ type Repositorio interface {
 		reservaID string,
 	) (*Sesion, error)
 
+	RegistrarResultado(
+		ctx context.Context,
+		sesionID string,
+		usuarioID string,
+		resumen string,
+		ahora time.Time,
+	) (Resultado, error)
+
 	ReportarAusencia(
 		ctx context.Context,
 		sesionID string,

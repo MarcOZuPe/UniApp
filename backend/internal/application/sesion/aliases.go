@@ -11,16 +11,18 @@ type (
 	Entrega           = dominio.Entrega
 	Repositorio       = dominio.Repositorio
 	RepositorioOutbox = dominio.RepositorioOutbox
+	Resultado         = dominio.Resultado
 	Rol               = dominio.Rol
 	Sesion            = dominio.Sesion
 )
 
 const (
-	DuracionSesion     = dominio.DuracionSesion
-	MaxIntentosOutbox  = dominio.MaxIntentosOutbox
-	PlazoReclamoOutbox = dominio.PlazoReclamoOutbox
-	RolEscolar         = dominio.RolEscolar
-	RolTutor           = dominio.RolTutor
+	DuracionSesion         = dominio.DuracionSesion
+	MaxCaracteresResultado = dominio.MaxCaracteresResultado
+	MaxIntentosOutbox      = dominio.MaxIntentosOutbox
+	PlazoReclamoOutbox     = dominio.PlazoReclamoOutbox
+	RolEscolar             = dominio.RolEscolar
+	RolTutor               = dominio.RolTutor
 )
 
 var (
@@ -29,6 +31,8 @@ var (
 	ErrDeclaracionContradictoria = dominio.ErrDeclaracionContradictoria
 	ErrNoAutorizado              = dominio.ErrNoAutorizado
 	ErrReclamoVencido            = dominio.ErrReclamoVencido
+	ErrResultadoDuplicado        = dominio.ErrResultadoDuplicado
+	ErrResultadoInvalido         = dominio.ErrResultadoInvalido
 	ErrSesionDuplicada           = dominio.ErrSesionDuplicada
 	ErrSesionInvalida            = dominio.ErrSesionInvalida
 	ErrSesionNoEncontrada        = dominio.ErrSesionNoEncontrada
