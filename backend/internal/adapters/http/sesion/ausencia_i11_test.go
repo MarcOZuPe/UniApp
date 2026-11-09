@@ -11,13 +11,13 @@ import (
 
 func TestI11AusenciaHTTP(t *testing.T) {
 	e := prepararEntornoI05(t)
-	tutor := iniciarSesionI05(t, e.handler, "tutor.prueba@uni.edu.pe")
-	escolar := iniciarSesionI05(t, e.handler, "escolar.prueba@example.test")
-	ajeno := iniciarSesionI05(t, e.handler, "apoderado.prueba@example.test")
+	tutor := iniciarSesionI05(t, e.manejador, "tutor.prueba@uni.edu.pe")
+	escolar := iniciarSesionI05(t, e.manejador, "escolar.prueba@example.test")
+	ajeno := iniciarSesionI05(t, e.manejador, "apoderado.prueba@example.test")
 	ruta := "/api/sesion/sesion-i05"
 	comprobar := func(metodo, url string, cookie *http.Cookie, origen string, estado int) *httptest.ResponseRecorder {
 		t.Helper()
-		r := solicitarI05(e.handler, metodo, url, cookie, origen)
+		r := solicitarI05(opcionesSolicitudI05{manejador: e.manejador, metodo: metodo, ruta: url, cookie: cookie, origen: origen})
 		if r.Code != estado {
 			t.Fatalf("%s %s: esperado %d recibido %d: %s", metodo, url, estado, r.Code, r.Body.String())
 		}
@@ -48,7 +48,7 @@ func TestI11AusenciaHTTP(t *testing.T) {
 	p.AddCookie(tutor)
 	p.Header.Set("Origin", origenI05)
 	respuesta := httptest.NewRecorder()
-	e.handler.ServeHTTP(respuesta, p)
+	e.manejador.ServeHTTP(respuesta, p)
 	if respuesta.Code != 400 {
 		t.Fatalf("suplantacion: %d", respuesta.Code)
 	}

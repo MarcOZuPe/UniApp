@@ -11,26 +11,26 @@ const (
 	PermisoCatalogoSolicitarColegio Permiso = "catalogo:solicitar_colegio"
 )
 
-func (r Rol) Permisos() []Permiso {
-	fabrica, err := FabricaParaRol(r)
-	if err != nil {
-		return nil
-	}
-	propios := fabrica.Permisos()
-	copia := make([]Permiso, len(propios))
-	copy(copia, propios)
+func (rol Rol) Permisos() []Permiso {
+	permisosOriginales := permisosDeRol(rol)
+	copia := make([]Permiso, len(permisosOriginales))
+	copy(copia, permisosOriginales)
 	return copia
 }
 
-func (r Rol) TienePermiso(permiso Permiso) bool {
-	fabrica, err := FabricaParaRol(r)
-	if err != nil {
-		return false
-	}
-	for _, propio := range fabrica.Permisos() {
-		if propio == permiso {
+func (rol Rol) TienePermiso(permisoBuscado Permiso) bool {
+	for _, permiso := range permisosDeRol(rol) {
+		if permiso == permisoBuscado {
 			return true
 		}
 	}
 	return false
+}
+
+func permisosDeRol(rol Rol) []Permiso {
+	fabrica, err := FabricaParaRol(rol)
+	if err != nil {
+		return nil
+	}
+	return fabrica.Permisos()
 }

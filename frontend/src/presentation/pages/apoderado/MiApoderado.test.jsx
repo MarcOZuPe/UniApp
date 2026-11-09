@@ -10,6 +10,18 @@ vi.mock('../../../adapters/http/apoderadoApi.js', () => ({
   miApoderado: vi.fn(),
 }));
 
+const vinculacionConAutorizacionRevocada = {
+  id: 'v-1',
+  estado: 'aceptada',
+  apoderado: { nombre_uso: 'Apoderado Prueba', email: 'apoderado@example.com' },
+  autorizacion: {
+    id: 'a-1',
+    estado: 'no_autorizado',
+    autorizado: false,
+    creada_en: '2026-10-20T12:00:00Z',
+  },
+};
+
 describe('I06: mi apoderado', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -19,26 +31,12 @@ describe('I06: mi apoderado', () => {
     cleanup();
   });
 
-  it('muestra el vínculo aceptado sin opción de desvincular', async () => {
+  it('muestra el vínculo aceptado y la autorización revocada', async () => {
     miApoderado.mockResolvedValue({
-      vinculacion: {
-        id: 'v-1',
-        estado: 'aceptada',
-        apoderado: { nombre_uso: 'Apoderado Prueba', email: 'apoderado@example.com' },
-        autorizacion: {
-          id: 'a-1',
-          estado: 'no_autorizado',
-          autorizado: false,
-          creada_en: '2026-10-20T12:00:00Z',
-        },
-      },
+      vinculacion: vinculacionConAutorizacionRevocada,
     });
 
-    render(
-      <MemoryRouter>
-        <MiApoderado />
-      </MemoryRouter>
-    );
+    renderizarMiApoderado();
 
     expect(await screen.findByText('Apoderado Prueba')).toBeTruthy();
     expect(screen.getByText(/no se puede desvincular/)).toBeTruthy();
@@ -50,12 +48,16 @@ describe('I06: mi apoderado', () => {
   it('indica cuando todavía no hay apoderado', async () => {
     miApoderado.mockResolvedValue({ vinculacion: null });
 
-    render(
-      <MemoryRouter>
-        <MiApoderado />
-      </MemoryRouter>
-    );
+    renderizarMiApoderado();
 
     expect(await screen.findByText('Todavía no tienes un apoderado vinculado.')).toBeTruthy();
   });
 });
+
+function renderizarMiApoderado() {
+  return render(
+    <MemoryRouter>
+      <MiApoderado />
+    </MemoryRouter>
+  );
+}

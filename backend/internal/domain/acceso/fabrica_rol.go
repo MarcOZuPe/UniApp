@@ -5,6 +5,25 @@ type FabricaRol interface {
 	Permisos() []Permiso
 }
 
+func FabricaParaRol(rol Rol) (FabricaRol, error) {
+	switch rol {
+	case RolEscolar:
+		return fabricaRolEscolar{}, nil
+	case RolApoderado:
+		return fabricaRolApoderado{}, nil
+	case RolTutor:
+		return fabricaRolTutor{}, nil
+	case RolCoordinador:
+		return fabricaRolCoordinador{}, nil
+	default:
+		return nil, ErrValidacion{
+			Campos: map[string]string{
+				"rol": "rol desconocido",
+			},
+		}
+	}
+}
+
 type fabricaRolEscolar struct{}
 
 func (fabricaRolEscolar) CrearPerfil(string) PerfilRol {
@@ -51,24 +70,5 @@ func (fabricaRolCoordinador) Permisos() []Permiso {
 	return []Permiso{
 		PermisoCoordinacionAcceder,
 		PermisoCatalogoGestionar,
-	}
-}
-
-func FabricaParaRol(rol Rol) (FabricaRol, error) {
-	switch rol {
-	case RolEscolar:
-		return fabricaRolEscolar{}, nil
-	case RolApoderado:
-		return fabricaRolApoderado{}, nil
-	case RolTutor:
-		return fabricaRolTutor{}, nil
-	case RolCoordinador:
-		return fabricaRolCoordinador{}, nil
-	default:
-		return nil, ErrValidacion{
-			Campos: map[string]string{
-				"rol": "rol desconocido",
-			},
-		}
 	}
 }

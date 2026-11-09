@@ -1,8 +1,5 @@
 package acceso
 
-// Implementaciones mínimas para las pruebas del dominio. Los adaptadores reales
-// (PBKDF2, bus, correo) viven en internal/infra.
-
 type hasherDePrueba struct{}
 
 func (hasherDePrueba) Hash(clave string) (string, error) { return "prueba:" + clave, nil }
@@ -18,8 +15,8 @@ func nuevoObservadorDePrueba(identificador string, alRecibir func(Event)) *obser
 	return &observadorDePrueba{identificador: identificador, alRecibir: alRecibir}
 }
 
-func (o *observadorDePrueba) Actualizar(evento Event) { o.alRecibir(evento) }
-func (o *observadorDePrueba) ID() string              { return o.identificador }
+func (observador *observadorDePrueba) Actualizar(evento Event) { observador.alRecibir(evento) }
+func (observador *observadorDePrueba) ID() string              { return observador.identificador }
 
 type busDePrueba struct {
 	observadores map[string][]Observador
@@ -29,22 +26,22 @@ func nuevoBusDePrueba() *busDePrueba {
 	return &busDePrueba{observadores: map[string][]Observador{}}
 }
 
-func (b *busDePrueba) Registrar(nombre string, observador Observador) {
-	b.observadores[nombre] = append(b.observadores[nombre], observador)
+func (bus *busDePrueba) Registrar(nombre string, observador Observador) {
+	bus.observadores[nombre] = append(bus.observadores[nombre], observador)
 }
 
-func (b *busDePrueba) Desregistrar(nombre string, observador Observador) {
-	restantes := make([]Observador, 0, len(b.observadores[nombre]))
-	for _, actual := range b.observadores[nombre] {
+func (bus *busDePrueba) Desregistrar(nombre string, observador Observador) {
+	restantes := make([]Observador, 0, len(bus.observadores[nombre]))
+	for _, actual := range bus.observadores[nombre] {
 		if actual.ID() != observador.ID() {
 			restantes = append(restantes, actual)
 		}
 	}
-	b.observadores[nombre] = restantes
+	bus.observadores[nombre] = restantes
 }
 
-func (b *busDePrueba) Notificar(evento Event) {
-	for _, observador := range append([]Observador(nil), b.observadores[evento.Nombre]...) {
+func (bus *busDePrueba) Notificar(evento Event) {
+	for _, observador := range append([]Observador(nil), bus.observadores[evento.Nombre]...) {
 		observador.Actualizar(evento)
 	}
 }

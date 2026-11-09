@@ -20,179 +20,190 @@ func Rutas(
 	autenticar func(http.Handler) http.Handler,
 	origenPermitido string,
 ) http.Handler {
-	c := &Controlador{
+	controlador := &Controlador{
 		repositorio:     repositorio,
 		origenPermitido: origenPermitido,
 	}
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /api/sesion/salud", func(w http.ResponseWriter, _ *http.Request) {
-		vista.EscribirJSON(w, http.StatusOK, map[string]string{
+	multiplexor := http.NewServeMux()
+	multiplexor.HandleFunc("GET /api/sesion/salud", func(response http.ResponseWriter, _ *http.Request) {
+		vista.EscribirJSON(response, http.StatusOK, map[string]string{
 			"flujo":  "sesion",
 			"estado": "implementado",
 		})
 	})
-
-	mux.Handle(
-		"GET /api/sesion/{id}",
-		autenticar(http.HandlerFunc(c.consultar)),
-	)
-
-	// I05: consultar la sesion asociada a una reserva.
-	mux.Handle(
-		"GET /api/sesion/por-reserva/{reservaID}",
-		autenticar(http.HandlerFunc(c.consultarPorReserva)),
-	)
-
-	mux.Handle(
-		"POST /api/sesion/{id}/asistencias",
-		autenticar(http.HandlerFunc(c.declarar)),
-	)
-
-	mux.Handle("POST /api/sesion/{id}/ausencias", autenticar(http.HandlerFunc(c.reportarAusencia)))
-
-	mux.Handle("POST /api/sesion/{id}/resultado", autenticar(http.HandlerFunc(c.registrarResultado)))
-
-	return mux
+	multiplexor.Handle("GET /api/sesion/{id}", autenticar(http.HandlerFunc(controlador.consultar)))
+	// I05: consultar la sesion asociada a una reserva (navegacion desde la agenda).
+	multiplexor.Handle("GET /api/sesion/por-reserva/{reservaID}", autenticar(http.HandlerFunc(controlador.consultarPorReserva)))
+	multiplexor.Handle("POST /api/sesion/{id}/asistencias", autenticar(http.HandlerFunc(controlador.declarar)))
+	// I11: ausencia propia y resultado de la sesion.
+	multiplexor.Handle("POST /api/sesion/{id}/ausencias", autenticar(http.HandlerFunc(controlador.reportarAusencia)))
+	multiplexor.Handle("POST /api/sesion/{id}/resultado", autenticar(http.HandlerFunc(controlador.registrarResultado)))
+	return multiplexor
 }
 
-func (c *Controlador) consultar(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
+func (controlador *Controlador) consultar(response http.ResponseWriter, request *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(request.Context())
 	if usuario == nil {
-		responderError(w, http.StatusUnauthorized, "no_autenticado", "Debes iniciar sesion.")
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnauthorized, codigo: "no_autenticado", mensaje: "Debes iniciar sesion.",
+		})
 		return
 	}
 
-	s, err := c.repositorio.SesionPorID(r.Context(), r.PathValue("id"))
+	sesion, err := controlador.repositorio.SesionPorID(request.Context(), request.PathValue("id"))
 	if err != nil {
-		responderErrorRepositorio(w, err)
+		responderErrorRepositorio(response, err)
 		return
 	}
 
-	if usuario.ID != s.TutorID() && usuario.ID != s.EscolarID() {
-		responderError(w, http.StatusForbidden, "no_autorizado", "No participas en esta sesion.")
+	if usuario.ID != sesion.TutorID() && usuario.ID != sesion.EscolarID() {
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusForbidden, codigo: "no_autorizado", mensaje: "No participas en esta sesion.",
+		})
 		return
 	}
 
-	asistencias := make([]map[string]any, 0, len(s.Asistencias()))
-	for _, a := range s.Asistencias() {
-		asistencias = append(asistencias, presentarAsistencia(a))
+	asistencias := make([]map[string]any, 0, len(sesion.Asistencias()))
+	for _, asistencia := range sesion.Asistencias() {
+		asistencias = append(asistencias, presentarAsistencia(asistencia))
 	}
 
-	ausencias := make([]map[string]any, 0, len(s.Ausencias()))
-	for _, a := range s.Ausencias() {
-		ausencias = append(ausencias, presentarAusencia(a))
+	ausencias := make([]map[string]any, 0, len(sesion.Ausencias()))
+	for _, ausencia := range sesion.Ausencias() {
+		ausencias = append(ausencias, presentarAusencia(ausencia))
 	}
 
-	vista.EscribirJSON(w, http.StatusOK, map[string]any{
-		"resultado":   presentarResultado(s.Resultado()),
+	vista.EscribirJSON(response, http.StatusOK, map[string]any{
+		"id":          sesion.ID(),
+		"reserva_id":  sesion.ReservaID(),
+		"tutor_id":    sesion.TutorID(),
+		"escolar_id":  sesion.EscolarID(),
+		"inicio":      sesion.Inicio(),
+		"fin":         sesion.Fin(),
 		"ausencias":   ausencias,
-		"id":          s.ID(),
-		"reserva_id":  s.ReservaID(),
-		"tutor_id":    s.TutorID(),
-		"escolar_id":  s.EscolarID(),
-		"inicio":      s.Inicio(),
-		"fin":         s.Fin(),
+		"resultado":   presentarResultado(sesion.Resultado()),
 		"asistencias": asistencias,
 	})
 }
 
-// I05: obtener el ID real de la sesion mediante su reserva.
-func (c *Controlador) consultarPorReserva(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
+func (controlador *Controlador) declarar(response http.ResponseWriter, request *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(request.Context())
 	if usuario == nil {
-		responderError(w, http.StatusUnauthorized, "no_autenticado", "Debes iniciar sesion.")
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnauthorized, codigo: "no_autenticado", mensaje: "Debes iniciar sesion.",
+		})
 		return
 	}
 
-	s, err := c.repositorio.SesionPorReservaID(
-		r.Context(),
-		r.PathValue("reservaID"),
-	)
-	if err != nil {
-		responderErrorRepositorio(w, err)
+	if request.Body != nil && request.Body != http.NoBody {
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusBadRequest, codigo: "solicitud_invalida", mensaje: "No se admite un cuerpo.",
+		})
 		return
 	}
 
-	if usuario.ID != s.TutorID() && usuario.ID != s.EscolarID() {
-		responderError(w, http.StatusForbidden, "no_autorizado", "No participas en esta sesion.")
-		return
-	}
-
-	vista.EscribirJSON(w, http.StatusOK, map[string]any{
-		"id":         s.ID(),
-		"reserva_id": s.ReservaID(),
-	})
-}
-
-func (c *Controlador) declarar(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
-	if usuario == nil {
-		responderError(w, http.StatusUnauthorized, "no_autenticado", "Debes iniciar sesion.")
-		return
-	}
-
-	// Este endpoint no recibe un identificador de usuario del cliente.
-	if r.Body != nil && r.Body != http.NoBody {
-		responderError(w, http.StatusBadRequest, "solicitud_invalida", "No se admite un cuerpo.")
-		return
-	}
-
-	a, err := c.repositorio.DeclararAsistencia(
-		r.Context(),
-		r.PathValue("id"),
+	asistencia, err := controlador.repositorio.DeclararAsistencia(
+		request.Context(),
+		request.PathValue("id"),
 		usuario.ID,
 		time.Now().UTC(),
 	)
 	if err != nil {
-		responderErrorRepositorio(w, err)
+		responderErrorRepositorio(response, err)
 		return
 	}
 
-	vista.EscribirJSON(w, http.StatusCreated, presentarAsistencia(a))
+	vista.EscribirJSON(response, http.StatusCreated, presentarAsistencia(asistencia))
 }
 
-func presentarAsistencia(a modelo.Asistencia) map[string]any {
-	return map[string]any{
-		"usuario_id":   a.UsuarioID(),
-		"rol":          string(a.Rol()),
-		"declarada_en": a.DeclaradaEn(),
+func (controlador *Controlador) consultarPorReserva(response http.ResponseWriter, request *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(request.Context())
+	if usuario == nil {
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnauthorized, codigo: "no_autenticado", mensaje: "Debes iniciar sesion.",
+		})
+		return
 	}
-}
 
-func responderError(
-	w http.ResponseWriter,
-	estado int,
-	codigo string,
-	mensaje string,
-) {
-	vista.EscribirError(w, vista.RespuestaError{
-		Estado:  estado,
-		Codigo:  codigo,
-		Mensaje: mensaje,
+	sesion, err := controlador.repositorio.SesionPorReservaID(request.Context(), request.PathValue("reservaID"))
+	if err != nil {
+		responderErrorRepositorio(response, err)
+		return
+	}
+
+	if usuario.ID != sesion.TutorID() && usuario.ID != sesion.EscolarID() {
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusForbidden, codigo: "no_autorizado", mensaje: "No participas en esta sesion.",
+		})
+		return
+	}
+
+	vista.EscribirJSON(response, http.StatusOK, map[string]any{
+		"id":         sesion.ID(),
+		"reserva_id": sesion.ReservaID(),
 	})
 }
 
-func responderErrorRepositorio(w http.ResponseWriter, err error) {
+func presentarAsistencia(asistencia modelo.Asistencia) map[string]any {
+	return map[string]any{
+		"usuario_id":   asistencia.UsuarioID(),
+		"rol":          string(asistencia.Rol()),
+		"declarada_en": asistencia.DeclaradaEn(),
+	}
+}
+
+type detalleErrorHTTP struct {
+	estado  int
+	codigo  string
+	mensaje string
+}
+
+func responderError(response http.ResponseWriter, detalle detalleErrorHTTP) {
+	vista.EscribirError(response, vista.RespuestaError{
+		Estado:  detalle.estado,
+		Codigo:  detalle.codigo,
+		Mensaje: detalle.mensaje,
+	})
+}
+
+func responderErrorRepositorio(response http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, modelo.ErrSesionNoEncontrada):
-		responderError(w, http.StatusNotFound, "sesion_no_encontrada", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusNotFound, codigo: "sesion_no_encontrada", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrNoAutorizado):
-		responderError(w, http.StatusForbidden, "no_autorizado", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusForbidden, codigo: "no_autorizado", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrResultadoDuplicado):
-		responderError(w, http.StatusConflict, "resultado_duplicado", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusConflict, codigo: "resultado_duplicado", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrResultadoInvalido):
-		responderError(w, http.StatusUnprocessableEntity, "resultado_invalido", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnprocessableEntity, codigo: "resultado_invalido", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrAusenciaDuplicada):
-		responderError(w, http.StatusConflict, "ausencia_duplicada", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusConflict, codigo: "ausencia_duplicada", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrDeclaracionContradictoria):
-		responderError(w, http.StatusConflict, "declaracion_contradictoria", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusConflict, codigo: "declaracion_contradictoria", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrAsistenciaDuplicada):
-		responderError(w, http.StatusConflict, "asistencia_duplicada", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusConflict, codigo: "asistencia_duplicada", mensaje: err.Error(),
+		})
 	case errors.Is(err, modelo.ErrSesionInvalida):
-		responderError(w, http.StatusUnprocessableEntity, "sesion_invalida", err.Error())
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusUnprocessableEntity, codigo: "sesion_invalida", mensaje: err.Error(),
+		})
 	default:
-		responderError(w, http.StatusInternalServerError, "error_interno", "Ocurrio un error inesperado.")
+		responderError(response, detalleErrorHTTP{
+			estado: http.StatusInternalServerError, codigo: "error_interno", mensaje: "Ocurrio un error inesperado.",
+		})
 	}
 }

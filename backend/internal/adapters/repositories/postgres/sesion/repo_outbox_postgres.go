@@ -9,78 +9,84 @@ import (
 
 type RepositorioOutboxPostgres struct{ DB *sql.DB }
 
-func (r RepositorioOutboxPostgres) Reclamar(ctx context.Context, ahora time.Time) (*Entrega, error) {
-	// Recuperar también procesos que murieron durante su último intento.
-	if _, err := r.DB.ExecContext(ctx, `UPDATE sesion_outbox SET estado='agotado', ultimo_error='intentos_agotados', bloqueado_hasta=NULL
- WHERE estado='procesando' AND bloqueado_hasta <= $1 AND intentos >= $2`, ahora, MaxIntentosOutbox); err != nil {
+func (repositorio RepositorioOutboxPostgres) Reclamar(ctx context.Context, momento time.Time) (*Entrega, error) {
+	if _, err := repositorio.DB.ExecContext(ctx, `UPDATE sesion_outbox SET estado='agotado', ultimo_error='intentos_agotados', bloqueado_hasta=NULL
+ WHERE estado='procesando' AND bloqueado_hasta <= $1 AND intentos >= $2`, momento, MaxIntentosOutbox); err != nil {
 		return nil, err
 	}
-	var e Entrega
-	err := r.DB.QueryRowContext(ctx, `WITH siguiente AS (
+
+	var entrega Entrega
+	err := repositorio.DB.QueryRowContext(ctx, `WITH siguiente AS (
  SELECT id FROM sesion_outbox WHERE intentos < $2 AND
  ((estado='pendiente' AND disponible_en <= $1) OR (estado='procesando' AND bloqueado_hasta <= $1))
  ORDER BY disponible_en,id FOR UPDATE SKIP LOCKED LIMIT 1
  ) UPDATE sesion_outbox o SET estado='procesando', intentos=o.intentos+1, bloqueado_hasta=$3
  FROM siguiente s WHERE o.id=s.id
  RETURNING o.id,o.reserva_id::text,o.destinatario_id,o.tipo,o.canal,o.asunto,o.cuerpo,o.intentos`,
-		ahora, MaxIntentosOutbox, ahora.Add(PlazoReclamoOutbox)).Scan(&e.ID, &e.ReservaID, &e.DestinatarioID, &e.Tipo, &e.Canal, &e.Asunto, &e.Cuerpo, &e.Intentos)
+		momento, MaxIntentosOutbox, momento.Add(PlazoReclamoOutbox)).
+		Scan(&entrega.ID, &entrega.ReservaID, &entrega.DestinatarioID, &entrega.Tipo,
+			&entrega.Canal, &entrega.Asunto, &entrega.Cuerpo, &entrega.Intentos)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &e, nil
+	return &entrega, nil
 }
 
-func (r RepositorioOutboxPostgres) Resolver(ctx context.Context, e Entrega, ahora time.Time, codigo string) error {
-	estado := "entregado"
-	var entregado any = ahora
+func (repositorio RepositorioOutboxPostgres) Resolver(ctx context.Context, entrega Entrega, momento time.Time, codigo string) error {
+	estadoEntrega := "entregado"
+	var entregadoEn any = momento
 	if codigo != "" {
-		estado = "pendiente"
-		entregado = nil
-		if e.Intentos >= MaxIntentosOutbox {
-			estado = "agotado"
+		estadoEntrega = "pendiente"
+		entregadoEn = nil
+		if entrega.Intentos >= MaxIntentosOutbox {
+			estadoEntrega = "agotado"
 		}
 	}
-	// intentos actúa como versión del reclamo: un worker antiguo no puede completarlo.
-	result, err := r.DB.ExecContext(ctx, `UPDATE sesion_outbox SET estado=$3,ultimo_error=$4,
+
+	resultado, err := repositorio.DB.ExecContext(ctx, `UPDATE sesion_outbox SET estado=$3,ultimo_error=$4,
  disponible_en=$5,entregado_en=$6,bloqueado_hasta=NULL
  WHERE id=$1 AND intentos=$2 AND estado='procesando' AND bloqueado_hasta > $7`,
-		e.ID, e.Intentos, estado, codigo, ahora.Add(EsperaOutbox(e.Intentos)), entregado, ahora)
+		entrega.ID, entrega.Intentos, estadoEntrega, codigo,
+		momento.Add(EsperaOutbox(entrega.Intentos)), entregadoEn, momento)
 	if err != nil {
 		return err
 	}
-	n, err := result.RowsAffected()
+
+	filasAfectadas, err := resultado.RowsAffected()
 	if err != nil {
 		return err
 	}
-	if n != 1 {
+	if filasAfectadas != 1 {
 		return ErrReclamoVencido
 	}
 	return nil
 }
 
-func (r RepositorioOutboxPostgres) CorreoDe(ctx context.Context, id string) (string, error) {
+func (repositorio RepositorioOutboxPostgres) CorreoDe(ctx context.Context, usuarioID string) (string, error) {
 	var correo string
-	err := r.DB.QueryRowContext(ctx, "SELECT email FROM usuarios WHERE id::text=$1", id).Scan(&correo)
+	err := repositorio.DB.QueryRowContext(ctx, "SELECT email FROM usuarios WHERE id::text=$1", usuarioID).Scan(&correo)
 	return correo, err
 }
 
-func (r RepositorioOutboxPostgres) NotificacionesDe(ctx context.Context, id string) ([]Entrega, error) {
-	rows, err := r.DB.QueryContext(ctx, `SELECT id,reserva_id::text,tipo,asunto,cuerpo,entregado_en FROM sesion_outbox
- WHERE destinatario_id=$1 AND canal='interno' AND estado='entregado' ORDER BY entregado_en DESC,id DESC LIMIT 100`, id)
+func (repositorio RepositorioOutboxPostgres) NotificacionesDe(ctx context.Context, usuarioID string) ([]Entrega, error) {
+	filas, err := repositorio.DB.QueryContext(ctx, `SELECT id,reserva_id::text,tipo,asunto,cuerpo,entregado_en FROM sesion_outbox
+ WHERE destinatario_id=$1 AND canal='interno' AND estado='entregado' ORDER BY entregado_en DESC,id DESC LIMIT 100`, usuarioID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	resultado := []Entrega{}
-	for rows.Next() {
-		var e Entrega
-		if err := rows.Scan(&e.ID, &e.ReservaID, &e.Tipo, &e.Asunto, &e.Cuerpo, &e.EntregadoEn); err != nil {
+	defer filas.Close()
+
+	entregas := []Entrega{}
+	for filas.Next() {
+		var entrega Entrega
+		if err := filas.Scan(&entrega.ID, &entrega.ReservaID, &entrega.Tipo,
+			&entrega.Asunto, &entrega.Cuerpo, &entrega.EntregadoEn); err != nil {
 			return nil, err
 		}
-		resultado = append(resultado, e)
+		entregas = append(entregas, entrega)
 	}
-	return resultado, rows.Err()
+	return entregas, filas.Err()
 }

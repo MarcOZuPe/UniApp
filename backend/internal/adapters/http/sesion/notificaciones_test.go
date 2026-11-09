@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+
 	ctrl "uniapp/internal/adapters/http/acceso"
 	memoriaAcceso "uniapp/internal/adapters/repositories/memory/acceso"
 	acceso "uniapp/internal/application/acceso"
@@ -14,72 +14,106 @@ import (
 	"uniapp/internal/infrastructure"
 )
 
+func TestNotificacionesAutorizacionYErrores(testingT *testing.T) {
+	servicio := crearServicioAcceso(testingT)
+	controladorAcceso := ctrl.Nuevo(servicio, false)
+	bandeja := &bandejaPrueba{}
+
+	multiplexor := http.NewServeMux()
+	multiplexor.Handle("/api/notificaciones", RutasNotificaciones(bandeja, controladorAcceso.Autenticar()))
+	multiplexor.Handle("/", controladorAcceso.Rutas())
+
+	casos := []struct {
+		email  string
+		estado int
+	}{
+		{"", http.StatusUnauthorized},
+		{"tutor.prueba@uni.edu.pe", http.StatusOK},
+		{"escolar.prueba@example.test", http.StatusOK},
+		{"apoderado.prueba@example.test", http.StatusForbidden},
+		{"coord.prueba@example.test", http.StatusForbidden},
+	}
+
+	for _, caso := range casos {
+		testingT.Run(caso.email, func(testingT *testing.T) {
+			bandeja.consultado = ""
+			var cookie *http.Cookie
+			if caso.email != "" {
+				cookie = iniciarSesionI05(testingT, multiplexor, caso.email)
+			}
+
+			respuesta := ejecutarPeticion(opcionesPeticionSesion{
+				manejador: multiplexor,
+				metodo:    http.MethodGet,
+				ruta:      "/api/notificaciones?usuario_id=ajeno",
+				cookie:    cookie,
+			})
+			if respuesta.Code != caso.estado {
+				testingT.Fatalf("estado %d", respuesta.Code)
+			}
+
+			if caso.estado == http.StatusOK {
+				usuario, err := servicio.Sesion.UsuarioDeSesion(context.Background(), cookie.Value)
+				if err != nil || bandeja.consultado != usuario.ID {
+					testingT.Fatal("identidad elegida por cliente")
+				}
+			} else if bandeja.consultado != "" {
+				testingT.Fatal("consulta no autorizada")
+			}
+		})
+	}
+
+	cookie := iniciarSesionI05(testingT, multiplexor, "tutor.prueba@uni.edu.pe")
+	bandeja.falla = true
+	respuesta := ejecutarPeticion(opcionesPeticionSesion{
+		manejador: multiplexor,
+		metodo:    http.MethodGet,
+		ruta:      "/api/notificaciones",
+		cookie:    cookie,
+	})
+	if respuesta.Code != http.StatusInternalServerError || strings.Contains(respuesta.Body.String(), "privado") {
+		testingT.Fatal("filtró error interno")
+	}
+
+	respuesta = ejecutarPeticion(opcionesPeticionSesion{
+		manejador: multiplexor,
+		metodo:    http.MethodPost,
+		ruta:      "/api/notificaciones",
+		cookie:    cookie,
+	})
+	if respuesta.Code != http.StatusMethodNotAllowed {
+		testingT.Fatal("permitió mutación")
+	}
+}
+
 type bandejaPrueba struct {
 	consultado string
 	falla      bool
 }
 
-func (b *bandejaPrueba) NotificacionesDe(_ context.Context, id string) ([]modelo.Entrega, error) {
-	b.consultado = id
-	if b.falla {
+func (bandeja *bandejaPrueba) NotificacionesDe(_ context.Context, id string) ([]modelo.Entrega, error) {
+	bandeja.consultado = id
+	if bandeja.falla {
 		return nil, errors.New("detalle privado")
 	}
 	return []modelo.Entrega{{ID: 1, Asunto: "Confirmación", DestinatarioID: id}}, nil
 }
-func TestNotificacionesAutorizacionYErrores(t *testing.T) {
-	h := infra.PBKDF2Hasher{Iteraciones: 1000}
-	s := acceso.NuevoServicio(acceso.Dependencias{Repositorio: memoriaAcceso.NuevoRepositorioMemoria(), Fabrica: acceso.NuevaFabrica(h, "uni.edu.pe"), Hasher: h, Bus: infra.NuevoBus()})
-	if err := acceso.Sembrar(context.Background(), s, acceso.OpcionesSiembra{DominioTutor: "uni.edu.pe", Clave: claveI05}); err != nil {
-		t.Fatal(err)
+
+func crearServicioAcceso(testingT *testing.T) *acceso.Servicio {
+	testingT.Helper()
+
+	hasher := infra.PBKDF2Hasher{Iteraciones: 1000}
+	servicio := acceso.NuevoServicio(acceso.Dependencias{
+		Repositorio: memoriaAcceso.NuevoRepositorioMemoria(),
+		Fabrica:     acceso.NuevaFabrica(hasher, "uni.edu.pe"),
+		Hasher:      hasher,
+		Bus:         infra.NuevoBus(),
+	})
+	if err := acceso.Sembrar(context.Background(), servicio, acceso.DatosSiembra{
+		DominioTutor: "uni.edu.pe",
+		Clave:        claveI05,
+	}); err != nil {
+		testingT.Fatal(err)
 	}
-	a := ctrl.Nuevo(s, false)
-	b := &bandejaPrueba{}
-	mux := http.NewServeMux()
-	mux.Handle("/api/notificaciones", RutasNotificaciones(b, a.Autenticar()))
-	mux.Handle("/", a.Rutas())
-	for _, c := range []struct {
-		email  string
-		estado int
-	}{{"", 401}, {"tutor.prueba@uni.edu.pe", 200}, {"escolar.prueba@example.test", 200}, {"apoderado.prueba@example.test", 403}, {"coord.prueba@example.test", 403}} {
-		t.Run(c.email, func(t *testing.T) {
-			b.consultado = ""
-			var cookie *http.Cookie
-			if c.email != "" {
-				cookie = iniciarSesionI05(t, mux, c.email)
-			}
-			req := httptest.NewRequest("GET", "/api/notificaciones?usuario_id=ajeno", nil)
-			if cookie != nil {
-				req.AddCookie(cookie)
-			}
-			w := httptest.NewRecorder()
-			mux.ServeHTTP(w, req)
-			if w.Code != c.estado {
-				t.Fatalf("estado %d", w.Code)
-			}
-			if c.estado == 200 {
-				u, err := s.UsuarioDeSesion(context.Background(), cookie.Value)
-				if err != nil || b.consultado != u.ID {
-					t.Fatal("identidad elegida por cliente")
-				}
-			} else if b.consultado != "" {
-				t.Fatal("consulta no autorizada")
-			}
-		})
-	}
-	cookie := iniciarSesionI05(t, mux, "tutor.prueba@uni.edu.pe")
-	b.falla = true
-	req := httptest.NewRequest("GET", "/api/notificaciones", nil)
-	req.AddCookie(cookie)
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-	if w.Code != 500 || strings.Contains(w.Body.String(), "privado") {
-		t.Fatal("filtró error interno")
-	}
-	req = httptest.NewRequest("POST", "/api/notificaciones", nil)
-	req.AddCookie(cookie)
-	w = httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-	if w.Code != 405 {
-		t.Fatal("permitió mutación")
-	}
+	return servicio
 }

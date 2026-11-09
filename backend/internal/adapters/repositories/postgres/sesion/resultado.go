@@ -15,7 +15,7 @@ func (r RepositorioPostgres) RegistrarResultado(ctx context.Context, sesionID, u
 		return Resultado{}, err
 	}
 	defer tx.Rollback()
-	s, err := cargarSesion(ctx, tx, sesionID, true)
+	s, err := cargarSesion(ctx, tx, consultaSesion{sesionID: sesionID, bloquear: true})
 	if err != nil {
 		return Resultado{}, err
 	}

@@ -16,7 +16,7 @@ func (r RepositorioPostgres) ReportarAusencia(ctx context.Context, sesionID stri
 	}
 	defer tx.Rollback()
 	// El mismo bloqueo que usa asistencia serializa ambas declaraciones.
-	s, err := cargarSesion(ctx, tx, sesionID, true)
+	s, err := cargarSesion(ctx, tx, consultaSesion{sesionID: sesionID, bloquear: true})
 	if err != nil {
 		return Ausencia{}, err
 	}

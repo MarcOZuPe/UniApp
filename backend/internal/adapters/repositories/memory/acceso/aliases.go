@@ -5,31 +5,38 @@ package acceso
 import dominio "uniapp/internal/domain/acceso"
 
 type (
-	Autorizacion       = dominio.Autorizacion
-	DatosRegistro      = dominio.DatosRegistro
-	ErrValidacion      = dominio.ErrValidacion
-	EstadoAutorizacion = dominio.EstadoAutorizacion
-	EstadoVinculacion  = dominio.EstadoVinculacion
-	Event              = dominio.Event
-	FabricaRol         = dominio.FabricaRol
-	Mailer             = dominio.Mailer
-	Mensaje            = dominio.Mensaje
-	Observador         = dominio.Observador
-	PasswordHasher     = dominio.PasswordHasher
-	PerfilRol          = dominio.PerfilRol
-	Permiso            = dominio.Permiso
-	PoliticaBasica     = dominio.PoliticaBasica
-	PoliticaClave      = dominio.PoliticaClave
-	PoliticaEstricta   = dominio.PoliticaEstricta
-	Repositorio        = dominio.Repositorio
-	Rol                = dominio.Rol
-	Sesion             = dominio.Sesion
-	Sujeto             = dominio.Sujeto
-	TokenConfirmacion  = dominio.TokenConfirmacion
-	TokenRecuperacion  = dominio.TokenRecuperacion
-	Usuario            = dominio.Usuario
-	ValidadorClave     = dominio.ValidadorClave
-	Vinculacion        = dominio.Vinculacion
+	Autorizacion                = dominio.Autorizacion
+	CambioAutorizacion          = dominio.CambioAutorizacion
+	ConsultaVinculacionPorToken = dominio.ConsultaVinculacionPorToken
+	ErrValidacion               = dominio.ErrValidacion
+	EstadoAutorizacion          = dominio.EstadoAutorizacion
+	EstadoVinculacion           = dominio.EstadoVinculacion
+	Event                       = dominio.Event
+	FabricaRol                  = dominio.FabricaRol
+	Mailer                      = dominio.Mailer
+	Mensaje                     = dominio.Mensaje
+	Observador                  = dominio.Observador
+	PasswordHasher              = dominio.PasswordHasher
+	PerfilRol                   = dominio.PerfilRol
+	Permiso                     = dominio.Permiso
+	PoliticaBasica              = dominio.PoliticaBasica
+	PoliticaClave               = dominio.PoliticaClave
+	PoliticaEstricta            = dominio.PoliticaEstricta
+	Repositorio                 = dominio.Repositorio
+	RepositorioAutorizaciones   = dominio.RepositorioAutorizaciones
+	RepositorioSesiones         = dominio.RepositorioSesiones
+	RepositorioTokens           = dominio.RepositorioTokens
+	RepositorioUsuarios         = dominio.RepositorioUsuarios
+	RepositorioVinculaciones    = dominio.RepositorioVinculaciones
+	Rol                         = dominio.Rol
+	Sesion                      = dominio.Sesion
+	SolicitudRegistro           = dominio.SolicitudRegistro
+	Sujeto                      = dominio.Sujeto
+	TokenConfirmacion           = dominio.TokenConfirmacion
+	TokenRecuperacion           = dominio.TokenRecuperacion
+	Usuario                     = dominio.Usuario
+	ValidadorClave              = dominio.ValidadorClave
+	Vinculacion                 = dominio.Vinculacion
 )
 
 const (
