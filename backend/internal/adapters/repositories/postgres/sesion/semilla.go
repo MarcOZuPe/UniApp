@@ -8,69 +8,63 @@ import (
 	"time"
 )
 
-// SembrarSintetico crea una sesión demostrativa de I05.
-// Solo debe invocarse cuando SEED_SYNTHETIC esté activado.
-func SembrarSintetico(
-	ctx context.Context,
-	db *sql.DB,
-	repo Repositorio,
-	dominioTutor string,
-) error {
-	obtenerID := func(email string) (string, error) {
-		var id string
+type DependenciasSiembraSesion struct {
+	BaseDatos    *sql.DB
+	Repositorio  Repositorio
+	DominioTutor string
+}
 
-		err := db.QueryRowContext(
-			ctx,
-			`SELECT id FROM usuarios WHERE email = $1`,
-			email,
-		).Scan(&id)
-
-		if err != nil {
-			return "", fmt.Errorf(
-				"buscar usuario sintetico %s: %w",
-				email,
-				err,
-			)
-		}
-
-		return id, nil
+func SembrarSintetico(ctx context.Context, dependencias DependenciasSiembraSesion) error {
+	tutorID, err := buscarUsuarioID(ctx, dependencias.BaseDatos, "tutor.prueba@"+dependencias.DominioTutor)
+	if err != nil {
+		return err
 	}
-
-	tutorID, err := obtenerID("tutor.prueba@" + dominioTutor)
+	escolarID, err := buscarUsuarioID(ctx, dependencias.BaseDatos, "escolar.prueba@example.test")
 	if err != nil {
 		return err
 	}
 
-	escolarID, err := obtenerID("escolar.prueba@example.test")
-	if err != nil {
-		return err
-	}
-
-	// La sesión demostrativa dura exactamente 60 minutos.
-	inicio := time.Now().UTC().
-		Truncate(24 * time.Hour).
-		Add(24*time.Hour + 15*time.Hour)
-
-	fin := inicio.Add(DuracionSesion)
-
+	inicio := inicioSesionDemo()
 	sesion, err := NuevaSesion(
 		"sesion-i05-demo",
 		"reserva-i05-demo",
 		tutorID,
 		escolarID,
 		inicio,
-		fin,
+		inicio.Add(DuracionSesion),
 	)
 	if err != nil {
 		return fmt.Errorf("crear sesion sintetica: %w", err)
 	}
 
-	err = repo.CrearSesion(ctx, sesion)
+	if _, err := dependencias.Repositorio.SesionPorID(ctx, "sesion-i05-demo"); err == nil {
+		return nil
+	} else if !errors.Is(err, ErrSesionNoEncontrada) {
+		return err
+	}
 
-	// Permite reiniciar el servidor sin insertar duplicados.
+	err = dependencias.Repositorio.CrearSesion(ctx, sesion)
 	if errors.Is(err, ErrSesionDuplicada) {
 		return nil
 	}
-
 	return err
+}
+
+func buscarUsuarioID(ctx context.Context, baseDatos *sql.DB, email string) (string, error) {
+	var usuarioID string
+	err := baseDatos.QueryRowContext(
+		ctx,
+		`SELECT id FROM usuarios WHERE email = $1`,
+		email,
+	).Scan(&usuarioID)
+	if err != nil {
+		return "", fmt.Errorf("buscar usuario sintetico %s: %w", email, err)
+	}
+	return usuarioID, nil
+}
+
+func inicioSesionDemo() time.Time {
+	return time.Now().UTC().
+		Truncate(24 * time.Hour).
+		Add(24*time.Hour + 15*time.Hour)
 }

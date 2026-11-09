@@ -137,7 +137,7 @@ func nuevoManejadorCatalogo(t *testing.T) http.Handler {
 		Hasher:      hasher,
 		Bus:         infra.NuevoBus(),
 	})
-	if err := modeloAcceso.Sembrar(ctx, servicioAcceso, modeloAcceso.OpcionesSiembra{
+	if err := modeloAcceso.Sembrar(ctx, servicioAcceso, modeloAcceso.DatosSiembra{
 		DominioTutor: "uni.edu.pe", Clave: claveCatalogo,
 	}); err != nil {
 		t.Fatal(err)

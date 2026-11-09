@@ -1,33 +1,44 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
-import { recuperar } from '../../../application/acceso/acciones.js';
+import { useFormulario } from '../../hooks/useFormulario.js';
+import { solicitarRecuperacion } from '../../../application/acceso/recuperacion.js';
 import { validarRecuperar } from '../../../domain/acceso/validadores.js';
 
-export default function Recuperar() {
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
-  const [confirmacion, setConfirmacion] = useState('');
+const FORMULARIO_INICIAL = { email: '' };
 
-  async function enviarFormulario(evento) {
+export default function Recuperar() {
+  const { formulario, actualizarCampo } = useFormulario(FORMULARIO_INICIAL);
+  const [errorCorreo, setErrorCorreo] = useState('');
+  const [mensajeConfirmacion, setMensajeConfirmacion] = useState('');
+
+  async function enviarSolicitud(evento) {
     evento.preventDefault();
-    const erroresValidacion = validarRecuperar({ email });
-    setError(erroresValidacion.email || '');
-    if (erroresValidacion.email) return;
+    const erroresFormulario = validarRecuperar(formulario);
+    setErrorCorreo(erroresFormulario.email || '');
+    if (erroresFormulario.email) return;
+
     try {
-      const respuesta = await recuperar(email.trim());
-      setConfirmacion(respuesta.mensaje);
-    } catch (err) {
-      setError(err.message);
+      const respuestaSolicitud = await solicitarRecuperacion(formulario.email.trim());
+      setMensajeConfirmacion(respuestaSolicitud.mensaje);
+    } catch (errorSolicitud) {
+      setErrorCorreo(errorSolicitud.message);
     }
   }
 
   return (
     <main>
       <h1>Recuperar contraseña</h1>
-      {confirmacion ? <p role="status">{confirmacion}</p> : (
-        <form onSubmit={enviarFormulario} noValidate>
-          <Campo etiqueta="Correo" type="email" autoComplete="email" value={email} onChange={(evento) => setEmail(evento.target.value)} error={error} />
+      {mensajeConfirmacion ? <p role="status">{mensajeConfirmacion}</p> : (
+        <form onSubmit={enviarSolicitud} noValidate>
+          <Campo
+            etiqueta="Correo"
+            type="email"
+            autoComplete="email"
+            value={formulario.email}
+            onChange={actualizarCampo('email')}
+            error={errorCorreo}
+          />
           <button>Enviar enlace</button>
         </form>
       )}

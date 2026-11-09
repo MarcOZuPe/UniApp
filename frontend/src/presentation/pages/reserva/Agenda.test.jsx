@@ -22,7 +22,7 @@ vi.mock('../../hooks/useSesion.js', () => ({
   useSesion: () => sesion,
 }));
 
-vi.mock('../../../application/acceso/acciones.js', () => ({
+vi.mock('../../../application/acceso/sesion.js', () => ({
   cargarSesion: vi.fn(),
   salir: vi.fn(),
 }));

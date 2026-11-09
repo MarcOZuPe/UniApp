@@ -5,40 +5,39 @@ import (
 	"testing"
 )
 
-func TestSembrarVinculacionSinteticaEsIdempotente(t *testing.T) {
-	ctx := context.Background()
-	s, _, _, _ := nuevo(t)
-	if err := Sembrar(ctx, s, OpcionesSiembra{DominioTutor: "uni.edu.pe", Clave: claveOK}); err != nil {
-		t.Fatal(err)
+func TestSembrarVinculacionSinteticaEsIdempotente(testingT *testing.T) {
+	contexto := context.Background()
+	servicio, _, _, _ := nuevo(testingT)
+	if err := Sembrar(contexto, servicio, DatosSiembra{DominioTutor: "uni.edu.pe", Clave: claveOK}); err != nil {
+		testingT.Fatal(err)
 	}
 
-	if err := SembrarVinculacion(ctx, s, EmailApoderadoSintetico, EmailEscolarSintetico); err != nil {
-		t.Fatal(err)
+	if err := SembrarVinculacion(contexto, servicio, DatosSiembraVinculacion{EmailApoderado: EmailApoderadoSintetico, EmailEscolar: EmailEscolarSintetico}); err != nil {
+		testingT.Fatal(err)
 	}
-	apoderado, err := s.repositorio.UsuarioPorEmail(ctx, EmailApoderadoSintetico)
+	apoderado, err := servicio.RepositorioUsuarios.UsuarioPorEmail(contexto, EmailApoderadoSintetico)
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
-	escolar, err := s.repositorio.UsuarioPorEmail(ctx, EmailEscolarSintetico)
+	escolar, err := servicio.RepositorioUsuarios.UsuarioPorEmail(contexto, EmailEscolarSintetico)
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatal(err)
 	}
 
-	vinculacion, err := s.repositorio.VinculacionAceptadaDeEscolar(ctx, escolar.ID)
+	vinculacion, err := servicio.RepositorioVinculaciones.VinculacionAceptadaDeEscolar(contexto, escolar.ID)
 	if err != nil || vinculacion.ApoderadoID != apoderado.ID {
-		t.Fatalf("vínculo sintético: %+v (%v)", vinculacion, err)
+		testingT.Fatalf("vínculo sintético: %+v (%v)", vinculacion, err)
 	}
-	historial, err := s.HistorialAutorizaciones(ctx, apoderado, escolar.ID)
+	historial, err := servicio.Autorizacion.HistorialAutorizaciones(contexto, solicitudAutorizacion(apoderado, escolar.ID))
 	if err != nil || len(historial) != 1 || !historial[0].Vigente() {
-		t.Fatalf("autorización inicial: %+v (%v)", historial, err)
+		testingT.Fatalf("autorización inicial: %+v (%v)", historial, err)
 	}
 
-	// Volver a arrancar la semilla no debe duplicar el vínculo ni el historial.
-	if err := SembrarVinculacion(ctx, s, EmailApoderadoSintetico, EmailEscolarSintetico); err != nil {
-		t.Fatal(err)
+	if err := SembrarVinculacion(contexto, servicio, DatosSiembraVinculacion{EmailApoderado: EmailApoderadoSintetico, EmailEscolar: EmailEscolarSintetico}); err != nil {
+		testingT.Fatal(err)
 	}
-	historial, err = s.HistorialAutorizaciones(ctx, apoderado, escolar.ID)
+	historial, err = servicio.Autorizacion.HistorialAutorizaciones(contexto, solicitudAutorizacion(apoderado, escolar.ID))
 	if err != nil || len(historial) != 1 {
-		t.Fatalf("semilla idempotente: %+v (%v)", historial, err)
+		testingT.Fatalf("semilla idempotente: %+v (%v)", historial, err)
 	}
 }

@@ -13,7 +13,7 @@ import (
 func (c *Controlador) registrarResultado(w http.ResponseWriter, r *http.Request) {
 	usuario := ctrlAcceso.UsuarioDe(r.Context())
 	if usuario == nil {
-		responderError(w, http.StatusUnauthorized, "no_autenticado", "Debes iniciar sesion.")
+		responderError(w, detalleErrorHTTP{estado: http.StatusUnauthorized, codigo: "no_autenticado", mensaje: "Debes iniciar sesion."})
 		return
 	}
 	var entrada struct {
@@ -23,11 +23,11 @@ func (c *Controlador) registrarResultado(w http.ResponseWriter, r *http.Request)
 	decodificador := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024))
 	decodificador.DisallowUnknownFields()
 	if err := decodificador.Decode(&entrada); err != nil {
-		responderError(w, http.StatusBadRequest, "solicitud_invalida", "Envia un objeto JSON con el resumen del resultado.")
+		responderError(w, detalleErrorHTTP{estado: http.StatusBadRequest, codigo: "solicitud_invalida", mensaje: "Envia un objeto JSON con el resumen del resultado."})
 		return
 	}
 	if err := decodificador.Decode(new(any)); err != io.EOF {
-		responderError(w, http.StatusBadRequest, "solicitud_invalida", "Envia un unico objeto JSON.")
+		responderError(w, detalleErrorHTTP{estado: http.StatusBadRequest, codigo: "solicitud_invalida", mensaje: "Envia un unico objeto JSON."})
 		return
 	}
 	resultado, err := c.repositorio.RegistrarResultado(r.Context(), r.PathValue("id"), usuario.ID, entrada.Resumen, time.Now().UTC())

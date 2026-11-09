@@ -1,4 +1,4 @@
-import { api } from '../../application/acceso/acciones.js';
+import { api } from './apiAcceso.js';
 
 // Reutilizamos el cliente HTTP autenticado de UniApp.
 export async function obtenerAgenda() {

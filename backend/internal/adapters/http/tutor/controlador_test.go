@@ -56,7 +56,7 @@ func TestExpedienteRevisionYDocumentosPrivados(t *testing.T) {
 		Hasher:      hasher,
 		Bus:         infra.NuevoBus(),
 	})
-	if err := modeloAcceso.Sembrar(ctx, servicioAcceso, modeloAcceso.OpcionesSiembra{
+	if err := modeloAcceso.Sembrar(ctx, servicioAcceso, modeloAcceso.DatosSiembra{
 		DominioTutor: "uni.edu.pe", Clave: claveTutor,
 	}); err != nil {
 		t.Fatal(err)

@@ -11,12 +11,12 @@ import (
 func (c *Controlador) reportarAusencia(w http.ResponseWriter, r *http.Request) {
 	usuario := ctrlAcceso.UsuarioDe(r.Context())
 	if usuario == nil {
-		responderError(w, http.StatusUnauthorized, "no_autenticado", "Debes iniciar sesion.")
+		responderError(w, detalleErrorHTTP{estado: http.StatusUnauthorized, codigo: "no_autenticado", mensaje: "Debes iniciar sesion."})
 		return
 	}
 	// No se admite identidad ni participante objetivo proporcionado por el cliente.
 	if r.Body != nil && r.Body != http.NoBody {
-		responderError(w, http.StatusBadRequest, "solicitud_invalida", "No se admite un cuerpo.")
+		responderError(w, detalleErrorHTTP{estado: http.StatusBadRequest, codigo: "solicitud_invalida", mensaje: "No se admite un cuerpo."})
 		return
 	}
 	a, err := c.repositorio.ReportarAusencia(r.Context(), r.PathValue("id"), usuario.ID, time.Now().UTC())

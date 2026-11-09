@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import RutaProtegida from '../presentation/components/RutaProtegida.jsx';
 import RutaProtegidaConRetorno from '../presentation/components/RutaProtegidaConRetorno.jsx';
-import { cargarSesion } from '../application/acceso/acciones.js';
+import { cargarSesion } from '../application/acceso/sesion.js';
 
 import Inicio from '../presentation/pages/acceso/Inicio.jsx';
 import Ingreso from '../presentation/pages/acceso/Ingreso.jsx';

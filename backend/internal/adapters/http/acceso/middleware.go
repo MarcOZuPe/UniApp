@@ -14,22 +14,22 @@ import (
 
 type Middleware func(http.Handler) http.Handler
 
-func Encadenar(manejador http.Handler, decoradores ...Middleware) http.Handler {
-	for i := len(decoradores) - 1; i >= 0; i-- {
-		manejador = decoradores[i](manejador)
+func Encadenar(manejador http.Handler, middleware ...Middleware) http.Handler {
+	for indice := len(middleware) - 1; indice >= 0; indice-- {
+		manejador = middleware[indice](manejador)
 	}
 	return manejador
 }
 
-func Registro(registro *log.Logger) Middleware {
+func Registro(logger *log.Logger) Middleware {
 	return func(siguiente http.Handler) http.Handler {
-		return &decoradorRegistro{siguiente: siguiente, log: registro}
+		return &decoradorRegistro{siguiente: siguiente, logger: logger}
 	}
 }
 
-func Recuperar(registro *log.Logger) Middleware {
+func Recuperar(logger *log.Logger) Middleware {
 	return func(siguiente http.Handler) http.Handler {
-		return &decoradorRecuperar{siguiente: siguiente, log: registro}
+		return &decoradorRecuperar{siguiente: siguiente, logger: logger}
 	}
 }
 
@@ -45,9 +45,9 @@ func OrigenPermitido(permitidos ...string) Middleware {
 	}
 }
 
-func (c *Controlador) Autenticar() Middleware {
+func (controlador *controladorBase) Autenticar() Middleware {
 	return func(siguiente http.Handler) http.Handler {
-		return &decoradorAutenticar{siguiente: siguiente, controlador: c}
+		return &decoradorAutenticar{siguiente: siguiente, controlador: controlador}
 	}
 }
 
@@ -62,45 +62,50 @@ type escritorEstado struct {
 	estado int
 }
 
-func (e *escritorEstado) WriteHeader(estado int) {
-	e.estado = estado
-	e.ResponseWriter.WriteHeader(estado)
+func (escritor *escritorEstado) WriteHeader(estado int) {
+	escritor.estado = estado
+	escritor.ResponseWriter.WriteHeader(estado)
 }
 
 type decoradorRegistro struct {
 	siguiente http.Handler
-	log       *log.Logger
+	logger    *log.Logger
 }
 
-func (d *decoradorRegistro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (decorador *decoradorRegistro) ServeHTTP(respuesta http.ResponseWriter, peticion *http.Request) {
 	inicio := time.Now()
-	escritor := &escritorEstado{ResponseWriter: w, estado: http.StatusOK}
-	d.siguiente.ServeHTTP(escritor, r)
-	d.log.Printf("%s %s -> %d (%s)", r.Method, r.URL.Path, escritor.estado, time.Since(inicio).Round(time.Millisecond))
+	escritor := &escritorEstado{ResponseWriter: respuesta, estado: http.StatusOK}
+	decorador.siguiente.ServeHTTP(escritor, peticion)
+	decorador.logger.Printf("%s %s -> %d (%s)",
+		peticion.Method, peticion.URL.Path, escritor.estado, time.Since(inicio).Round(time.Millisecond))
 }
 
 type decoradorRecuperar struct {
 	siguiente http.Handler
-	log       *log.Logger
+	logger    *log.Logger
 }
 
-func (d *decoradorRecuperar) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (decorador *decoradorRecuperar) ServeHTTP(respuesta http.ResponseWriter, peticion *http.Request) {
 	defer func() {
 		if causa := recover(); causa != nil {
-			d.log.Printf("pánico: %v", causa)
-			vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusInternalServerError, Codigo: "error_interno", Mensaje: "Ocurrió un error inesperado."})
+			decorador.logger.Printf("pánico: %v", causa)
+			vista.EscribirError(respuesta, vista.RespuestaError{
+				Estado:  http.StatusInternalServerError,
+				Codigo:  "error_interno",
+				Mensaje: "Ocurrió un error inesperado.",
+			})
 		}
 	}()
-	d.siguiente.ServeHTTP(w, r)
+	decorador.siguiente.ServeHTTP(respuesta, peticion)
 }
 
 type decoradorCabeceras struct{ siguiente http.Handler }
 
-func (d *decoradorCabeceras) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("X-Frame-Options", "DENY")
-	w.Header().Set("Referrer-Policy", "no-referrer")
-	d.siguiente.ServeHTTP(w, r)
+func (decorador *decoradorCabeceras) ServeHTTP(respuesta http.ResponseWriter, peticion *http.Request) {
+	respuesta.Header().Set("X-Content-Type-Options", "nosniff")
+	respuesta.Header().Set("X-Frame-Options", "DENY")
+	respuesta.Header().Set("Referrer-Policy", "no-referrer")
+	decorador.siguiente.ServeHTTP(respuesta, peticion)
 }
 
 type decoradorOrigen struct {
@@ -108,18 +113,23 @@ type decoradorOrigen struct {
 	permitidos []string
 }
 
-func (d *decoradorOrigen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if cambiaEstado(r.Method) {
-		if origen := r.Header.Get("Origin"); origen != "" && !d.permite(origen) && !mismoOrigen(origen, r.Host) {
-			vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusForbidden, Codigo: "origen_no_permitido", Mensaje: "Origen no permitido."})
+func (decorador *decoradorOrigen) ServeHTTP(respuesta http.ResponseWriter, peticion *http.Request) {
+	if cambiaEstado(peticion.Method) {
+		origen := peticion.Header.Get("Origin")
+		if origen != "" && !decorador.permite(origen) && !mismoOrigen(origen, peticion.Host) {
+			vista.EscribirError(respuesta, vista.RespuestaError{
+				Estado:  http.StatusForbidden,
+				Codigo:  "origen_no_permitido",
+				Mensaje: "Origen no permitido.",
+			})
 			return
 		}
 	}
-	d.siguiente.ServeHTTP(w, r)
+	decorador.siguiente.ServeHTTP(respuesta, peticion)
 }
 
-func (d *decoradorOrigen) permite(origen string) bool {
-	for _, permitido := range d.permitidos {
+func (decorador *decoradorOrigen) permite(origen string) bool {
+	for _, permitido := range decorador.permitidos {
 		if origen == permitido {
 			return true
 		}
@@ -132,22 +142,22 @@ func cambiaEstado(metodo string) bool {
 }
 
 func mismoOrigen(origen, host string) bool {
-	u, err := url.Parse(origen)
-	if err != nil || u.Host == "" {
+	urlOrigen, err := url.Parse(origen)
+	if err != nil || urlOrigen.Host == "" {
 		return false
 	}
-	return strings.EqualFold(u.Host, host)
+	return strings.EqualFold(urlOrigen.Host, host)
 }
 
 type claveContexto struct{}
 
-func UsuarioDe(ctx context.Context) *modelo.Usuario {
-	usuario, _ := ctx.Value(claveContexto{}).(*modelo.Usuario)
+func UsuarioDe(contexto context.Context) *modelo.Usuario {
+	usuario, _ := contexto.Value(claveContexto{}).(*modelo.Usuario)
 	return usuario
 }
 
-func (c *Controlador) leerCookie(r *http.Request) string {
-	if cookie, err := r.Cookie(nombreCookie); err == nil {
+func (controlador *controladorBase) leerCookie(peticion *http.Request) string {
+	if cookie, err := peticion.Cookie(nombreCookie); err == nil {
 		return cookie.Value
 	}
 	return ""
@@ -155,16 +165,23 @@ func (c *Controlador) leerCookie(r *http.Request) string {
 
 type decoradorAutenticar struct {
 	siguiente   http.Handler
-	controlador *Controlador
+	controlador *controladorBase
 }
 
-func (d *decoradorAutenticar) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	usuario, err := d.controlador.servicio.UsuarioDeSesion(r.Context(), d.controlador.leerCookie(r))
+func (decorador *decoradorAutenticar) ServeHTTP(respuesta http.ResponseWriter, peticion *http.Request) {
+	usuario, err := decorador.controlador.servicio.Sesion.UsuarioDeSesion(
+		peticion.Context(), decorador.controlador.leerCookie(peticion),
+	)
 	if err != nil {
-		vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusUnauthorized, Codigo: "no_autenticado", Mensaje: "Debes iniciar sesión."})
+		vista.EscribirError(respuesta, vista.RespuestaError{
+			Estado:  http.StatusUnauthorized,
+			Codigo:  "no_autenticado",
+			Mensaje: "Debes iniciar sesión.",
+		})
 		return
 	}
-	d.siguiente.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), claveContexto{}, usuario)))
+	contexto := context.WithValue(peticion.Context(), claveContexto{}, usuario)
+	decorador.siguiente.ServeHTTP(respuesta, peticion.WithContext(contexto))
 }
 
 type decoradorPermiso struct {
@@ -172,17 +189,25 @@ type decoradorPermiso struct {
 	requeridos []modelo.Permiso
 }
 
-func (d *decoradorPermiso) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	usuario := UsuarioDe(r.Context())
+func (decorador *decoradorPermiso) ServeHTTP(respuesta http.ResponseWriter, peticion *http.Request) {
+	usuario := UsuarioDe(peticion.Context())
 	if usuario == nil {
-		vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusUnauthorized, Codigo: "no_autenticado", Mensaje: "Debes iniciar sesión."})
+		vista.EscribirError(respuesta, vista.RespuestaError{
+			Estado:  http.StatusUnauthorized,
+			Codigo:  "no_autenticado",
+			Mensaje: "Debes iniciar sesión.",
+		})
 		return
 	}
-	for _, requerido := range d.requeridos {
+	for _, requerido := range decorador.requeridos {
 		if !usuario.Rol.TienePermiso(requerido) {
-			vista.EscribirError(w, vista.RespuestaError{Estado: http.StatusForbidden, Codigo: "sin_permiso", Mensaje: "Tu rol no tiene acceso a esta sección."})
+			vista.EscribirError(respuesta, vista.RespuestaError{
+				Estado:  http.StatusForbidden,
+				Codigo:  "sin_permiso",
+				Mensaje: "Tu rol no tiene acceso a esta sección.",
+			})
 			return
 		}
 	}
-	d.siguiente.ServeHTTP(w, r)
+	decorador.siguiente.ServeHTTP(respuesta, peticion)
 }

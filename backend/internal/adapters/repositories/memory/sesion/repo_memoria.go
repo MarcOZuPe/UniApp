@@ -7,103 +7,98 @@ import (
 )
 
 type RepositorioMemoria struct {
-	mu       sync.Mutex
-	sesiones map[string]*Sesion
-	reservas map[string]bool
+	mutex            sync.Mutex
+	sesionesPorID    map[string]*Sesion
+	reservasOcupadas map[string]bool
 }
 
 func NuevoRepositorioMemoria() *RepositorioMemoria {
 	return &RepositorioMemoria{
-		sesiones: make(map[string]*Sesion),
-		reservas: make(map[string]bool),
+		sesionesPorID:    make(map[string]*Sesion),
+		reservasOcupadas: make(map[string]bool),
 	}
 }
 
-func (r *RepositorioMemoria) CrearSesion(
+func (repositorio *RepositorioMemoria) CrearSesion(
 	_ context.Context,
-	s *Sesion,
+	sesion *Sesion,
 ) error {
-	if err := s.Validar(); err != nil {
+	if err := sesion.Validar(); err != nil {
 		return err
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	repositorio.mutex.Lock()
+	defer repositorio.mutex.Unlock()
 
-	if _, existe := r.sesiones[s.ID()]; existe {
+	if _, existe := repositorio.sesionesPorID[sesion.ID()]; existe {
+		return ErrSesionDuplicada
+	}
+	if repositorio.reservasOcupadas[sesion.ReservaID()] {
 		return ErrSesionDuplicada
 	}
 
-	if r.reservas[s.ReservaID()] {
-		return ErrSesionDuplicada
-	}
-
-	copia := s.Clonar()
-	r.sesiones[s.ID()] = copia
-	r.reservas[s.ReservaID()] = true
-
+	copiaSesion := sesion.Clonar()
+	repositorio.sesionesPorID[sesion.ID()] = copiaSesion
+	repositorio.reservasOcupadas[sesion.ReservaID()] = true
 	return nil
 }
 
-func (r *RepositorioMemoria) SesionPorID(
+func (repositorio *RepositorioMemoria) SesionPorID(
 	_ context.Context,
-	id string,
+	sesionID string,
 ) (*Sesion, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	repositorio.mutex.Lock()
+	defer repositorio.mutex.Unlock()
 
-	s, existe := r.sesiones[id]
+	sesion, existe := repositorio.sesionesPorID[sesionID]
 	if !existe {
 		return nil, ErrSesionNoEncontrada
 	}
-
-	return s.Clonar(), nil
+	return sesion.Clonar(), nil
 }
 
-func (r *RepositorioMemoria) SesionPorReservaID(
+func (repositorio *RepositorioMemoria) SesionPorReservaID(
 	_ context.Context,
 	reservaID string,
 ) (*Sesion, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	repositorio.mutex.Lock()
+	defer repositorio.mutex.Unlock()
 
-	for _, s := range r.sesiones {
-		if s.ReservaID() == reservaID {
-			return s.Clonar(), nil
+	for _, sesion := range repositorio.sesionesPorID {
+		if sesion.ReservaID() == reservaID {
+			return sesion.Clonar(), nil
 		}
 	}
-
 	return nil, ErrSesionNoEncontrada
 }
 
-func (r *RepositorioMemoria) DeclararAsistencia(
+func (repositorio *RepositorioMemoria) DeclararAsistencia(
 	_ context.Context,
 	sesionID string,
 	usuarioID string,
-	ahora time.Time,
+	momento time.Time,
 ) (Asistencia, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	repositorio.mutex.Lock()
+	defer repositorio.mutex.Unlock()
 
-	s, existe := r.sesiones[sesionID]
+	sesion, existe := repositorio.sesionesPorID[sesionID]
 	if !existe {
 		return Asistencia{}, ErrSesionNoEncontrada
 	}
-
-	if err := s.DeclararAsistencia(usuarioID, ahora); err != nil {
+	if err := sesion.DeclararAsistencia(usuarioID, momento); err != nil {
 		return Asistencia{}, err
 	}
 
-	asistencias := s.Asistencias()
+	asistencias := sesion.Asistencias()
 	return asistencias[len(asistencias)-1], nil
 }
 
 func (r *RepositorioMemoria) ReportarAusencia(
 	_ context.Context, sesionID string, usuarioID string, ahora time.Time,
 ) (Ausencia, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	s, existe := r.sesiones[sesionID]
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	s, existe := r.sesionesPorID[sesionID]
 	if !existe {
 		return Ausencia{}, ErrSesionNoEncontrada
 	}
@@ -117,9 +112,9 @@ func (r *RepositorioMemoria) ReportarAusencia(
 func (r *RepositorioMemoria) RegistrarResultado(
 	_ context.Context, sesionID string, usuarioID string, resumen string, ahora time.Time,
 ) (Resultado, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	s, existe := r.sesiones[sesionID]
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	s, existe := r.sesionesPorID[sesionID]
 	if !existe {
 		return Resultado{}, ErrSesionNoEncontrada
 	}

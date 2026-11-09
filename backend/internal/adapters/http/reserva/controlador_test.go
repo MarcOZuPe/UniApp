@@ -94,7 +94,7 @@ func nuevoEntornoConAutorizacion(t *testing.T, autorizacion modelo.PuertoAutoriz
 		Hasher:      hasher,
 		Bus:         infra.NuevoBus(),
 	})
-	if err := modeloAcceso.Sembrar(context.Background(), servicioAcceso, modeloAcceso.OpcionesSiembra{DominioTutor: "uni.edu.pe", Clave: clave}); err != nil {
+	if err := modeloAcceso.Sembrar(context.Background(), servicioAcceso, modeloAcceso.DatosSiembra{DominioTutor: "uni.edu.pe", Clave: clave}); err != nil {
 		t.Fatal(err)
 	}
 	controladorAcceso := ctrlAcceso.Nuevo(servicioAcceso, false)

@@ -14,22 +14,12 @@ vi.mock('../../../adapters/http/apoderadoApi.js', () => ({
   aceptarVinculacion: vi.fn(),
 }));
 
-const pendiente = {
+const vinculacionPendiente = {
   id: 'v-1',
   estado: 'pendiente',
   apoderado: { nombre_uso: 'Apoderado Prueba', email: 'apoderado@example.com' },
   escolar: { nombre_uso: 'Escolar Prueba', email: 'escolar@example.com' },
 };
-
-function renderizar(ruta = '/vinculacion/aceptar?token=token-secreto') {
-  return render(
-    <MemoryRouter initialEntries={[ruta]}>
-      <Routes>
-        <Route path="/vinculacion/aceptar" element={<AceptarVinculacion />} />
-      </Routes>
-    </MemoryRouter>
-  );
-}
 
 describe('I06: aceptar vinculación', () => {
   beforeEach(() => {
@@ -41,12 +31,12 @@ describe('I06: aceptar vinculación', () => {
   });
 
   it('muestra al apoderado y acepta el enlace', async () => {
-    consultarVinculacion.mockResolvedValue({ vinculacion: pendiente });
+    consultarVinculacion.mockResolvedValue({ vinculacion: vinculacionPendiente });
     aceptarVinculacion.mockResolvedValue({
-      vinculacion: { ...pendiente, estado: 'aceptada' },
+      vinculacion: { ...vinculacionPendiente, estado: 'aceptada' },
     });
 
-    renderizar();
+    renderizarAceptarVinculacion();
 
     expect(await screen.findByText('Apoderado Prueba')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Aceptar vinculación' }));
@@ -56,11 +46,27 @@ describe('I06: aceptar vinculación', () => {
     expect(aceptarVinculacion).toHaveBeenCalledWith('token-secreto');
   });
 
+  it('avisa cuando falta el token de vinculación', async () => {
+    renderizarAceptarVinculacion('/vinculacion/aceptar');
+
+    expect((await screen.findByRole('alert')).textContent).toContain('token de vinculación');
+  });
+
   it('avisa cuando el enlace no es válido', async () => {
     consultarVinculacion.mockRejectedValue(new Error('enlace inválido o vencido'));
 
-    renderizar();
+    renderizarAceptarVinculacion();
 
     expect((await screen.findByRole('alert')).textContent).toContain('enlace inválido o vencido');
   });
 });
+
+function renderizarAceptarVinculacion(rutaInicial = '/vinculacion/aceptar?token=token-secreto') {
+  return render(
+    <MemoryRouter initialEntries={[rutaInicial]}>
+      <Routes>
+        <Route path="/vinculacion/aceptar" element={<AceptarVinculacion />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}

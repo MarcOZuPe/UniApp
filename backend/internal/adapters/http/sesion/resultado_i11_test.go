@@ -11,9 +11,9 @@ import (
 
 func TestI11ResultadoHTTP(t *testing.T) {
 	e := prepararEntornoI05(t)
-	tutor := iniciarSesionI05(t, e.handler, "tutor.prueba@uni.edu.pe")
-	escolar := iniciarSesionI05(t, e.handler, "escolar.prueba@example.test")
-	ajeno := iniciarSesionI05(t, e.handler, "apoderado.prueba@example.test")
+	tutor := iniciarSesionI05(t, e.manejador, "tutor.prueba@uni.edu.pe")
+	escolar := iniciarSesionI05(t, e.manejador, "escolar.prueba@example.test")
+	ajeno := iniciarSesionI05(t, e.manejador, "apoderado.prueba@example.test")
 	ruta := "/api/sesion/sesion-i05"
 	enviar := func(cookie *http.Cookie, cuerpo string, estado int) *httptest.ResponseRecorder {
 		t.Helper()
@@ -24,7 +24,7 @@ func TestI11ResultadoHTTP(t *testing.T) {
 			p.AddCookie(cookie)
 		}
 		r := httptest.NewRecorder()
-		e.handler.ServeHTTP(r, p)
+		e.manejador.ServeHTTP(r, p)
 		if r.Code != estado {
 			t.Fatalf("esperado %d recibido %d: %s", estado, r.Code, r.Body.String())
 		}
@@ -49,7 +49,7 @@ func TestI11ResultadoHTTP(t *testing.T) {
 		Asistencias []json.RawMessage `json:"asistencias"`
 		Ausencias   []json.RawMessage `json:"ausencias"`
 	}
-	consulta := solicitarI05(e.handler, "GET", ruta, tutor, "")
+	consulta := solicitarI05(opcionesSolicitudI05{manejador: e.manejador, metodo: "GET", ruta: ruta, cookie: tutor, origen: ""})
 	if err := json.Unmarshal(consulta.Body.Bytes(), &datos); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestI11ResultadoHTTP(t *testing.T) {
 	}
 	enviar(tutor, valido, 409)
 	for _, cookie := range []*http.Cookie{tutor, escolar} {
-		consulta = solicitarI05(e.handler, "GET", ruta, cookie, "")
+		consulta = solicitarI05(opcionesSolicitudI05{manejador: e.manejador, metodo: "GET", ruta: ruta, cookie: cookie, origen: ""})
 		if consulta.Code != 200 {
 			t.Fatalf("consulta: %d", consulta.Code)
 		}
@@ -83,7 +83,7 @@ func TestI11ResultadoHTTP(t *testing.T) {
 			t.Fatal("el resultado modifico declaraciones")
 		}
 	}
-	if r := solicitarI05(e.handler, "GET", ruta, ajeno, ""); r.Code != 403 {
+	if r := solicitarI05(opcionesSolicitudI05{manejador: e.manejador, metodo: "GET", ruta: ruta, cookie: ajeno, origen: ""}); r.Code != 403 {
 		t.Fatalf("consulta ajena: %d", r.Code)
 	}
 }
