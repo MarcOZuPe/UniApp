@@ -47,6 +47,7 @@ type Sesion struct {
 	fin         time.Time
 	asistencias []Asistencia
 	ausencias   []Ausencia
+	resultado   *Resultado
 }
 
 func NuevaSesion(
@@ -168,5 +169,6 @@ func (s *Sesion) Clonar() *Sesion {
 	copia := *s
 	copia.asistencias = append([]Asistencia(nil), s.asistencias...)
 	copia.ausencias = append([]Ausencia(nil), s.ausencias...)
+	copia.resultado = s.Resultado()
 	return &copia
 }

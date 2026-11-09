@@ -48,7 +48,7 @@ func prepararPostgresSesionAislado(t *testing.T) (*sql.DB, context.Context) {
 	if _, err := db.ExecContext(ctx, "SET search_path TO pg_temp"); err != nil {
 		t.Fatal("no se pudo aislar el esquema")
 	}
-	for _, nombre := range []string{"005_sesion.up.sql", "010_sesion_ausencias.up.sql"} {
+	for _, nombre := range []string{"005_sesion.up.sql", "010_sesion_ausencias.up.sql", "011_sesion_resultados.up.sql"} {
 		migracion, err := migrations.FS.ReadFile(nombre)
 		if err != nil {
 			t.Fatal(err)
@@ -142,5 +142,42 @@ func TestI11PostgresAusenciaAislada(t *testing.T) {
 	}
 	if guardada.Ausencias()[0].UsuarioID() != s.TutorID() || !guardada.Ausencias()[0].ReportadaEn().Equal(inicio) {
 		t.Fatal("ausencia persistida incorrecta")
+	}
+}
+
+func TestI11PostgresResultadoAislado(t *testing.T) {
+	db, ctx := prepararPostgresSesionAislado(t)
+	inicio := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+	s, err := NuevaSesion("resultado-i11", "reserva-resultado-i11", "tutor", "escolar", inicio, inicio.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := RepositorioPostgres{DB: db}
+	if err := repo.CrearSesion(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.RegistrarResultado(ctx, s.ID(), s.EscolarID(), "Resumen", s.Fin()); !errors.Is(err, ErrNoAutorizado) {
+		t.Fatalf("autorizacion: %v", err)
+	}
+	if _, err := repo.RegistrarResultado(ctx, s.ID(), s.TutorID(), "  ", s.Fin()); !errors.Is(err, ErrResultadoInvalido) {
+		t.Fatalf("validacion: %v", err)
+	}
+	if _, err := repo.RegistrarResultado(ctx, s.ID(), s.TutorID(), "  Ecuaciones resueltas.  ", s.Fin()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.RegistrarResultado(ctx, s.ID(), s.TutorID(), "Sobrescribir", s.Fin()); !errors.Is(err, ErrResultadoDuplicado) {
+		t.Fatalf("duplicado: %v", err)
+	}
+	otra := RepositorioPostgres{DB: db}
+	guardada, err := otra.SesionPorReservaID(ctx, s.ReservaID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := guardada.Resultado()
+	if r == nil || r.Resumen() != "Ecuaciones resueltas." || r.UsuarioID() != s.TutorID() || !r.RegistradoEn().Equal(s.Fin()) {
+		t.Fatal("resultado no persistido correctamente")
+	}
+	if len(guardada.Asistencias()) != 0 || len(guardada.Ausencias()) != 0 {
+		t.Fatal("el resultado genero declaraciones")
 	}
 }

@@ -5,6 +5,7 @@ import {
   obtenerSesion,
   declararAsistencia,
   reportarAusencia,
+  registrarResultado,
 } from '../../../adapters/http/sesionApi.js';
 
 import { useSesion } from '../../hooks/useSesion.js';
@@ -29,6 +30,8 @@ export default function DetalleSesion() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [resumen, setResumen] = useState('');
+  const [guardandoResultado, setGuardandoResultado] = useState(false);
 
   useEffect(() => {
     let activo = true;
@@ -37,6 +40,7 @@ export default function DetalleSesion() {
       setCargando(true);
       setError('');
       setSesion(null);
+      setResumen('');
       setMensaje('');
 
       try {
@@ -113,6 +117,32 @@ export default function DetalleSesion() {
     } finally {
       declarando.current = false;
       setEnviando(false);
+    }
+  }
+
+  async function guardarResultado(evento) {
+    evento.preventDefault();
+    if (declarando.current || !sesion || usuario?.id !== sesion.tutor_id || sesion.resultado) return;
+    if (!resumen.trim() || Array.from(resumen.trim()).length > 2000) {
+      setError('Escribe un resultado de entre 1 y 2.000 caracteres.');
+      return;
+    }
+    declarando.current = true;
+    setEnviando(true);
+    setGuardandoResultado(true);
+    setError('');
+    setMensaje('');
+    try {
+      const resultado = await registrarResultado(id, resumen.trim());
+      setSesion(anterior => ({ ...anterior, resultado }));
+      setMensaje('El resultado de la tutoría fue registrado correctamente.');
+      setResumen('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      declarando.current = false;
+      setEnviando(false);
+      setGuardandoResultado(false);
     }
   }
 
@@ -224,6 +254,33 @@ export default function DetalleSesion() {
       </section>
 
       </div>
+      <section className="sesion-tarjeta sesion-resultado" aria-labelledby="resultado-sesion">
+        <h2 id="resultado-sesion">Resultado de la tutoría</h2>
+        {sesion.resultado ? (
+          <>
+            <p className="sesion-resumen">{sesion.resultado.resumen}</p>
+            <p><small>Registrado por el tutor el {formatearFecha(sesion.resultado.registrado_en)}.</small></p>
+          </>
+        ) : usuario?.id === sesion.tutor_id ? (
+          <form onSubmit={guardarResultado}>
+            <label htmlFor="resumen-resultado">Resumen del resultado</label>
+            <textarea
+              id="resumen-resultado"
+              rows={4}
+              required
+              value={resumen}
+              onChange={evento => setResumen(evento.target.value)}
+              disabled={enviando}
+              aria-describedby="ayuda-resultado"
+            />
+            <p id="ayuda-resultado"><small>Describe lo ocurrido en la tutoría, hasta 2.000 caracteres. El resultado se registra una sola vez.</small></p>
+            <button className="sesion-declarar" type="submit" disabled={enviando || !resumen.trim() || Array.from(resumen.trim()).length > 2000}>
+              {guardandoResultado ? 'Guardando resultado...' : 'Registrar resultado'}
+            </button>
+          </form>
+        ) : <p>El tutor aún no ha registrado el resultado.</p>}
+        <p><small>El resultado no sustituye las declaraciones de asistencia ni acredita minutos verificados.</small></p>
+      </section>
       {mensaje && <p className="sesion-exito" role="status">{mensaje}</p>}
       {error && <p role="alert" className="error">{error}</p>}
     </main>

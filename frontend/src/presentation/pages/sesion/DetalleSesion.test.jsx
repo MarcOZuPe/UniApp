@@ -4,11 +4,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom';
 import App from '../../../app/App.jsx';
 import Inicio from '../acceso/Inicio.jsx';
-import { obtenerSesion, declararAsistencia, reportarAusencia } from '../../../adapters/http/sesionApi.js';
+import { obtenerSesion, declararAsistencia, reportarAusencia, registrarResultado } from '../../../adapters/http/sesionApi.js';
 const estado = vi.hoisted(() => ({ usuario: null, cargando: false }));
 vi.mock('../../hooks/useSesion.js', () => ({ useSesion: () => estado }));
 vi.mock('../../../application/acceso/acciones.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
-vi.mock('../../../adapters/http/sesionApi.js', () => ({ obtenerSesion: vi.fn(), declararAsistencia: vi.fn(), reportarAusencia: vi.fn() }));
+vi.mock('../../../adapters/http/sesionApi.js', () => ({ obtenerSesion: vi.fn(), declararAsistencia: vi.fn(), reportarAusencia: vi.fn(), registrarResultado: vi.fn() }));
 const sesion = { id: 'sesion-i05-demo', reserva_id: 'reserva-i05-demo', tutor_id: 'tutor-001', escolar_id: 'escolar-001', inicio: '2026-10-20T15:00:00Z', fin: '2026-10-20T16:00:00Z', asistencias: [] };
 const asistencia = rol => ({ usuario_id: rol + '-001', rol, declarada_en: sesion.inicio });
 function abrir(ruta = '/sesiones/sesion-i05-demo') { window.history.replaceState({}, '', ruta); return render(<App />); }
@@ -172,5 +172,67 @@ describe('Ausencias I11', () => {
     expect(boton.disabled).toBe(true);
     fireEvent.click(boton);
     expect(reportarAusencia).not.toHaveBeenCalled();
+  });
+});
+
+describe('Resultado I11', () => {
+  const resultado = { usuario_id: 'tutor-001', resumen: 'Se resolvieron ecuaciones.', registrado_en: sesion.fin };
+  it('el tutor registra una vez y conserva el resultado al volver a entrar', async () => {
+    let completar;
+    registrarResultado.mockImplementation(() => new Promise(resolve => { completar = resolve; }));
+    const vista = abrir();
+    const campo = await screen.findByLabelText('Resumen del resultado');
+    expect(registrarResultado).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Registrar resultado' }).disabled).toBe(true);
+    fireEvent.change(campo, { target: { value: '  Se resolvieron ecuaciones.  ' } });
+    const boton = screen.getByRole('button', { name: 'Registrar resultado' });
+    fireEvent.click(boton); fireEvent.click(boton);
+    expect(screen.getByRole('button', { name: 'Guardando resultado...' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Reportar mi ausencia' }).disabled).toBe(true);
+    expect(registrarResultado).toHaveBeenCalledTimes(1);
+    expect(registrarResultado).toHaveBeenCalledWith(sesion.id, resultado.resumen);
+    completar(resultado);
+    expect(await screen.findByText('El resultado de la tutoría fue registrado correctamente.')).toBeTruthy();
+    expect(screen.getByText(resultado.resumen)).toBeTruthy();
+    expect(screen.queryByLabelText('Resumen del resultado')).toBeNull();
+    expect(declararAsistencia).not.toHaveBeenCalled();
+    expect(reportarAusencia).not.toHaveBeenCalled();
+    vista.unmount();
+    obtenerSesion.mockResolvedValue({ ...sesion, resultado });
+    abrir();
+    expect(await screen.findByText(resultado.resumen)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Registrar resultado' })).toBeNull();
+  });
+  it('el escolar consulta el resultado sin disponer de formulario', async () => {
+    estado.usuario = { id: 'escolar-001', rol: 'escolar' };
+    const vista = abrir();
+    expect(await screen.findByText('El tutor aún no ha registrado el resultado.')).toBeTruthy();
+    expect(screen.queryByLabelText('Resumen del resultado')).toBeNull();
+    vista.unmount();
+    obtenerSesion.mockResolvedValue({ ...sesion, resultado });
+    abrir();
+    expect(await screen.findByText(resultado.resumen)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Registrar resultado' })).toBeNull();
+    expect(registrarResultado).not.toHaveBeenCalled();
+  });
+  it('conserva el texto ante error o conflicto para no perder el trabajo', async () => {
+    registrarResultado.mockRejectedValue(new Error('Resultado ya registrado en otra pestaña.'));
+    abrir();
+    const campo = await screen.findByLabelText('Resumen del resultado');
+    fireEvent.change(campo, { target: { value: resultado.resumen } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar resultado' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('otra pestaña');
+    expect(campo.value).toBe(resultado.resumen);
+    expect(screen.queryByText('El resultado de la tutoría fue registrado correctamente.')).toBeNull();
+  });
+  it('rechaza texto vacío y más de 2.000 caracteres', async () => {
+    abrir();
+    const campo = await screen.findByLabelText('Resumen del resultado');
+    const boton = screen.getByRole('button', { name: 'Registrar resultado' });
+    for (const value of ['   ', 'ñ'.repeat(2001)]) {
+      fireEvent.change(campo, { target: { value } });
+      expect(boton.disabled).toBe(true);
+    }
+    expect(registrarResultado).not.toHaveBeenCalled();
   });
 });

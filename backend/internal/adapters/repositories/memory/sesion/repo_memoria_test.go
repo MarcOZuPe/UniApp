@@ -270,3 +270,49 @@ func TestI11MemoriaAsistenciaYAusenciaConcurrentes(t *testing.T) {
 		t.Fatal("declaraciones contradictorias persistidas")
 	}
 }
+
+func TestI11MemoriaResultadoConcurrente(t *testing.T) {
+	ctx := context.Background()
+	repo := NuevoRepositorioMemoria()
+	s := nuevaSesionDePrueba(t)
+	if err := repo.CrearSesion(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.RegistrarResultado(ctx, "inexistente", s.TutorID(), "Resumen", s.Fin()); !errors.Is(err, ErrSesionNoEncontrada) {
+		t.Fatalf("inexistente: %v", err)
+	}
+	if _, err := repo.RegistrarResultado(ctx, s.ID(), s.EscolarID(), "Resumen", s.Fin()); !errors.Is(err, ErrNoAutorizado) {
+		t.Fatalf("autorizacion: %v", err)
+	}
+	resultados := make(chan error, 2)
+	inicio := make(chan struct{})
+	for i := 0; i < 2; i++ {
+		go func() {
+			<-inicio
+			_, err := repo.RegistrarResultado(ctx, s.ID(), s.TutorID(), "Resumen", s.Fin())
+			resultados <- err
+		}()
+	}
+	close(inicio)
+	exitos, duplicados := 0, 0
+	for i := 0; i < 2; i++ {
+		err := <-resultados
+		if err == nil {
+			exitos++
+		} else if errors.Is(err, ErrResultadoDuplicado) {
+			duplicados++
+		} else {
+			t.Fatal(err)
+		}
+	}
+	if exitos != 1 || duplicados != 1 {
+		t.Fatalf("exitos=%d duplicados=%d", exitos, duplicados)
+	}
+	guardada, err := repo.SesionPorID(ctx, s.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if guardada.Resultado() == nil || guardada.Resultado().Resumen() != "Resumen" || guardada.Resultado().UsuarioID() != s.TutorID() {
+		t.Fatal("resultado no guardado")
+	}
+}
