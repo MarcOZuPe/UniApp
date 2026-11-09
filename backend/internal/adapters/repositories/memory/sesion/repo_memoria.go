@@ -57,6 +57,21 @@ func (repositorio *RepositorioMemoria) SesionPorID(
 	return sesion.Clonar(), nil
 }
 
+func (repositorio *RepositorioMemoria) SesionPorReservaID(
+	_ context.Context,
+	reservaID string,
+) (*Sesion, error) {
+	repositorio.mutex.Lock()
+	defer repositorio.mutex.Unlock()
+
+	for _, sesion := range repositorio.sesionesPorID {
+		if sesion.ReservaID() == reservaID {
+			return sesion.Clonar(), nil
+		}
+	}
+	return nil, ErrSesionNoEncontrada
+}
+
 func (repositorio *RepositorioMemoria) DeclararAsistencia(
 	_ context.Context,
 	sesionID string,
@@ -76,4 +91,35 @@ func (repositorio *RepositorioMemoria) DeclararAsistencia(
 
 	asistencias := sesion.Asistencias()
 	return asistencias[len(asistencias)-1], nil
+}
+
+func (r *RepositorioMemoria) ReportarAusencia(
+	_ context.Context, sesionID string, usuarioID string, ahora time.Time,
+) (Ausencia, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	s, existe := r.sesionesPorID[sesionID]
+	if !existe {
+		return Ausencia{}, ErrSesionNoEncontrada
+	}
+	if err := s.ReportarAusencia(usuarioID, ahora); err != nil {
+		return Ausencia{}, err
+	}
+	ausencias := s.Ausencias()
+	return ausencias[len(ausencias)-1], nil
+}
+
+func (r *RepositorioMemoria) RegistrarResultado(
+	_ context.Context, sesionID string, usuarioID string, resumen string, ahora time.Time,
+) (Resultado, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	s, existe := r.sesionesPorID[sesionID]
+	if !existe {
+		return Resultado{}, ErrSesionNoEncontrada
+	}
+	if err := s.RegistrarResultado(usuarioID, resumen, ahora); err != nil {
+		return Resultado{}, err
+	}
+	return *s.Resultado(), nil
 }

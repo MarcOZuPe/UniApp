@@ -46,6 +46,8 @@ type Sesion struct {
 	inicio      time.Time
 	fin         time.Time
 	asistencias []Asistencia
+	ausencias   []Ausencia
+	resultado   *Resultado
 }
 
 func NuevaSesion(
@@ -118,47 +120,93 @@ func (s *Sesion) Asistencias() []Asistencia {
 	return resultado
 }
 
-func (s *Sesion) DeclararAsistencia(
-	usuarioID string,
-	ahora time.Time,
-) error {
-	if err := s.Validar(); err != nil {
+// DeclararAsistencia es el comando de un participante: exige que la
+// declaracion ocurra dentro de la ventana de la sesion.
+func (s *Sesion) DeclararAsistencia(usuarioID string, ahora time.Time) error {
+	if err := s.autorizarParticipante(usuarioID, ahora); err != nil {
 		return err
 	}
-
-	if ahora.IsZero() {
-		return ErrSesionInvalida
+	if err := exigirDentroDe(s.VentanaDeclaracion(), ahora); err != nil {
+		return err
 	}
+	return s.agregarAsistencia(usuarioID, ahora)
+}
 
-	var rol Rol
+// RestaurarAsistencia reconstituye una asistencia ya persistida. Aplica las
+// invariantes del agregado, pero no la politica temporal: esta rige al
+// declarar y no debe invalidar datos historicos.
+func (s *Sesion) RestaurarAsistencia(usuarioID string, declaradaEn time.Time) error {
+	return s.agregarAsistencia(usuarioID, declaradaEn)
+}
 
-	switch usuarioID {
-	case s.tutorID:
-		rol = RolTutor
-	case s.escolarID:
-		rol = RolEscolar
-	default:
-		return ErrNoAutorizado
+func (s *Sesion) agregarAsistencia(usuarioID string, momento time.Time) error {
+	if err := s.validarMomento(momento); err != nil {
+		return err
 	}
-
-	for _, asistencia := range s.asistencias {
-		if asistencia.usuarioID == usuarioID {
-			return ErrAsistenciaDuplicada
-		}
+	rol, err := s.rolDe(usuarioID)
+	if err != nil {
+		return err
+	}
+	if s.tieneAusenciaDe(usuarioID) {
+		return ErrDeclaracionContradictoria
+	}
+	if s.tieneAsistenciaDe(usuarioID) {
+		return ErrAsistenciaDuplicada
 	}
 
 	s.asistencias = append(s.asistencias, Asistencia{
 		usuarioID:   usuarioID,
 		rol:         rol,
-		declaradaEn: ahora.UTC(),
+		declaradaEn: momento.UTC(),
 	})
-
 	return nil
 }
 
-// Clonar devuelve una copia independiente de la sesión y de sus asistencias.
+// autorizarParticipante comprueba sesion, momento e identidad antes de
+// evaluar plazos, para no revelar detalles de la sesion a terceros.
+func (s *Sesion) autorizarParticipante(usuarioID string, momento time.Time) error {
+	if err := s.validarMomento(momento); err != nil {
+		return err
+	}
+	_, err := s.rolDe(usuarioID)
+	return err
+}
+
+func (s *Sesion) validarMomento(momento time.Time) error {
+	if err := s.Validar(); err != nil {
+		return err
+	}
+	if momento.IsZero() {
+		return ErrSesionInvalida
+	}
+	return nil
+}
+
+func (s *Sesion) rolDe(usuarioID string) (Rol, error) {
+	switch usuarioID {
+	case s.tutorID:
+		return RolTutor, nil
+	case s.escolarID:
+		return RolEscolar, nil
+	default:
+		return "", ErrNoAutorizado
+	}
+}
+
+func (s *Sesion) tieneAsistenciaDe(usuarioID string) bool {
+	for _, asistencia := range s.asistencias {
+		if asistencia.usuarioID == usuarioID {
+			return true
+		}
+	}
+	return false
+}
+
+// Clonar devuelve una copia independiente de la sesion y sus declaraciones.
 func (s *Sesion) Clonar() *Sesion {
 	copia := *s
 	copia.asistencias = append([]Asistencia(nil), s.asistencias...)
+	copia.ausencias = append([]Ausencia(nil), s.ausencias...)
+	copia.resultado = s.Resultado()
 	return &copia
 }

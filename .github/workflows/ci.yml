@@ -19,6 +19,8 @@ jobs:
           --health-cmd "pg_isready -U uniapp" --health-interval 3s --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://uniapp:ci-test@localhost:5432/uniapp_test?sslmode=disable
+      I05_TEST_DATABASE_URL: postgres://uniapp:ci-test@localhost:5432/uniapp_test?sslmode=disable
+      I10_TEST_DATABASE_URL: postgres://uniapp:ci-test@localhost:5432/uniapp_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

@@ -245,7 +245,7 @@ components:
           items: { $ref: '#/components/schemas/AdjuntoReserva' }
     SesionI05:
       type: object
-      required: [id, reserva_id, tutor_id, escolar_id, inicio, fin, asistencias]
+      required: [id, reserva_id, tutor_id, escolar_id, inicio, fin, asistencias, ausencias, resultado, plazos]
       properties:
         id: { type: string }
         reserva_id: { type: string }
@@ -257,6 +257,51 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AsistenciaI05'
+        ausencias:
+          type: array
+          items:
+            $ref: '#/components/schemas/AusenciaI11'
+        resultado:
+          allOf: [{ $ref: '#/components/schemas/ResultadoI11' }]
+          nullable: true
+        plazos: { $ref: '#/components/schemas/PlazosI11' }
+    AusenciaI11:
+      type: object
+      required: [usuario_id, rol, reportada_en]
+      properties:
+        usuario_id: { type: string }
+        rol: { type: string, enum: [tutor, escolar] }
+        reportada_en: { type: string, format: date-time }
+    ResultadoI11:
+      type: object
+      required: [usuario_id, resumen, registrado_en]
+      properties:
+        usuario_id: { type: string, description: Tutor que registro el resultado }
+        resumen: { type: string, minLength: 1, maxLength: 2000 }
+        registrado_en: { type: string, format: date-time }
+    SolicitudResultadoI11:
+      type: object
+      required: [resumen]
+      additionalProperties: false
+      properties:
+        resumen: { type: string, minLength: 1, maxLength: 2000 }
+    IntervaloI11:
+      type: object
+      required: [desde, hasta]
+      description: Intervalo inclusivo en UTC.
+      properties:
+        desde: { type: string, format: date-time }
+        hasta: { type: string, format: date-time }
+    PlazosI11:
+      type: object
+      required: [declaracion, resultado]
+      properties:
+        declaracion:
+          allOf: [{ $ref: '#/components/schemas/IntervaloI11' }]
+          description: Desde 15 minutos antes del inicio hasta 24 horas despues del fin.
+        resultado:
+          allOf: [{ $ref: '#/components/schemas/IntervaloI11' }]
+          description: Desde el inicio hasta 7 dias despues del fin.
     AsistenciaI05:
       type: object
       required: [usuario_id, rol, declarada_en]
@@ -1112,7 +1157,7 @@ paths:
               examples:
                 caso: { $ref: '#/components/examples/ErrorAdjuntoCuarentena' }
   /api/sesion/salud:
-    get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [E-sesion], summary: Estado del flujo E (sesiones), responses: { '200': { description: OK } } }
   /api/sesion/{id}:
     get:
       tags: [E-sesion]
@@ -1120,7 +1165,8 @@ paths:
       description: >
         Permite consultar una sesion asociada a una reserva.
         Solo sus participantes autorizados pueden acceder.
-        Durante I05 se utilizan reservas sinteticas.
+        Incluye declaraciones (I05/I11), el resultado y los plazos vigentes,
+        que son la fuente unica de la regla temporal para la interfaz.
       security: [{ sesion: [] }]
       parameters:
         - name: id
@@ -1163,8 +1209,103 @@ paths:
         '401': { description: Usuario no autenticado }
         '403': { description: Acceso no autorizado }
         '404': { description: Sesion inexistente }
-        '409': { description: Asistencia duplicada }
-        '422': { description: Declaracion invalida }
+        '409': { description: 'Asistencia duplicada (asistencia_duplicada) o ausencia ya reportada (declaracion_contradictoria)' }
+        '422': { description: 'Sesion invalida o fuera de plazo (fuera_de_plazo)' }
+
+  /api/sesion/por-reserva/{reservaID}:
+    get:
+      tags: [E-sesion]
+      summary: Consultar la sesion de una reserva
+      description: >
+        Devuelve el identificador de la sesion asociada a una reserva para
+        abrir su detalle desde la agenda. Solo para participantes.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: reservaID
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Sesion asociada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, reserva_id]
+                properties:
+                  id: { type: string }
+                  reserva_id: { type: string }
+        '401': { description: Usuario no autenticado }
+        '403': { description: Acceso no autorizado }
+        '404': { description: Reserva sin sesion }
+
+  /api/sesion/{id}/ausencias:
+    post:
+      tags: [E-sesion]
+      summary: Reportar ausencia propia (I11)
+      description: >
+        Registra la ausencia del participante autenticado. No admite cuerpo,
+        por lo que no se puede reportar la ausencia de otra persona. Es
+        excluyente con la asistencia y solo se acepta dentro del plazo de declaracion.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Ausencia registrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AusenciaI11' }
+        '400': { description: Se envio un cuerpo (solicitud_invalida) }
+        '401': { description: Usuario no autenticado }
+        '403': { description: No participa en la sesion u origen no permitido }
+        '404': { description: Sesion inexistente }
+        '409': { description: 'Ausencia duplicada (ausencia_duplicada) o asistencia ya declarada (declaracion_contradictoria)' }
+        '422':
+          description: Fuera de plazo (fuera_de_plazo)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/sesion/{id}/resultado:
+    post:
+      tags: [E-sesion]
+      summary: Registrar el resultado de la sesion (I11)
+      description: >
+        Solo el tutor asignado registra un unico resultado. El autor y la
+        fecha los fija el servidor. No acredita asistencia ni minutos.
+        Se acepta desde el inicio de la sesion hasta el fin del plazo de resultado.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SolicitudResultadoI11' }
+      responses:
+        '201':
+          description: Resultado registrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoI11' }
+        '400': { description: 'JSON invalido, campos ajenos o cuerpo mayor a 16 KiB (solicitud_invalida)' }
+        '401': { description: Usuario no autenticado }
+        '403': { description: No es el tutor de la sesion u origen no permitido }
+        '404': { description: Sesion inexistente }
+        '409': { description: Resultado ya registrado (resultado_duplicado) }
+        '422':
+          description: 'Resumen vacio o mayor a 2000 caracteres (resultado_invalido) o fuera de plazo (fuera_de_plazo)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /api/salud:
     get: { tags: [A-acceso], summary: Estado del servicio de acceso, responses: { '200': { description: OK } } }
