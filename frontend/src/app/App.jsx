@@ -27,6 +27,7 @@ import MiApoderado from '../presentation/pages/apoderado/MiApoderado.jsx';
 
 import ExpedienteTutor from '../presentation/pages/tutor/ExpedienteTutor.jsx';
 import RevisarTutores from '../presentation/pages/tutor/RevisarTutores.jsx';
+import TutoresAprobados from '../presentation/pages/tutor/TutoresAprobados.jsx';
 
 import Catalogo from '../presentation/pages/catalogo/Catalogo.jsx';
 import GestionarCatalogo from '../presentation/pages/catalogo/GestionarCatalogo.jsx';
@@ -62,6 +63,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador']}>
                             <RevisarTutores />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/coordinacion/tutores/aprobados"
+                    element={
+                        <RutaProtegida roles={['coordinador']}>
+                            <TutoresAprobados />
                         </RutaProtegida>
                     }
                 />

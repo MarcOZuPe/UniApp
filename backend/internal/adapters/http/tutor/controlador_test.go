@@ -78,6 +78,9 @@ func TestExpedienteRevisionYDocumentosPrivados(t *testing.T) {
 	if respuesta := hacerSolicitud(handler, http.MethodGet, "/api/tutor/revision", nil, nil); respuesta.Code != http.StatusUnauthorized {
 		t.Fatalf("revisión sin sesión: estado %d, cuerpo %s", respuesta.Code, respuesta.Body.String())
 	}
+	if respuesta := hacerSolicitud(handler, http.MethodGet, "/api/tutor/revision/aprobados", nil, nil); respuesta.Code != http.StatusUnauthorized {
+		t.Fatalf("aprobados sin sesión: estado %d, cuerpo %s", respuesta.Code, respuesta.Body.String())
+	}
 	if respuesta := hacerSolicitud(handler, http.MethodGet, "/api/tutor/perfiles/"+tutor.ID, nil, nil); respuesta.Code != http.StatusNotFound {
 		t.Fatalf("perfil pendiente no debe publicarse: estado %d", respuesta.Code)
 	}
@@ -109,6 +112,9 @@ func TestExpedienteRevisionYDocumentosPrivados(t *testing.T) {
 	if respuesta := hacerSolicitud(handler, http.MethodGet, "/api/tutor/revision", cookieTutor, nil); respuesta.Code != http.StatusForbidden {
 		t.Fatalf("tutor no debe acceder a revisión: estado %d", respuesta.Code)
 	}
+	if respuesta := hacerSolicitud(handler, http.MethodGet, "/api/tutor/revision/aprobados", cookieTutor, nil); respuesta.Code != http.StatusForbidden {
+		t.Fatalf("tutor no debe acceder a aprobados: estado %d", respuesta.Code)
+	}
 
 	cookieCoord := iniciarSesionTutor(t, handler, "coord.prueba@example.test")
 	respuestaRevision := hacerSolicitud(handler, http.MethodGet, "/api/tutor/revision", cookieCoord, nil)
@@ -123,6 +129,16 @@ func TestExpedienteRevisionYDocumentosPrivados(t *testing.T) {
 	respuestaAprobacion := hacerSolicitud(handler, http.MethodPost, "/api/tutor/"+tutor.ID+"/revision", cookieCoord, bytes.NewReader(cuerpo))
 	if respuestaAprobacion.Code != http.StatusOK {
 		t.Fatalf("aprobar expediente: estado %d, cuerpo %s", respuestaAprobacion.Code, respuestaAprobacion.Body.String())
+	}
+	respuestaAprobados := hacerSolicitud(handler, http.MethodGet, "/api/tutor/revision/aprobados", cookieCoord, nil)
+	if respuestaAprobados.Code != http.StatusOK ||
+		!strings.Contains(respuestaAprobados.Body.String(), tutor.ID) ||
+		!strings.Contains(respuestaAprobados.Body.String(), "constancia.pdf") {
+		t.Fatalf("coordinación no obtiene los aprobados: estado %d, cuerpo %s", respuestaAprobados.Code, respuestaAprobados.Body.String())
+	}
+	respuestaPendientes := hacerSolicitud(handler, http.MethodGet, "/api/tutor/revision", cookieCoord, nil)
+	if respuestaPendientes.Code != http.StatusOK || strings.Contains(respuestaPendientes.Body.String(), tutor.ID) {
+		t.Fatalf("la aprobación debe vaciar la cola pendiente: estado %d, cuerpo %s", respuestaPendientes.Code, respuestaPendientes.Body.String())
 	}
 
 	respuestaPublica := hacerSolicitud(handler, http.MethodGet, "/api/tutor/perfiles/"+tutor.ID, nil, nil)

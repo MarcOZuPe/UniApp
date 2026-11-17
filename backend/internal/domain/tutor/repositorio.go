@@ -9,6 +9,7 @@ type Repositorio interface {
 	Guardar(context.Context, *Expediente) error
 	PorTutor(context.Context, string) (*Expediente, error)
 	Pendientes(context.Context) ([]Expediente, error)
+	Aprobados(context.Context) ([]Expediente, error)
 	Revisar(context.Context, *Expediente) error
 	Documento(context.Context, string) (Documento, string, error)
 	PerfilesPublicos(context.Context, time.Time) ([]PerfilListado, error)

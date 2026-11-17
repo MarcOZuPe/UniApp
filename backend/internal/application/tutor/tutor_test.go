@@ -50,6 +50,10 @@ func TestExpedientePendienteNoSePublicaHastaAprobacionVigente(t *testing.T) {
 	if _, err := servicio.PerfilPublico(context.Background(), "tutor-1"); !errors.Is(err, ErrNoPublicable) {
 		t.Fatalf("perfil pendiente no debe publicarse: %v", err)
 	}
+	aprobados, err := servicio.Aprobados(context.Background())
+	if err != nil || len(aprobados) != 0 {
+		t.Fatalf("un expediente pendiente no debe aparecer entre los aprobados: %+v, error: %v", aprobados, err)
+	}
 
 	vencimiento := ahora.Add(24 * time.Hour)
 	aprobado, err := servicio.Revisar(context.Background(), "tutor-1", "coord-1", EstadoAprobado, "", vencimiento)
@@ -66,6 +70,10 @@ func TestExpedientePendienteNoSePublicaHastaAprobacionVigente(t *testing.T) {
 	if len(publico.Documentos) != 0 {
 		t.Fatal("el perfil público no debe exponer documentos")
 	}
+	aprobados, err = servicio.Aprobados(context.Background())
+	if err != nil || len(aprobados) != 1 || aprobados[0].TutorID != "tutor-1" || len(aprobados[0].Documentos) != 1 {
+		t.Fatalf("coordinación debe poder consultar los expedientes aprobados: %+v, error: %v", aprobados, err)
+	}
 	perfiles, err := servicio.PerfilesPublicos(context.Background())
 	if err != nil || len(perfiles) != 1 || perfiles[0].TutorID != "tutor-1" {
 		t.Fatalf("el directorio debe incluir perfiles aprobados vigentes: %+v, error: %v", perfiles, err)
@@ -78,6 +86,10 @@ func TestExpedientePendienteNoSePublicaHastaAprobacionVigente(t *testing.T) {
 	perfiles, err = servicio.PerfilesPublicos(context.Background())
 	if err != nil || len(perfiles) != 0 {
 		t.Fatalf("el directorio debe ocultar perfiles vencidos: %+v, error: %v", perfiles, err)
+	}
+	aprobados, err = servicio.Aprobados(context.Background())
+	if err != nil || len(aprobados) != 1 {
+		t.Fatalf("coordinación debe conservar el historial de aprobados vencidos: %+v, error: %v", aprobados, err)
 	}
 }
 

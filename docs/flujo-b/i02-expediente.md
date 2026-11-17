@@ -15,12 +15,13 @@ En la vista del tutor, un expediente aprobado cuyo `vence_en` ya pasó se muestr
 | `GET` | `/api/tutor/mi-expediente` | Tutor | Consultar el expediente propio y metadatos de sus documentos |
 | `POST` | `/api/tutor/expediente` | Tutor | Presentar o volver a presentar el expediente (`multipart/form-data`) |
 | `GET` | `/api/tutor/revision` | Coordinación | Listar expedientes pendientes |
+| `GET` | `/api/tutor/revision/aprobados` | Coordinación | Listar expedientes aprobados, incluidos los vencidos |
 | `POST` | `/api/tutor/{id}/revision` | Coordinación | Aprobar con `vence_en` o rechazar con `motivo_rechazo` |
 | `GET` | `/api/tutor/documentos/{id}` | Tutor dueño o coordinación | Descargar un PDF privado |
 | `GET` | `/api/tutor/perfiles` | Público | Listar perfiles aprobados y vigentes con campos públicos |
 | `GET` | `/api/tutor/perfiles/{id}` | Público | Obtener solo un perfil aprobado y vigente; nunca incluye documentos ni contactos |
 
-El contrato OpenAPI en `docs/openapi.yaml` es la referencia para cuerpos y respuestas.
+El contrato OpenAPI en `docs/openapi.yaml` es la referencia para cuerpos y respuestas. Coordinación puede consultar el historial de aprobados, incluidos los vencidos, en la vista `/coordinacion/tutores/aprobados`.
 
 ## Persistencia y arquitectura
 

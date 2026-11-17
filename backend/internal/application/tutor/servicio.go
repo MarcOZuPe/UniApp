@@ -68,6 +68,10 @@ func (s *Servicio) Pendientes(ctx context.Context) ([]Expediente, error) {
 	return s.repositorio.Pendientes(ctx)
 }
 
+func (s *Servicio) Aprobados(ctx context.Context) ([]Expediente, error) {
+	return s.repositorio.Aprobados(ctx)
+}
+
 func (s *Servicio) Revisar(ctx context.Context, tutorID, revisorID string, estado Estado, motivo string, venceEn time.Time) (*Expediente, error) {
 	expediente, err := s.repositorio.PorTutor(ctx, tutorID)
 	if err != nil {

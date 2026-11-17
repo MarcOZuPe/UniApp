@@ -39,6 +39,10 @@ func TestRepositorioPostgresExpedienteRevisionYPerfiles(t *testing.T) {
 	if err != nil || len(pendientes) != 1 || pendientes[0].TutorID != tutorID {
 		t.Fatalf("cola de revisión: %+v, error: %v", pendientes, err)
 	}
+	aprobados, err := repositorio.Aprobados(ctx)
+	if err != nil || len(aprobados) != 0 {
+		t.Fatalf("un pendiente no debe aparecer como aprobado: %+v, error: %v", aprobados, err)
+	}
 	documento, propietario, err := repositorio.Documento(ctx, expediente.Documentos[0].ID)
 	if err != nil || documento.Nombre != "constancia.pdf" || propietario != tutorID {
 		t.Fatalf("metadatos del documento: %+v, propietario=%q, error=%v", documento, propietario, err)
@@ -61,6 +65,10 @@ func TestRepositorioPostgresExpedienteRevisionYPerfiles(t *testing.T) {
 	if err := repositorio.Revisar(ctx, guardado); !errors.Is(err, ErrEstadoInvalido) {
 		t.Fatalf("una segunda revisión debe ser rechazada: %v", err)
 	}
+	aprobados, err = repositorio.Aprobados(ctx)
+	if err != nil || len(aprobados) != 1 || aprobados[0].TutorID != tutorID || len(aprobados[0].Documentos) != 1 {
+		t.Fatalf("coordinación debe listar el expediente aprobado: %+v, error: %v", aprobados, err)
+	}
 
 	perfiles, err := repositorio.PerfilesPublicos(ctx, venceEn.Add(-time.Second))
 	if err != nil || len(perfiles) != 1 || perfiles[0].TutorID != tutorID {
@@ -73,6 +81,10 @@ func TestRepositorioPostgresExpedienteRevisionYPerfiles(t *testing.T) {
 	pendientes, err = repositorio.Pendientes(ctx)
 	if err != nil || len(pendientes) != 0 {
 		t.Fatalf("la aprobación debe vaciar la cola: %+v, error: %v", pendientes, err)
+	}
+	aprobados, err = repositorio.Aprobados(ctx)
+	if err != nil || len(aprobados) != 1 {
+		t.Fatalf("el historial de aprobados debe conservar el expediente vencido: %+v, error: %v", aprobados, err)
 	}
 }
 
@@ -113,6 +125,10 @@ func TestRepositorioPostgresReemplazaDocumentosAlVolverAPresentar(t *testing.T) 
 	}
 	if actual.Motivo != "" || actual.VenceEn != nil || actual.RevisadoPor != "" {
 		t.Fatalf("el reenvío debe limpiar la revisión anterior: %+v", actual)
+	}
+	aprobados, err := repositorio.Aprobados(ctx)
+	if err != nil || len(aprobados) != 0 {
+		t.Fatalf("el reenvío debe sacar el expediente de aprobados: %+v, error: %v", aprobados, err)
 	}
 	if _, _, err := repositorio.Documento(ctx, primero.Documentos[0].ID); !errors.Is(err, ErrNoEncontrado) {
 		t.Fatalf("el documento anterior debe dejar de existir: %v", err)

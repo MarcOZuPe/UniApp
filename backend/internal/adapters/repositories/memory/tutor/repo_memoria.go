@@ -63,6 +63,19 @@ func (r *RepositorioMemoria) Pendientes(_ context.Context) ([]Expediente, error)
 	return resultado, nil
 }
 
+func (r *RepositorioMemoria) Aprobados(_ context.Context) ([]Expediente, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	resultado := make([]Expediente, 0)
+	for _, expediente := range r.expedientes {
+		if expediente.Estado == EstadoAprobado {
+			resultado = append(resultado, *Copiar(expediente))
+		}
+	}
+	sort.Slice(resultado, func(i, j int) bool { return resultado[i].TutorID < resultado[j].TutorID })
+	return resultado, nil
+}
+
 func (r *RepositorioMemoria) Revisar(_ context.Context, expediente *Expediente) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -69,8 +69,16 @@ func (r RepositorioPostgres) PorTutor(ctx context.Context, tutorID string) (*Exp
 }
 
 func (r RepositorioPostgres) Pendientes(ctx context.Context) ([]Expediente, error) {
+	return r.listarPorEstado(ctx, EstadoPendiente, "presentado_en")
+}
+
+func (r RepositorioPostgres) Aprobados(ctx context.Context) ([]Expediente, error) {
+	return r.listarPorEstado(ctx, EstadoAprobado, "revisado_en DESC NULLS LAST, tutor_id")
+}
+
+func (r RepositorioPostgres) listarPorEstado(ctx context.Context, estado Estado, orden string) ([]Expediente, error) {
 	filas, err := r.DB.QueryContext(ctx, `SELECT `+columnasExpediente+`
-		FROM tutor_expedientes WHERE estado=$1 ORDER BY presentado_en`, string(EstadoPendiente))
+		FROM tutor_expedientes WHERE estado=$1 ORDER BY `+orden, string(estado))
 	if err != nil {
 		return nil, err
 	}

@@ -554,6 +554,29 @@ paths:
         '200': { description: Expedientes pendientes }
         '401': { description: Sin sesión }
         '403': { description: Sin permiso de coordinación }
+  /api/tutor/revision/aprobados:
+    get:
+      tags: [B-tutor]
+      security: [{ sesion: [] }]
+      summary: Listar expedientes aprobados, incluidos los vencidos (solo coordinación)
+      description: >
+        Devuelve el historial de expedientes aprobados con sus datos, fecha de
+        vencimiento y documentos privados. Un expediente aprobado vencido sigue
+        apareciendo aquí, aunque ya no se publique en el directorio público.
+      responses:
+        '200':
+          description: Expedientes aprobados
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [expedientes]
+                properties:
+                  expedientes:
+                    type: array
+                    items: { $ref: '#/components/schemas/ExpedienteTutor' }
+        '401': { description: Sin sesión }
+        '403': { description: Sin permiso de coordinación }
   /api/tutor/{id}/revision:
     post:
       tags: [B-tutor]
