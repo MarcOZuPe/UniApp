@@ -509,6 +509,10 @@ paths:
       tags: [B-tutor]
       security: [{ sesion: [] }]
       summary: Consultar el expediente propio (solo tutor)
+      description: >
+        Un expediente con estado aprobado y vence_en anterior al momento de la
+        consulta está vencido: no se publica en el directorio, pero conserva sus
+        datos y el tutor puede volver a presentarlo.
       responses:
         '200': { description: Expediente propio, content: { application/json: { schema: { $ref: '#/components/schemas/ExpedienteTutor' } } } }
         '401': { description: Sin sesión }

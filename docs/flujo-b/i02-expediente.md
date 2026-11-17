@@ -6,6 +6,8 @@ El tutor presenta una descripción, cursos que puede enseñar, experiencia/forma
 
 La aprobación deja de publicar el perfil al llegar a `vence_en`; no se requiere una tarea periódica para ocultar perfiles vencidos. Una revisión solo puede aplicarse una vez al expediente pendiente. Un tutor rechazado puede volver a presentar el expediente.
 
+En la vista del tutor, un expediente aprobado cuyo `vence_en` ya pasó se muestra como **vencido** y habilita el formulario para volver a presentarlo. El estado almacenado sigue siendo `aprobado`: el vencimiento es una condición calculada al consultar, no una transición persistida. No se envía una notificación automática de vencimiento.
+
 ## Rutas
 
 | Método | Ruta | Autorización | Propósito |
@@ -29,6 +31,18 @@ El contrato OpenAPI en `docs/openapi.yaml` es la referencia para cuerpos y respu
 - El almacenamiento no se sirve como contenido estático. La descarga requiere sesión y autorización; el directorio se ignora en Git.
 - La migración `006_tutor_expediente` crea únicamente tablas del flujo B.
 - I07 extiende el servicio/repositorio con un directorio público; su DTO solo serializa presentación, cursos y experiencia. Filtra por aprobación y `vence_en` en cada consulta.
+
+## Datos sintéticos y pruebas
+
+Con `SEED_SYNTHETIC=true` se crean las cuentas de demostración y un expediente pendiente para `tutor.prueba@<TUTOR_EMAIL_DOMAIN>` con un PDF sintético. La semilla es idempotente: si el tutor ya tiene expediente, no lo reemplaza. Así coordinación puede revisar el flujo sin cargar archivos manualmente.
+
+Al volver a presentar un expediente, los documentos de la presentación anterior se reemplazan tanto en la base de datos como en el almacenamiento privado.
+
+La persistencia PostgreSQL se verifica con:
+
+```bash
+TEST_DATABASE_URL=postgres://... go test -count=1 ./internal/adapters/repositories/postgres/tutor
+```
 
 ## Límites
 

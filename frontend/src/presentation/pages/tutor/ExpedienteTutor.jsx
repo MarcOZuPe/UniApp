@@ -7,6 +7,16 @@ import {
 
 const MAXIMO_ARCHIVO = 10 * 1024 * 1024;
 
+function estaVencido(expediente) {
+  if (expediente?.estado !== 'aprobado' || !expediente.vence_en) return false;
+  const vencimiento = new Date(expediente.vence_en);
+  return !Number.isNaN(vencimiento.getTime()) && vencimiento.getTime() <= Date.now();
+}
+
+function fechaLegible(fecha) {
+  return new Date(fecha).toLocaleDateString();
+}
+
 export default function ExpedienteTutor() {
   const [expediente, setExpediente] = useState(null);
   const [sinExpediente, setSinExpediente] = useState(false);
@@ -66,15 +76,28 @@ export default function ExpedienteTutor() {
 
   if (cargando) return <main><p role="status">Cargando expediente…</p></main>;
 
+  const vencido = estaVencido(expediente);
+  const estadoVisual = vencido ? 'vencido' : expediente?.estado;
+  const mostrarFormulario = !expediente || expediente.estado === 'rechazado' || vencido;
+  const puedeReenviar = Boolean(expediente) && (expediente.estado === 'rechazado' || vencido);
+
   return (
     <main className="pagina-tutor">
       <h1>Mi expediente de tutor</h1>
       {error && <p className="error" role="alert">{error}</p>}
-      {expediente && expediente.estado !== 'rechazado' ? (
+      {expediente && expediente.estado !== 'rechazado' && (
         <section aria-live="polite">
-          <h2>Estado: {expediente.estado}</h2>
+          <h2>Estado: {estadoVisual}</h2>
           {expediente.estado === 'pendiente' && <p>Coordinación revisará tu expediente antes de habilitar tu perfil.</p>}
-          {expediente.estado === 'aprobado' && <p>Aprobado hasta {new Date(expediente.vence_en).toLocaleDateString()}.</p>}
+          {expediente.estado === 'aprobado' && !vencido && (
+            <p>Aprobado hasta {fechaLegible(expediente.vence_en)}.</p>
+          )}
+          {vencido && (
+            <p>
+              Tu expediente venció el {fechaLegible(expediente.vence_en)}. Vuelve a presentarlo para que
+              coordinación lo revise nuevamente.
+            </p>
+          )}
           {expediente.motivo_rechazo && <p>Motivo: {expediente.motivo_rechazo}</p>}
           <h3>Documentos enviados</h3>
           <ul>
@@ -85,30 +108,51 @@ export default function ExpedienteTutor() {
             ))}
           </ul>
         </section>
-      ) : (
+      )}
+      {expediente?.estado === 'rechazado' && (
+        <p role="alert">Tu expediente fue rechazado. Motivo: {expediente.motivo_rechazo}</p>
+      )}
+      {mostrarFormulario && (
         <>
-          {expediente?.estado === 'rechazado' && (
-            <p role="alert">Tu expediente fue rechazado. Motivo: {expediente.motivo_rechazo}</p>
-          )}
-          <form onSubmit={enviar} encType="multipart/form-data">
-            <p>
-              {sinExpediente
-                ? 'Completa tu expediente y adjunta documentos PDF. Tu perfil no se publicará hasta que coordinación lo apruebe.'
+          <p>
+            {sinExpediente
+              ? 'Completa tu expediente y adjunta documentos PDF. Tu perfil no se publicará hasta que coordinación lo apruebe.'
+              : vencido
+                ? 'Tu aprobación venció. Actualiza los datos y documentos si es necesario y vuelve a presentarlos.'
                 : 'Puedes volver a presentar el expediente con los cambios indicados por coordinación.'}
-            </p>
+          </p>
+          <form onSubmit={enviar} encType="multipart/form-data">
             <label className="campo">
               Nombre de uso y breve presentación
-              <textarea name="presentacion" required maxLength={500} rows={4} />
+              <textarea
+                name="presentacion"
+                required
+                maxLength={500}
+                rows={4}
+                defaultValue={expediente?.presentacion ?? ''}
+              />
               {camposError.presentacion && <small className="error">{camposError.presentacion}</small>}
             </label>
             <label className="campo">
               Cursos o temas que puedes enseñar
-              <textarea name="cursos" required maxLength={500} rows={3} />
+              <textarea
+                name="cursos"
+                required
+                maxLength={500}
+                rows={3}
+                defaultValue={expediente?.cursos ?? ''}
+              />
               {camposError.cursos && <small className="error">{camposError.cursos}</small>}
             </label>
             <label className="campo">
               Experiencia o formación relevante
-              <textarea name="experiencia" required maxLength={2000} rows={4} />
+              <textarea
+                name="experiencia"
+                required
+                maxLength={2000}
+                rows={4}
+                defaultValue={expediente?.experiencia ?? ''}
+              />
               {camposError.experiencia && <small className="error">{camposError.experiencia}</small>}
             </label>
             <label className="campo">
@@ -117,7 +161,7 @@ export default function ExpedienteTutor() {
               {camposError.documentos && <small className="error">{camposError.documentos}</small>}
             </label>
             <button type="submit" disabled={enviando}>
-              {enviando ? 'Enviando…' : 'Enviar a revisión'}
+              {enviando ? 'Enviando…' : puedeReenviar ? 'Volver a presentar' : 'Enviar a revisión'}
             </button>
           </form>
         </>

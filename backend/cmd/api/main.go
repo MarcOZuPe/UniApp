@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -95,6 +96,12 @@ func main() {
 		tutorRepo.RepositorioPostgres{DB: baseDatos},
 		storage.AlmacenDocumentosFS{Directorio: configuracion.DirectorioDocumentos},
 	)
+	if configuracion.SembrarSintetico {
+		if err := sembrarExpedienteTutor(ctx, baseDatos, configuracion, servicioTutor); err != nil {
+			registro.Fatalf("semilla de expediente de tutor: %v", err)
+		}
+		registro.Println("expediente sintético I02 listo")
+	}
 
 	tutores := ctrlTutor.Nuevo(servicioTutor, controlador.Autenticar()).Rutas()
 
@@ -238,6 +245,20 @@ func construirServicioReserva(
 		Limites:      modeloReserva.LimitesPorDefecto,
 		Autorizacion: autorizacion,
 	})
+}
+
+func sembrarExpedienteTutor(
+	ctx context.Context,
+	baseDatos *sql.DB,
+	configuracion config.Config,
+	servicio *modeloTutor.Servicio,
+) error {
+	email := "tutor.prueba@" + primerDominio(configuracion.DominiosTutor)
+	tutor, err := (accesoRepo.RepositorioPostgres{DB: baseDatos}).UsuarioPorEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("buscar tutor sintético: %w", err)
+	}
+	return modeloTutor.SembrarExpedienteSintetico(ctx, servicio, tutor.ID)
 }
 
 // ofertaConTutorReal asocia la oferta de demostración al tutor sembrado para que la

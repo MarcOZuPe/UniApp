@@ -28,7 +28,10 @@ func (r *RepositorioMemoria) Guardar(_ context.Context, expediente *Expediente) 
 	copia := Copiar(expediente)
 	anterior := r.expedientes[expediente.TutorID]
 	if anterior != nil {
-		copia.Documentos = append(copia.Documentos, anterior.Documentos...)
+		for _, documento := range anterior.Documentos {
+			delete(r.propietario, documento.ID)
+			delete(r.documentos, documento.ID)
+		}
 	}
 	for _, documento := range expediente.Documentos {
 		r.propietario[documento.ID] = expediente.TutorID

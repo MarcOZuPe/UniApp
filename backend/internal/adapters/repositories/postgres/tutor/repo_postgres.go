@@ -34,6 +34,9 @@ func (r RepositorioPostgres) Guardar(ctx context.Context, expediente *Expediente
 	if err != nil {
 		return traducirErrorTutor(err)
 	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM tutor_documentos WHERE tutor_id=$1`, expediente.TutorID); err != nil {
+		return traducirErrorTutor(err)
+	}
 	for indice := range expediente.Documentos {
 		documento := &expediente.Documentos[indice]
 		err = tx.QueryRowContext(ctx, `INSERT INTO tutor_documentos

@@ -120,6 +120,31 @@ func TestDocumentoPrivadoSoloParaPropietarioOCoordinacion(t *testing.T) {
 	}
 }
 
+func TestPresentarReemplazaDocumentosAnteriores(t *testing.T) {
+	almacen := nuevoAlmacenMemoria()
+	servicio := NuevoServicio(memoria.NuevoRepositorioMemoria(), almacen)
+	primero, err := servicio.Presentar(context.Background(), "tutor-1", datosValidos())
+	if err != nil {
+		t.Fatal(err)
+	}
+	idAnterior := primero.Documentos[0].ID
+
+	segundo, err := servicio.Presentar(context.Background(), "tutor-1", datosValidos())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(segundo.Documentos) != 1 || segundo.Documentos[0].ID == idAnterior {
+		t.Fatalf("el reenvío debe generar un documento nuevo: %+v", segundo.Documentos)
+	}
+	if _, existe := almacen.documentos[idAnterior]; existe {
+		t.Fatal("el archivo anterior debe eliminarse del almacén")
+	}
+	actual, err := servicio.MiExpediente(context.Background(), "tutor-1")
+	if err != nil || len(actual.Documentos) != 1 || actual.Documentos[0].ID != segundo.Documentos[0].ID {
+		t.Fatalf("el expediente debe conservar solo el documento vigente: %+v, error: %v", actual, err)
+	}
+}
+
 func TestPresentarRechazaArchivosQueNoSonPDF(t *testing.T) {
 	datos := datosValidos()
 	datos.Documentos[0].Contenido = []byte("no es un pdf")

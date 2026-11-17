@@ -29,6 +29,11 @@ func (s *Servicio) Presentar(ctx context.Context, tutorID string, datos DatosExp
 		return nil, err
 	}
 
+	anteriores, err := s.repositorio.PorTutor(ctx, tutorID)
+	if err != nil && !errors.Is(err, ErrNoEncontrado) {
+		return nil, err
+	}
+
 	guardados := make([]string, 0, len(datos.Documentos))
 	for indice, archivo := range datos.Documentos {
 		id, err := nuevoID()
@@ -44,6 +49,13 @@ func (s *Servicio) Presentar(ctx context.Context, tutorID string, datos DatosExp
 
 	if err := s.repositorio.Guardar(ctx, expediente); err != nil {
 		return nil, errors.Join(err, s.eliminarDocumentos(context.Background(), guardados))
+	}
+	if anteriores != nil {
+		idsAnteriores := make([]string, 0, len(anteriores.Documentos))
+		for _, documento := range anteriores.Documentos {
+			idsAnteriores = append(idsAnteriores, documento.ID)
+		}
+		_ = s.eliminarDocumentos(context.Background(), idsAnteriores)
 	}
 	return Copiar(expediente), nil
 }
