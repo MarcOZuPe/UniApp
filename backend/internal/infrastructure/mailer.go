@@ -23,6 +23,9 @@ func (l LogMailer) Enviar(_ context.Context, mensaje modelo.Mensaje) error {
 
 type EnvioSMTP struct {
 	Servidor      string
+	Host          string
+	Usuario       string
+	Clave         string
 	Autenticacion smtp.Auth
 	Remitente     string
 	Destinatarios []string
@@ -61,6 +64,9 @@ func (s SMTPMailer) transporteORespaldo() transporteSMTP {
 func (s SMTPMailer) construirEnvio(mensaje modelo.Mensaje) EnvioSMTP {
 	return EnvioSMTP{
 		Servidor:      s.Host + ":" + s.Puerto,
+		Host:          s.Host,
+		Usuario:       s.Usuario,
+		Clave:         s.Clave,
 		Autenticacion: s.autenticacion(),
 		Remitente:     s.Remitente,
 		Destinatarios: []string{mensaje.Para},
