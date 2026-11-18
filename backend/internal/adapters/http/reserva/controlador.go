@@ -15,11 +15,10 @@ import (
 	modelo "uniapp/internal/application/reserva"
 )
 
-// limiteCuerpoAdjunto deja margen para el formulario multipart sobre el tope del archivo.
 const limiteCuerpoAdjunto = modelo.AdjuntoMaximoBytes + (1 << 20)
 
-// Controlador expone la reserva y sus adjuntos. Recibe el decorador de sesión con su tipo
-// sin nombre para poder usar el mismo Autenticar del flujo A sin acoplarse a su paquete.
+const mensajeSinAutorizacion = "No tienes una autorización vigente para reservar tutorías. Pide a tu apoderado que la active."
+
 type Controlador struct {
 	servicio   *modelo.Servicio
 	autenticar func(http.Handler) http.Handler
@@ -35,6 +34,7 @@ func Nuevo(servicio *modelo.Servicio, autenticar func(http.Handler) http.Handler
 func (c *Controlador) Rutas() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/reserva/salud", c.salud)
+	mux.Handle("GET /api/reserva/autorizacion", c.autenticar(http.HandlerFunc(c.autorizacion)))
 	mux.Handle("GET /api/reserva/slots", c.autenticar(http.HandlerFunc(c.slots)))
 	mux.Handle("GET /api/reserva/{id}", c.autenticar(http.HandlerFunc(c.consultar)))
 	mux.Handle("POST /api/reserva", c.autenticar(http.HandlerFunc(c.crear)))
@@ -46,6 +46,31 @@ func (c *Controlador) Rutas() http.Handler {
 
 func (c *Controlador) salud(w http.ResponseWriter, _ *http.Request) {
 	vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]string{"flujo": "reserva", "estado": "implementado"})
+}
+
+func (c *Controlador) autorizacion(w http.ResponseWriter, r *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		c.responderError(w, modelo.ErrNoAutorizado)
+		return
+	}
+	if usuario.Rol != modeloAcceso.RolEscolar {
+		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+			Estado: http.StatusForbidden, Codigo: "solo_escolar",
+			Mensaje: "Solo una cuenta de escolar puede consultar esta autorización.",
+		})
+		return
+	}
+	autorizado, err := c.servicio.AutorizacionVigente(r.Context(), usuario.ID)
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	respuesta := map[string]any{"autorizado": autorizado}
+	if !autorizado {
+		respuesta["mensaje"] = mensajeSinAutorizacion
+	}
+	vistaAcceso.EscribirJSON(w, http.StatusOK, respuesta)
 }
 
 func (c *Controlador) slots(w http.ResponseWriter, r *http.Request) {
@@ -67,8 +92,6 @@ func (c *Controlador) crear(w http.ResponseWriter, r *http.Request) {
 		c.responderError(w, modelo.ErrNoAutorizado)
 		return
 	}
-	// Solo el escolar reserva; el apoderado gestiona autorizaciones (I06) y el tutor
-	// publica disponibilidad (I03).
 	if usuario.Rol != modeloAcceso.RolEscolar {
 		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
 			Estado: http.StatusForbidden, Codigo: "solo_escolar",

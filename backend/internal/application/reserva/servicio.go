@@ -11,8 +11,6 @@ import (
 	modeloAcceso "uniapp/internal/domain/acceso"
 )
 
-// Servicio aplica las reglas del flujo D. El reloj es inyectable para probar las 48 horas
-// sin esperar: el servidor es la autoridad temporal (RN-03).
 type Servicio struct {
 	repositorio  Repositorio
 	oferta       PuertoOferta
@@ -23,7 +21,6 @@ type Servicio struct {
 	ahora        func() time.Time
 }
 
-// PuertoAutorizacion consulta el flujo A sin escribir en sus tablas.
 type PuertoAutorizacion interface {
 	AutorizacionVigente(ctx context.Context, escolarID string) (bool, error)
 }
@@ -48,8 +45,6 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 	}
 	autorizacion := dependencias.Autorizacion
 	if autorizacion == nil {
-		// Sin un puerto inyectado no se puede demostrar autorización: se falla
-		// cerrado. El composition root siempre inyecta el flujo A.
 		autorizacion = autorizacionNula{}
 	}
 	return &Servicio{
@@ -73,8 +68,13 @@ func (s *Servicio) FijarReloj(f func() time.Time) { s.ahora = f }
 
 func (s *Servicio) Ahora() time.Time { return s.ahora().UTC() }
 
-// Slots devuelve la oferta con el motivo por el que cada horario no puede reservarse.
-// La vista solo pinta el resultado; no recalcula las 48 horas.
+func (s *Servicio) AutorizacionVigente(ctx context.Context, escolarID string) (bool, error) {
+	if strings.TrimSpace(escolarID) == "" {
+		return false, ErrNoAutorizado
+	}
+	return s.autorizacion.AutorizacionVigente(ctx, escolarID)
+}
+
 func (s *Servicio) Slots(ctx context.Context) ([]Disposicion, error) {
 	slots, err := s.oferta.Slots(ctx)
 	if err != nil {
@@ -98,14 +98,10 @@ func (s *Servicio) Slots(ctx context.Context) ([]Disposicion, error) {
 	return disposiciones, nil
 }
 
-// Reservar devuelve creada=false cuando la clave de idempotencia repite una reserva ya
-// existente con los mismos datos (reintento seguro del formulario).
 func (s *Servicio) Reservar(ctx context.Context, escolarID string, datos DatosReserva) (*Reserva, bool, error) {
 	if strings.TrimSpace(escolarID) == "" {
 		return nil, false, ErrNoAutorizado
 	}
-	// La autorización se comprueba solo al crear: las reservas ya confirmadas
-	// siguen vigentes aunque el apoderado revoque el permiso después.
 	autorizado, err := s.autorizacion.AutorizacionVigente(ctx, escolarID)
 	if err != nil {
 		return nil, false, err
@@ -143,7 +139,6 @@ func (s *Servicio) slotElegido(ctx context.Context, slotID string) (Slot, error)
 	return s.oferta.SlotPorID(ctx, slotID)
 }
 
-// ReservaDe solo devuelve la reserva a su dueño: otra persona recibe ErrNoAutorizado.
 func (s *Servicio) ReservaDe(ctx context.Context, id, escolarID string) (*Reserva, error) {
 	reserva, err := s.repositorio.PorID(ctx, id)
 	if err != nil {
@@ -159,9 +154,6 @@ func (s *Servicio) ReservasDe(ctx context.Context, escolarID string) ([]Reserva,
 	return s.repositorio.PorEscolar(ctx, escolarID)
 }
 
-// Adjuntar guarda un archivo en cuarentena. Si el análisis no está disponible, el adjunto
-// queda pendiente y la reserva sigue confirmada: I09 exige que el fallo del análisis no
-// tumbe la reserva.
 func (s *Servicio) Adjuntar(ctx context.Context, usuarioID string, reservaID, nombre string, contenido []byte) (*Adjunto, error) {
 	reserva, err := s.repositorio.PorID(ctx, reservaID)
 	if err != nil {
@@ -211,7 +203,6 @@ func (s *Servicio) Adjuntar(ctx context.Context, usuarioID string, reservaID, no
 		return nil, err
 	}
 	if guardado.Estado == AdjuntoRechazado {
-		// Un archivo rechazado no se conserva: solo queda el metadato y el motivo.
 		_ = s.almacen.Eliminar(ctx, clave)
 		guardado.ClaveAlmacenamiento = ""
 	}
@@ -226,8 +217,6 @@ func (s *Servicio) AdjuntosDe(ctx context.Context, usuarioID string, rol modeloA
 	return s.repositorio.AdjuntosDe(ctx, reserva.ID)
 }
 
-// AbrirAdjunto entrega el contenido solo a los participantes de la reserva y solo si el
-// adjunto salió de cuarentena. El enlace se sirve autenticado, nunca público.
 func (s *Servicio) AbrirAdjunto(ctx context.Context, usuarioID string, rol modeloAcceso.Rol, reservaID, adjuntoID string) (*Adjunto, []byte, error) {
 	reserva, err := s.reservaVisible(ctx, reservaID, usuarioID, rol)
 	if err != nil {

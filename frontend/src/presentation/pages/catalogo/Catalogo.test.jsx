@@ -10,6 +10,7 @@ import {
   obtenerCatalogo,
   obtenerCursosPendientes,
   obtenerSolicitudesColegio,
+  revisarCurso,
 } from '../../../adapters/http/catalogoApi.js';
 import { obtenerPerfilesPublicos } from '../../../adapters/http/tutorApi.js';
 
@@ -67,10 +68,69 @@ describe('interfaz del catálogo', () => {
     expect(screen.queryByText(/Importación 4/)).toBeNull();
   });
 
+  it('reconoce datos sintéticos con tilde y mayúsculas al importar', async () => {
+    importarCatalogo.mockResolvedValue({ id: 5, fuente: 'SINTÉTICO: prueba' });
+    render(<MemoryRouter><GestionarCatalogo /></MemoryRouter>);
+
+    fireEvent.change(await screen.findByLabelText('Origen de los datos'), {
+      target: { value: 'SINTÉTICO: prueba' },
+    });
+    fireEvent.change(screen.getByLabelText('Nombre del curso'), { target: { value: 'Álgebra' } });
+    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: '1.° de secundaria' } });
+    fireEvent.change(screen.getByLabelText('Nombre del colegio'), { target: { value: 'Colegio Central' } });
+    fireEvent.change(screen.getByLabelText('Distrito'), { target: { value: 'Lima' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar catálogo' }));
+
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Los datos de demostración se guardaron.',
+    );
+  });
+
+  it('aprueba y rechaza cursos pendientes desde la interfaz', async () => {
+    obtenerCursosPendientes.mockResolvedValue({
+      cursos: [{ id: 7, nombre: 'Álgebra', grado: '1.° de secundaria', estado: 'pendiente' }],
+    });
+    revisarCurso.mockResolvedValue({});
+    render(<MemoryRouter><GestionarCatalogo /></MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: '1.° de secundaria · Álgebra' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Aprobar' }));
+    await waitFor(() => expect(revisarCurso).toHaveBeenCalledWith(7, { estado: 'aprobado' }));
+
+    const rechazar = screen.getByRole('button', { name: 'Rechazar' });
+    expect(rechazar.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Motivo del rechazo'), {
+      target: { value: 'No corresponde al grado' },
+    });
+    expect(rechazar.disabled).toBe(false);
+    fireEvent.click(rechazar);
+    await waitFor(() => expect(revisarCurso).toHaveBeenCalledWith(7, {
+      estado: 'rechazado',
+      motivo_rechazo: 'No corresponde al grado',
+    }));
+  });
+
+  it('muestra las solicitudes pendientes sin identidad del solicitante', async () => {
+    obtenerSolicitudesColegio.mockResolvedValue({
+      solicitudes: [{
+        id: 3,
+        nombre: 'Colegio Faltante',
+        distrito: 'Lima',
+        solicitante_id: 'no-debe-mostrarse',
+        solicitado_en: '2026-10-23T03:23:27.031195Z',
+      }],
+    });
+    render(<MemoryRouter><GestionarCatalogo /></MemoryRouter>);
+
+    expect(await screen.findByText(/Colegio Faltante · Lima/)).toBeTruthy();
+    expect(screen.queryByText(/solicitante/i)).toBeNull();
+    expect(screen.queryByText('no-debe-mostrarse')).toBeNull();
+  });
+
   it('explica los datos sintéticos sin mostrar etiquetas internas de fixtures', async () => {
     obtenerCatalogo.mockResolvedValue({
       id: 1,
-      fuente: 'sintetico: fixture inicial I07',
+      fuente: 'SINTÉTICO: fixture inicial I07',
       importado_en: '2026-10-23T03:23:27.031195Z',
       cursos: [],
       colegios: [],
