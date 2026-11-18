@@ -67,7 +67,7 @@ describe('I04: autorización para reservar', () => {
 
     expect(await screen.findByLabelText('Horario')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Confirmar reserva' })).toBeTruthy();
-    expect(listarSlots).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(listarSlots).toHaveBeenCalledTimes(1));
   });
 
   it('oculta el formulario si la autorización se revoca al intentar reservar', async () => {
