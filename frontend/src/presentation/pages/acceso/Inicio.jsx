@@ -25,6 +25,11 @@ const ENLACES_INICIO = [
     roles: ['coordinador'],
   },
   {
+    ruta: '/incidentes',
+    texto: 'Incidentes confidenciales',
+    roles: ['escolar', 'apoderado', 'coordinador'],
+  },
+  {
     ruta: '/reservar',
     texto: 'Reservar una tutoría',
     roles: ['escolar'],

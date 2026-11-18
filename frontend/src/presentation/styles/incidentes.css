@@ -1,0 +1,88 @@
+.pagina-incidentes {
+  max-width: 56rem;
+}
+
+.pagina-incidentes section {
+  border-top: 1px solid var(--borde);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+
+.pagina-incidentes textarea {
+  resize: vertical;
+}
+
+.incidente-tutoria {
+  padding: .7rem .9rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.incidente-archivos {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.incidente-archivos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .4rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.incidente-archivos button {
+  padding: .3rem .6rem;
+}
+
+.incidente-lista {
+  display: grid;
+  gap: 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.incidente-tarjeta {
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.incidente-tarjeta h3 {
+  margin: 0 0 .35rem;
+}
+
+.incidente-meta {
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.incidente-revision {
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.incidente-revision legend {
+  padding: 0 .35rem;
+  font-weight: 650;
+}
+
+.incidente-revision-final {
+  margin-top: .75rem;
+  padding: .75rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.incidente-exito {
+  padding: .75rem 1rem;
+  border-radius: 8px;
+  background: #e9f8f1;
+  color: #176b4d;
+}

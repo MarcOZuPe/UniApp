@@ -34,6 +34,8 @@ func (fabricaRolEscolar) Permisos() []Permiso {
 	return []Permiso{
 		PermisoReservaCrear,
 		PermisoCatalogoSolicitarColegio,
+		PermisoIncidenteAcceder,
+		PermisoIncidenteRegistrar,
 	}
 }
 
@@ -47,6 +49,8 @@ func (fabricaRolApoderado) Permisos() []Permiso {
 	return []Permiso{
 		PermisoAutorizacionOtorgar,
 		PermisoCatalogoSolicitarColegio,
+		PermisoIncidenteAcceder,
+		PermisoIncidenteRegistrar,
 	}
 }
 
@@ -70,5 +74,7 @@ func (fabricaRolCoordinador) Permisos() []Permiso {
 	return []Permiso{
 		PermisoCoordinacionAcceder,
 		PermisoCatalogoGestionar,
+		PermisoIncidenteAcceder,
+		PermisoIncidenteRevisar,
 	}
 }

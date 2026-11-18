@@ -23,6 +23,7 @@ type Config struct {
 	ClaveSemilla         string
 	DirectorioDocumentos string
 	DirectorioAdjuntos   string
+	DirectorioIncidentes string
 	AnalisisAdjuntos     string
 	SMTP                 SMTP
 }
@@ -104,6 +105,7 @@ func Cargar() (Config, error) {
 		ClaveSemilla:         os.Getenv("SEED_PASSWORD"),
 		DirectorioDocumentos: variableEntorno("TUTOR_DOCUMENTS_DIR", "./data/tutor-documents"),
 		DirectorioAdjuntos:   variableEntorno("RESERVA_ATTACHMENTS_DIR", "./data/reserva-adjuntos"),
+		DirectorioIncidentes: variableEntorno("INCIDENT_EVIDENCE_DIR", "./data/incidente-evidencias"),
 		AnalisisAdjuntos:     variableEntorno("RESERVA_ATTACHMENTS_SCAN", "basico"),
 	}
 	origenes := origenesDe(variableEntorno("FRONTEND_ORIGIN", "http://localhost:5173"))
