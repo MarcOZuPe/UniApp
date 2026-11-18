@@ -52,8 +52,46 @@
   overflow-wrap: anywhere;
 }
 
-.incidente-tarjeta h3 {
-  margin: 0 0 .35rem;
+.incidente-desplegable {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.incidente-desplegable-texto {
+  display: grid;
+  gap: .2rem;
+}
+
+.incidente-desplegable-texto strong {
+  font-size: 1.05rem;
+}
+
+.incidente-desplegable-estado {
+  color: var(--muted);
+  font-size: .85rem;
+  white-space: nowrap;
+}
+
+.incidente-desplegable-icono {
+  min-width: 1.25rem;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.incidente-detalle {
+  margin-top: .85rem;
+  padding-top: .85rem;
+  border-top: 1px solid var(--borde);
 }
 
 .incidente-meta {

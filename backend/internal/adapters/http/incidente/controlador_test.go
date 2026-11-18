@@ -240,6 +240,9 @@ func TestIncidentesHTTPVisibilidadPorRolYRevision(t *testing.T) {
 	if id == "" || len(evidencias) != 2 || incidente["estado"] != "pendiente" {
 		t.Fatalf("incidente creado: %v", incidente)
 	}
+	if incidente["reportado_por_rol"] != "escolar" {
+		t.Fatalf("reporte del escolar sin distinción de rol: %v", incidente)
+	}
 
 	creadoApoderado := subirIncidente(
 		t, entorno.manejador, entorno.apoderado, entorno.escolarID,
@@ -250,6 +253,9 @@ func TestIncidentesHTTPVisibilidadPorRolYRevision(t *testing.T) {
 	)
 	if creadoApoderado.Code != http.StatusCreated {
 		t.Fatalf("reporte del apoderado: %d %s", creadoApoderado.Code, creadoApoderado.Body)
+	}
+	if decodificar(t, creadoApoderado)["reportado_por_rol"] != "apoderado" {
+		t.Fatalf("reporte del apoderado sin distinción de rol: %s", creadoApoderado.Body)
 	}
 
 	listado := llamar(entorno.manejador, "GET", "/api/incidentes", "", entorno.coordinador)

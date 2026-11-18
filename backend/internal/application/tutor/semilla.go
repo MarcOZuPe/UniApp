@@ -15,9 +15,6 @@ const (
 	nombreDocumentoSintetico = "constancia-sintetica.pdf"
 )
 
-// SembrarExpedienteSintetico crea un expediente pendiente únicamente si el tutor
-// todavía no tiene uno. También repara el PDF de una semilla anterior que no era
-// un PDF completo. Es idempotente para que reiniciar el servidor no duplique datos.
 func SembrarExpedienteSintetico(ctx context.Context, servicio *Servicio, tutorID string) error {
 	expediente, err := servicio.MiExpediente(ctx, tutorID)
 	if err == nil {
@@ -79,7 +76,6 @@ func pdfSinteticoValido(contenido []byte) bool {
 		bytes.HasPrefix(contenido[inicioXref:], []byte("xref"))
 }
 
-// pdfSintetico construye un PDF 1.4 de una página con una tabla xref válida.
 func pdfSintetico() []byte {
 	contenido := "BT\n/F1 18 Tf\n72 720 Td\n(Constancia sintetica de UniApp) Tj\nET"
 	objetos := []string{

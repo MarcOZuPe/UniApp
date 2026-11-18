@@ -9,6 +9,7 @@ import (
 const (
 	EmailApoderadoSintetico   = "apoderado.prueba@example.test"
 	EmailEscolarSintetico     = "escolar.prueba@example.test"
+	EmailEscolarSinteticoDos  = "escolar2.prueba@example.test"
 	EmailCoordinadorSintetico = "coord.prueba@example.test"
 )
 
@@ -24,13 +25,17 @@ type DatosSiembraVinculacion struct {
 
 func Sembrar(ctx context.Context, servicio *Servicio, datos DatosSiembra) error {
 	correoTutor := "tutor.prueba@example.test"
+	correoTutorDos := "tutor2.prueba@example.test"
 	if dominios := DominiosDe(datos.DominioTutor); len(dominios) > 0 {
 		correoTutor = "tutor.prueba@" + dominios[0]
+		correoTutorDos = "tutor2.prueba@" + dominios[0]
 	}
 	cuentas := []SolicitudRegistro{
 		{Email: EmailEscolarSintetico, NombreUso: "Escolar Prueba", Clave: datos.Clave, Rol: RolEscolar},
+		{Email: EmailEscolarSinteticoDos, NombreUso: "Escolar Prueba Dos", Clave: datos.Clave, Rol: RolEscolar},
 		{Email: EmailApoderadoSintetico, NombreUso: "Apoderado Prueba", Clave: datos.Clave, Rol: RolApoderado},
 		{Email: correoTutor, NombreUso: "Tutor Prueba", Clave: datos.Clave, Rol: RolTutor},
+		{Email: correoTutorDos, NombreUso: "Tutor Prueba Dos", Clave: datos.Clave, Rol: RolTutor},
 		{Email: EmailCoordinadorSintetico, NombreUso: "Coordinación Prueba", Clave: datos.Clave, Rol: RolCoordinador},
 	}
 	for _, cuenta := range cuentas {

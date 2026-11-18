@@ -6,40 +6,71 @@ import (
 	"time"
 )
 
-func TestSembrarTutoriaSinteticaEsIdempotente(t *testing.T) {
+func TestSembrarTutoriasSinteticasEsIdempotente(t *testing.T) {
 	db := baseAisladaIncidente(t)
 	ctx := context.Background()
-	escolarID := crearUsuarioIncidente(t, db, "escolar.prueba@example.test", 1)
+	escolarID := crearUsuarioIncidente(t, db, emailEscolarSintetico, 1)
+	escolarDosID := crearUsuarioIncidente(t, db, emailEscolarSinteticoDos, 1)
 	tutorID := crearUsuarioIncidente(t, db, "tutor.prueba@uni.edu.pe", 3)
+	tutorDosID := crearUsuarioIncidente(t, db, "tutor2.prueba@uni.edu.pe", 3)
 
-	if err := SembrarTutoriaSintetica(ctx, db, "uni.edu.pe"); err != nil {
+	if err := SembrarTutoriasSinteticas(ctx, db, "uni.edu.pe"); err != nil {
 		t.Fatal(err)
 	}
-	if err := SembrarTutoriaSintetica(ctx, db, "uni.edu.pe"); err != nil {
+	if err := SembrarTutoriasSinteticas(ctx, db, "uni.edu.pe"); err != nil {
 		t.Fatalf("segunda siembra: %v", err)
 	}
 
 	var reservas, sesiones, asistencias int
-	if err := db.QueryRow(`SELECT count(*) FROM reservas WHERE slot_id = $1`, slotTutoriaSintetica).Scan(&reservas); err != nil {
+	if err := db.QueryRow(`
+		SELECT count(*) FROM reservas WHERE slot_id IN ($1, $2)`,
+		slotTutoriaSintetica, slotTutoriaSinteticaDos,
+	).Scan(&reservas); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.QueryRow(`SELECT count(*) FROM sesion_sesiones WHERE id = $1`, sesionTutoriaSintetica).Scan(&sesiones); err != nil {
+	if err := db.QueryRow(`
+		SELECT count(*) FROM sesion_sesiones WHERE id IN ($1, $2)`,
+		sesionTutoriaSintetica, sesionTutoriaSinteticaDos,
+	).Scan(&sesiones); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.QueryRow(`SELECT count(*) FROM sesion_asistencias WHERE sesion_id = $1`, sesionTutoriaSintetica).Scan(&asistencias); err != nil {
+	if err := db.QueryRow(`
+		SELECT count(*) FROM sesion_asistencias WHERE sesion_id IN ($1, $2)`,
+		sesionTutoriaSintetica, sesionTutoriaSinteticaDos,
+	).Scan(&asistencias); err != nil {
 		t.Fatal(err)
 	}
-	if reservas != 1 || sesiones != 1 || asistencias != 1 {
-		t.Fatalf("semilla duplicada: reservas=%d sesiones=%d asistencias=%d", reservas, sesiones, asistencias)
+	if reservas != 2 || sesiones != 2 || asistencias != 2 {
+		t.Fatalf("semilla duplicada o incompleta: reservas=%d sesiones=%d asistencias=%d", reservas, sesiones, asistencias)
 	}
 
-	tutorias, err := (RepositorioPostgres{DB: db}).TutoriasDeEscolar(ctx, escolarID, time.Now().UTC())
+	repo := RepositorioPostgres{DB: db}
+	ahora := time.Now().UTC()
+	tutorias := tutoriasDe(t, repo, ctx, escolarID, ahora)
+	if len(tutorias) != 1 || tutoriaDeSintetica(tutorias, tutorID) == nil ||
+		tutorias[0].Curso != "Álgebra" || !tutorias[0].Asistio {
+		t.Fatalf("tutoría sintética 1 no disponible: %+v", tutorias)
+	}
+	tutoriasDos := tutoriasDe(t, repo, ctx, escolarDosID, ahora)
+	if len(tutoriasDos) != 1 || tutoriaDeSintetica(tutoriasDos, tutorDosID) == nil ||
+		tutoriasDos[0].Curso != "Biología" || !tutoriasDos[0].Asistio {
+		t.Fatalf("tutoría sintética 2 no disponible: %+v", tutoriasDos)
+	}
+}
+
+func tutoriasDe(
+	t *testing.T,
+	repo RepositorioPostgres,
+	ctx context.Context,
+	escolarID string,
+	ahora time.Time,
+) []Tutoria {
+	t.Helper()
+	tutorias, err := repo.TutoriasDeEscolar(ctx, escolarID, ahora)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tutorias) != 1 || tutoriaDeSintetica(tutorias, tutorID) == nil || !tutorias[0].Asistio {
-		t.Fatalf("la tutoría sintética no está disponible para I13: %+v", tutorias)
-	}
+	return tutorias
 }
 
 func tutoriaDeSintetica(tutorias []Tutoria, tutorID string) *Tutoria {

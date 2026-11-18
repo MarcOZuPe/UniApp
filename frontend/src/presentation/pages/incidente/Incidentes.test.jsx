@@ -5,9 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 import Incidentes from './Incidentes.jsx';
 import {
-  crearIncidente,
   listarIncidentes,
-  listarTutoriasIncidentes,
   revisarIncidente,
 } from '../../../adapters/http/incidenteApi.js';
 
@@ -20,30 +18,18 @@ vi.mock('../../hooks/useSesion.js', () => ({
 }));
 
 vi.mock('../../../adapters/http/incidenteApi.js', () => ({
-  crearIncidente: vi.fn(),
   listarIncidentes: vi.fn(),
-  listarTutoriasIncidentes: vi.fn(),
   revisarIncidente: vi.fn(),
   urlEvidencia: (incidenteID, evidenciaID) =>
     `/api/incidentes/${incidenteID}/evidencias/${evidenciaID}`,
 }));
 
-const tutoria = {
-  reserva_id: 'reserva-1',
-  escolar_id: 'escolar-1',
-  escolar_nombre: 'Escolar Uno',
-  tutor_id: 'tutor-1',
-  tutor_nombre: 'Tutor Uno',
-  curso: 'Álgebra',
-  inicio_lima: '2026-11-17 09:00',
-  fin_lima: '2026-11-17 10:00',
-  asistio: true,
-};
-
 const incidentePendiente = {
   id: 'incidente-1',
   escolar_id: 'escolar-1',
   escolar_nombre: 'Escolar Uno',
+  reportado_por: 'escolar-1',
+  reportado_por_rol: 'escolar',
   tutor_nombre: 'Tutor Uno',
   curso: 'Álgebra',
   inicio_lima: '2026-11-17 09:00',
@@ -56,9 +42,9 @@ const incidentePendiente = {
   ],
 };
 
-function renderizar() {
+function renderizar(entradas = ['/incidentes']) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={entradas}>
       <Incidentes />
     </MemoryRouter>
   );
@@ -67,94 +53,78 @@ function renderizar() {
 beforeEach(() => {
   vi.resetAllMocks();
   estado.sesion = { usuario: { id: 'escolar-1', rol: 'escolar', nombre_uso: 'Escolar Uno' } };
-  listarIncidentes.mockResolvedValue({ incidentes: [] });
-  listarTutoriasIncidentes.mockResolvedValue({ tutorias: [tutoria] });
-  crearIncidente.mockResolvedValue({ id: 'incidente-nuevo' });
+  listarIncidentes.mockResolvedValue({ incidentes: [incidentePendiente] });
   revisarIncidente.mockResolvedValue({ id: 'incidente-1', estado: 'revisado' });
 });
 
 afterEach(cleanup);
 
-function completarFormulario() {
-  fireEvent.change(screen.getByLabelText('Tutoría atendida'), {
-    target: { value: 'reserva-1' },
-  });
-  fireEvent.change(screen.getByLabelText('Descripción de lo ocurrido'), {
-    target: { value: 'El tutor hizo un comentario ofensivo durante la tutoría.' },
-  });
-}
-
-describe('I13 - Incidentes confidenciales', () => {
-  it('registra un reporte con evidencia PDF y muestra que el tutor no accede', async () => {
+describe('I13 - Listado de incidentes', () => {
+  it('muestra los reportes y enlaza al formulario en una ruta separada', async () => {
     renderizar();
-    expect(await screen.findByRole('heading', { name: 'Nuevo reporte' })).toBeTruthy();
-    expect(screen.getByText(/El tutor denunciado no tiene acceso/)).toBeTruthy();
 
-    completarFormulario();
-    const archivo = new File(['%PDF-1.4'], 'chat.pdf', { type: 'application/pdf' });
-    fireEvent.change(screen.getByLabelText(/Evidencias obligatorias/), {
-      target: { files: [archivo] },
+    expect(await screen.findByRole('heading', { name: 'Mis reportes' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Nuevo reporte' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Registrar un incidente' }).getAttribute('href')).toBe(
+      '/incidentes/nuevo'
+    );
+
+    expect(screen.getByText(/Reportado por: Escolar/)).toBeTruthy();
+
+    const disparador = screen.getByRole('button', { name: /Trato inadecuado/ });
+    expect(disparador.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('El tutor hizo un comentario ofensivo durante la tutoría.')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'chat.pdf' })).toBeNull();
+
+    fireEvent.click(disparador);
+    expect(disparador.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('El tutor hizo un comentario ofensivo durante la tutoría.')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'chat.pdf' }).getAttribute('href')).toBe(
+      '/api/incidentes/incidente-1/evidencias/evidencia-1'
+    );
+
+    fireEvent.click(disparador);
+    expect(screen.queryByText('El tutor hizo un comentario ofensivo durante la tutoría.')).toBeNull();
+  });
+
+  it('distingue un reporte registrado por el apoderado', async () => {
+    listarIncidentes.mockResolvedValue({
+      incidentes: [
+        {
+          ...incidentePendiente,
+          id: 'incidente-2',
+          reportado_por: 'apoderado-1',
+          reportado_por_rol: 'apoderado',
+        },
+      ],
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }));
+    renderizar();
 
-    await waitFor(() => expect(crearIncidente).toHaveBeenCalledTimes(1));
-    const formulario = crearIncidente.mock.calls[0][0];
-    expect(formulario.get('reserva_id')).toBe('reserva-1');
-    expect(formulario.getAll('evidencias')).toHaveLength(1);
+    expect(await screen.findByText(/Reportado por: Apoderado/)).toBeTruthy();
+  });
+
+  it('muestra la confirmación recibida luego de registrar un incidente', async () => {
+    renderizar([
+      {
+        pathname: '/incidentes',
+        state: { mensaje: 'Reporte registrado. La evidencia queda disponible solo para ti, tu apoderado y coordinación.' },
+      },
+    ]);
+
     expect(await screen.findByText(/Reporte registrado/)).toBeTruthy();
-  });
-
-  it('exige al menos una evidencia antes de enviar', async () => {
-    renderizar();
-    await screen.findByRole('heading', { name: 'Nuevo reporte' });
-    completarFormulario();
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }));
-
-    expect(await screen.findByText('Adjunta al menos una evidencia del incidente.')).toBeTruthy();
-    expect(crearIncidente).not.toHaveBeenCalled();
-  });
-
-  it('rechaza en el navegador archivos que no son PDF, JPG o PNG', async () => {
-    renderizar();
-    await screen.findByRole('heading', { name: 'Nuevo reporte' });
-    completarFormulario();
-    const archivo = new File(['texto'], 'notas.txt', { type: 'text/plain' });
-    fireEvent.change(screen.getByLabelText(/Evidencias obligatorias/), {
-      target: { files: [archivo] },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }));
-
-    expect(await screen.findByText('La evidencia debe ser PDF, JPG o PNG.')).toBeTruthy();
-    expect(crearIncidente).not.toHaveBeenCalled();
-  });
-
-  it('permite al apoderado elegir el escolar a través de la tutoría', async () => {
-    estado.sesion = { usuario: { id: 'apoderado-1', rol: 'apoderado', nombre_uso: 'Apoderado' } };
-    renderizar();
-    await screen.findByRole('heading', { name: 'Nuevo reporte' });
-    expect(screen.getByText(/Escolar Uno/)).toBeTruthy();
-    completarFormulario();
-    const archivo = new File(['%PDF-1.4'], 'chat.pdf', { type: 'application/pdf' });
-    fireEvent.change(screen.getByLabelText(/Evidencias obligatorias/), {
-      target: { files: [archivo] },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }));
-
-    await waitFor(() => expect(crearIncidente).toHaveBeenCalledTimes(1));
-    expect(crearIncidente.mock.calls[0][0].get('escolar_id')).toBe('escolar-1');
   });
 
   it('muestra a coordinación los reportes y registra la revisión', async () => {
     estado.sesion = { usuario: { id: 'coord-1', rol: 'coordinador', nombre_uso: 'Coordinación' } };
-    listarIncidentes.mockResolvedValue({ incidentes: [incidentePendiente] });
     renderizar();
 
     expect(await screen.findByRole('heading', { name: 'Reportes recibidos' })).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Nuevo reporte' })).toBeNull();
     expect(screen.getByText(/Revisa los incidentes reportados por escolares y apoderados/)).toBeTruthy();
     expect(screen.queryByText(/Reporta una posible falta/)).toBeNull();
-    expect(listarTutoriasIncidentes).not.toHaveBeenCalled();
+    expect(screen.queryByRole('link', { name: 'Registrar un incidente' })).toBeNull();
+    expect(screen.queryByLabelText('Comentario de revisión')).toBeNull();
 
+    fireEvent.click(screen.getByRole('button', { name: /Trato inadecuado/ }));
     fireEvent.change(screen.getByLabelText('Comentario de revisión'), {
       target: { value: 'La evidencia sustenta el reporte.' },
     });
@@ -166,5 +136,6 @@ describe('I13 - Incidentes confidenciales', () => {
         comentario: 'La evidencia sustenta el reporte.',
       })
     );
+    expect(await screen.findByText('Revisión registrada.')).toBeTruthy();
   });
 });

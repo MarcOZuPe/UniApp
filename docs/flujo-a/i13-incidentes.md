@@ -9,7 +9,13 @@ tutor denunciado.
 
 ## Alcance implementado
 
-- Ruta frontend exclusiva `/incidentes` para `escolar`, `apoderado` y `coordinador`.
+- Rutas frontend `/incidentes` para `escolar`, `apoderado` y `coordinador`, y
+  `/incidentes/nuevo` solo para `escolar` y `apoderado`.
+- `/incidentes` muestra el listado y la revisión; `/incidentes/nuevo` contiene el
+  formulario de registro para no cargar ambos flujos en la misma pantalla.
+- Cada reporte del listado se muestra como un resumen compacto y despliega su
+  descripción, evidencias y revisión solo al hacer clic.
+- El listado indica si el reporte lo registró el **escolar** o el **apoderado**.
 - Escolar y apoderado registran reportes; coordinación revisa y decide si procede.
 - El formulario solo ofrece tutorías confirmadas que ya terminaron.
 - El apoderado reporta únicamente por escolares con vinculación aceptada.
@@ -67,7 +73,8 @@ El contrato detallado está en `docs/openapi.yaml`, etiqueta `A-incidentes`.
 - Presentación backend: `backend/internal/adapters/presentation/incidente`
 - PostgreSQL: `backend/internal/adapters/repositories/postgres/incidente`
 - Memoria (pruebas): `backend/internal/adapters/repositories/memory/incidente`
-- Interfaz: `frontend/src/presentation/pages/incidente/Incidentes.jsx`
+- Listado y revisión: `frontend/src/presentation/pages/incidente/Incidentes.jsx`
+- Formulario: `frontend/src/presentation/pages/incidente/NuevoIncidente.jsx`
 - Cliente HTTP: `frontend/src/adapters/http/incidenteApi.js`
 - Validaciones de navegador: `frontend/src/domain/incidente/validadores.js`
 
@@ -92,13 +99,19 @@ como identidad compartida, no de las tablas ni del dominio de reservas.
 
 ## Datos sintéticos
 
-Con `SEMBRAR_SINTETICO=true`, el arranque del backend crea una tutoría ya finalizada
-entre `escolar.prueba@example.test` y `tutor.prueba@<dominio>`. La reserva usa el slot
-`slot-i13-demo`, tiene una sesión asociada y una asistencia declarada por el escolar.
+Con `SEMBRAR_SINTETICO=true`, el arranque del backend crea dos tutorías finalizadas:
 
-La siembra es idempotente: si la reserva o la sesión ya existen, no se duplican. Esto
-permite entrar como escolar o apoderado y elegir esa tutoría en `/incidentes` para
-probar el registro de una falta con evidencia.
+| Escolar | Tutor | Curso | Slot |
+|---|---|---|---|
+| `escolar.prueba@example.test` | `tutor.prueba@<dominio>` | Álgebra | `slot-i13-demo` |
+| `escolar2.prueba@example.test` | `tutor2.prueba@<dominio>` | Biología | `slot-i13-demo-2` |
+
+Cada reserva tiene una sesión asociada y una asistencia declarada por su escolar. El
+apoderado sintético queda vinculado a ambos escolares y ve las dos tutorías.
+
+La siembra es idempotente: si las reservas o sesiones ya existen, no se duplican. Esto
+permite entrar como escolar o apoderado, abrir `/incidentes/nuevo` y elegir una tutoría
+para probar el registro de una falta con evidencia.
 
 ## Límites y pendientes
 

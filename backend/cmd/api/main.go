@@ -122,14 +122,14 @@ func main() {
 		storage.AlmacenEvidenciasFS{Directorio: configuracion.DirectorioIncidentes},
 	)
 	if configuracion.SembrarSintetico {
-		if err := incidenteRepo.SembrarTutoriaSintetica(
+		if err := incidenteRepo.SembrarTutoriasSinteticas(
 			ctx,
 			baseDatos,
 			primerDominio(configuracion.DominiosTutor),
 		); err != nil {
-			registro.Fatalf("semilla de tutoría I13: %v", err)
+			registro.Fatalf("semilla de tutorías I13: %v", err)
 		}
-		registro.Println("tutoría sintética I13 lista")
+		registro.Println("tutorías sintéticas I13 listas")
 	}
 	incidentes := ctrlIncidente.Nuevo(servicioIncidente, controlador.Autenticar()).Rutas()
 
@@ -225,15 +225,20 @@ func construirServicio(
 			registro.Fatalf("semilla: %v", err)
 		}
 
-		if err := modelo.SembrarVinculacion(
-			ctx,
-			servicio,
-			modelo.DatosSiembraVinculacion{
-				EmailApoderado: modelo.EmailApoderadoSintetico,
-				EmailEscolar:   modelo.EmailEscolarSintetico,
-			},
-		); err != nil {
-			registro.Fatalf("semilla de vinculación: %v", err)
+		for _, emailEscolar := range []string{
+			modelo.EmailEscolarSintetico,
+			modelo.EmailEscolarSinteticoDos,
+		} {
+			if err := modelo.SembrarVinculacion(
+				ctx,
+				servicio,
+				modelo.DatosSiembraVinculacion{
+					EmailApoderado: modelo.EmailApoderadoSintetico,
+					EmailEscolar:   emailEscolar,
+				},
+			); err != nil {
+				registro.Fatalf("semilla de vinculación: %v", err)
+			}
 		}
 
 		registro.Println("cuentas sintéticas de prueba listas")

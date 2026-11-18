@@ -218,12 +218,13 @@ components:
         descargar_en: { type: string, description: "Ruta privada relativa al mismo origen." }
     Incidente:
       type: object
-      required: [id, escolar_id, escolar_nombre, reportado_por, tutor_id, tutor_nombre, reserva_id, curso, inicio, tipo, descripcion, estado, creado_en, evidencias]
+      required: [id, escolar_id, escolar_nombre, reportado_por, reportado_por_rol, tutor_id, tutor_nombre, reserva_id, curso, inicio, tipo, descripcion, estado, creado_en, evidencias]
       properties:
         id: { type: string, format: uuid }
         escolar_id: { type: string, format: uuid }
         escolar_nombre: { type: string }
         reportado_por: { type: string, format: uuid }
+        reportado_por_rol: { type: string, enum: [escolar, apoderado], description: "Indica si el reporte lo registró el escolar afectado o su apoderado." }
         tutor_id: { type: string, description: "Tutor denunciado; nunca recibe acceso a las evidencias." }
         tutor_nombre: { type: string }
         reserva_id: { type: string, format: uuid }

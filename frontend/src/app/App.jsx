@@ -32,6 +32,7 @@ import TutoresAprobados from '../presentation/pages/tutor/TutoresAprobados.jsx';
 import Catalogo from '../presentation/pages/catalogo/Catalogo.jsx';
 import GestionarCatalogo from '../presentation/pages/catalogo/GestionarCatalogo.jsx';
 import Incidentes from '../presentation/pages/incidente/Incidentes.jsx';
+import NuevoIncidente from '../presentation/pages/incidente/NuevoIncidente.jsx';
 
 export default function App() {
     useEffect(() => {
@@ -91,6 +92,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['escolar', 'apoderado', 'coordinador']}>
                             <Incidentes />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/incidentes/nuevo"
+                    element={
+                        <RutaProtegida roles={['escolar', 'apoderado']}>
+                            <NuevoIncidente />
                         </RutaProtegida>
                     }
                 />

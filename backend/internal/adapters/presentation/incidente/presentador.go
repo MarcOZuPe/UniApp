@@ -37,6 +37,7 @@ type IncidenteJSON struct {
 	EscolarID          string          `json:"escolar_id"`
 	EscolarNombre      string          `json:"escolar_nombre"`
 	ReportadoPor       string          `json:"reportado_por"`
+	ReportadoPorRol    string          `json:"reportado_por_rol"`
 	TutorID            string          `json:"tutor_id"`
 	TutorNombre        string          `json:"tutor_nombre"`
 	ReservaID          string          `json:"reserva_id"`
@@ -79,6 +80,10 @@ func PresentarIncidente(incidente *modelo.Incidente) IncidenteJSON {
 	if incidente == nil {
 		return IncidenteJSON{Evidencias: []EvidenciaJSON{}}
 	}
+	reportadoPorRol := "apoderado"
+	if incidente.ReportadoPor == incidente.EscolarID {
+		reportadoPorRol = "escolar"
+	}
 	evidencias := make([]EvidenciaJSON, 0, len(incidente.Evidencias))
 	for _, evidencia := range incidente.Evidencias {
 		evidencias = append(evidencias, EvidenciaJSON{
@@ -95,6 +100,7 @@ func PresentarIncidente(incidente *modelo.Incidente) IncidenteJSON {
 		EscolarID:          incidente.EscolarID,
 		EscolarNombre:      incidente.EscolarNombre,
 		ReportadoPor:       incidente.ReportadoPor,
+		ReportadoPorRol:    reportadoPorRol,
 		TutorID:            incidente.TutorID,
 		TutorNombre:        incidente.TutorNombre,
 		ReservaID:          incidente.ReservaID,
