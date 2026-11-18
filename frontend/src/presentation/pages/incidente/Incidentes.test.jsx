@@ -30,6 +30,7 @@ const incidentePendiente = {
   escolar_nombre: 'Escolar Uno',
   reportado_por: 'escolar-1',
   reportado_por_rol: 'escolar',
+  tutor_id: 'tutor-1',
   tutor_nombre: 'Tutor Uno',
   curso: 'Álgebra',
   inicio_lima: '2026-11-17 09:00',
@@ -114,6 +115,34 @@ describe('I13 - Listado de incidentes', () => {
     expect(await screen.findByText(/Reporte registrado/)).toBeTruthy();
   });
 
+  it('agrupa los reportes por tutor para coordinación', async () => {
+    estado.sesion = { usuario: { id: 'coord-1', rol: 'coordinador', nombre_uso: 'Coordinación' } };
+    listarIncidentes.mockResolvedValue({
+      incidentes: [
+        incidentePendiente,
+        { ...incidentePendiente, id: 'incidente-2' },
+        {
+          ...incidentePendiente,
+          id: 'incidente-3',
+          tutor_id: 'tutor-2',
+          tutor_nombre: 'Tutor Dos',
+        },
+      ],
+    });
+    renderizar();
+
+    expect(await screen.findByRole('heading', { name: 'Reportes recibidos' })).toBeTruthy();
+    const grupoUno = screen.getByRole('button', { name: /Tutor Uno.*2 reportes.*2 pendientes/ });
+    const grupoDos = screen.getByRole('button', { name: /Tutor Dos.*1 reporte.*1 pendiente/ });
+    expect(grupoUno.getAttribute('aria-expanded')).toBe('false');
+    expect(grupoDos.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryAllByRole('button', { name: /Trato inadecuado/ })).toHaveLength(0);
+
+    fireEvent.click(grupoUno);
+    expect(screen.getAllByRole('button', { name: /Trato inadecuado/ })).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /Tutor Dos/ })).toBeTruthy();
+  });
+
   it('muestra a coordinación los reportes y registra la revisión', async () => {
     estado.sesion = { usuario: { id: 'coord-1', rol: 'coordinador', nombre_uso: 'Coordinación' } };
     renderizar();
@@ -122,8 +151,14 @@ describe('I13 - Listado de incidentes', () => {
     expect(screen.getByText(/Revisa los incidentes reportados por escolares y apoderados/)).toBeTruthy();
     expect(screen.queryByText(/Reporta una posible falta/)).toBeNull();
     expect(screen.queryByRole('link', { name: 'Registrar un incidente' })).toBeNull();
-    expect(screen.queryByLabelText('Comentario de revisión')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Trato inadecuado/ })).toBeNull();
 
+    const grupo = screen.getByRole('button', { name: /Tutor Uno.*1 reporte.*1 pendiente/ });
+    expect(grupo.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(grupo);
+    expect(grupo.getAttribute('aria-expanded')).toBe('true');
+
+    expect(screen.queryByLabelText('Comentario de revisión')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Trato inadecuado/ }));
     fireEvent.change(screen.getByLabelText('Comentario de revisión'), {
       target: { value: 'La evidencia sustenta el reporte.' },

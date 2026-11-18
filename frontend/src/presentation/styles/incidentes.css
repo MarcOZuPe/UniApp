@@ -45,6 +45,30 @@
   list-style: none;
 }
 
+.incidente-grupos {
+  display: grid;
+  gap: 1rem;
+}
+
+.pagina-incidentes .incidente-grupo {
+  margin-top: 0;
+  padding: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.incidente-grupo-titulo {
+  margin: 0;
+}
+
+.incidente-grupo-desplegable {
+  width: 100%;
+}
+
+.incidente-grupo .incidente-lista {
+  margin-top: 1rem;
+}
+
 .incidente-tarjeta {
   border: 1px solid var(--borde);
   border-radius: 10px;

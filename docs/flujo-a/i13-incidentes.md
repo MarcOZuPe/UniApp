@@ -16,6 +16,8 @@ tutor denunciado.
 - Cada reporte del listado se muestra como un resumen compacto y despliega su
   descripción, evidencias y revisión solo al hacer clic.
 - El listado indica si el reporte lo registró el **escolar** o el **apoderado**.
+- Para coordinación, los reportes se agrupan por tutor en secciones plegables, ordenadas
+  por cantidad de pendientes. Cada sección muestra el total de reportes y pendientes.
 - Escolar y apoderado registran reportes; coordinación revisa y decide si procede.
 - El formulario solo ofrece tutorías confirmadas que ya terminaron.
 - El apoderado reporta únicamente por escolares con vinculación aceptada.

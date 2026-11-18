@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import {
@@ -30,6 +30,35 @@ function describirReportante(incidente) {
   return rol === 'escolar' ? 'Escolar' : 'Apoderado';
 }
 
+function agruparPorTutor(incidentes) {
+  const grupos = new Map();
+  for (const incidente of incidentes) {
+    const clave = incidente.tutor_id || incidente.tutor_nombre;
+    if (!grupos.has(clave)) {
+      grupos.set(clave, {
+        clave,
+        tutorNombre: incidente.tutor_nombre,
+        incidentes: [],
+        pendientes: 0,
+      });
+    }
+    const grupo = grupos.get(clave);
+    grupo.incidentes.push(incidente);
+    if (incidente.estado === 'pendiente') grupo.pendientes += 1;
+  }
+  return Array.from(grupos.values()).sort(
+    (a, b) => b.pendientes - a.pendientes || a.tutorNombre.localeCompare(b.tutorNombre, 'es')
+  );
+}
+
+function contarIncidentes(cantidad) {
+  return `${cantidad} ${cantidad === 1 ? 'reporte' : 'reportes'}`;
+}
+
+function contarPendientes(cantidad) {
+  return `${cantidad} ${cantidad === 1 ? 'pendiente' : 'pendientes'}`;
+}
+
 export default function Incidentes() {
   const { usuario } = useSesion();
   const location = useLocation();
@@ -46,6 +75,8 @@ export default function Incidentes() {
   const [erroresRevision, setErroresRevision] = useState({});
   const [revisando, setRevisando] = useState('');
   const [abiertos, setAbiertos] = useState(() => new Set());
+  const [tutoresAbiertos, setTutoresAbiertos] = useState(() => new Set());
+  const gruposPorTutor = useMemo(() => agruparPorTutor(incidentes), [incidentes]);
 
   useEffect(() => {
     let vigente = true;
@@ -72,6 +103,15 @@ export default function Incidentes() {
       const siguiente = new Set(actual);
       if (siguiente.has(incidenteID)) siguiente.delete(incidenteID);
       else siguiente.add(incidenteID);
+      return siguiente;
+    });
+  }
+
+  function alternarTutor(clave) {
+    setTutoresAbiertos((actual) => {
+      const siguiente = new Set(actual);
+      if (siguiente.has(clave)) siguiente.delete(clave);
+      else siguiente.add(clave);
       return siguiente;
     });
   }
@@ -104,6 +144,60 @@ export default function Incidentes() {
     } finally {
       setRevisando('');
     }
+  }
+
+  function renderIncidentes(lista) {
+    return lista.map((incidente) => {
+      const abierto = abiertos.has(incidente.id);
+      const detalleID = `incidente-detalle-${incidente.id}`;
+      return (
+        <li key={incidente.id} className="incidente-tarjeta">
+          <button
+            type="button"
+            className="incidente-desplegable"
+            aria-expanded={abierto}
+            aria-controls={detalleID}
+            onClick={() => alternarIncidente(incidente.id)}
+          >
+            <span className="incidente-desplegable-texto">
+              <strong>{etiquetaTipo(incidente.tipo)}</strong>
+              <span className="incidente-meta">
+                {esCoordinador || esApoderado ? `Escolar: ${incidente.escolar_nombre}. ` : ''}
+                Reportado por: {describirReportante(incidente)}. Tutor: {incidente.tutor_nombre}.
+                Curso: {incidente.curso}. Tutoría: {incidente.inicio_lima}.
+              </span>
+            </span>
+            <span className="incidente-desplegable-estado">{describirEstado(incidente.estado)}</span>
+            <span className="incidente-desplegable-icono" aria-hidden="true">
+              {abierto ? '−' : '+'}
+            </span>
+          </button>
+
+          {abierto && (
+            <div id={detalleID} className="incidente-detalle">
+              <p>{incidente.descripcion}</p>
+              <Evidencias incidente={incidente} />
+              {esCoordinador && incidente.estado === 'pendiente' && (
+                <Revision
+                  incidente={incidente}
+                  revision={revisiones[incidente.id] || { resultado: 'procede', comentario: '' }}
+                  errores={erroresRevision[incidente.id] || {}}
+                  revisando={revisando === incidente.id}
+                  alCambiar={(campo, valor) => cambiarRevision(incidente.id, campo, valor)}
+                  alEnviar={() => enviarRevision(incidente.id)}
+                />
+              )}
+              {incidente.estado === 'revisado' && (
+                <div className="incidente-revision-final">
+                  <strong>{describirResultado(incidente.resultado)}</strong>
+                  {incidente.comentario_revision && <p>{incidente.comentario_revision}</p>}
+                </div>
+              )}
+            </div>
+          )}
+        </li>
+      );
+    });
   }
 
   if (cargando) {
@@ -144,60 +238,47 @@ export default function Incidentes() {
         <h2 id="titulo-reportes">{esCoordinador ? 'Reportes recibidos' : 'Mis reportes'}</h2>
         {incidentes.length === 0 ? (
           <p>No hay incidentes registrados.</p>
-        ) : (
-          <ul className="incidente-lista">
-            {incidentes.map((incidente) => {
-              const abierto = abiertos.has(incidente.id);
-              const detalleID = `incidente-detalle-${incidente.id}`;
+        ) : esCoordinador ? (
+          <div className="incidente-grupos">
+            {gruposPorTutor.map((grupo, indice) => {
+              const abierto = tutoresAbiertos.has(grupo.clave);
+              const detalleID = `incidente-grupo-detalle-${indice}`;
               return (
-                <li key={incidente.id} className="incidente-tarjeta">
-                  <button
-                    type="button"
-                    className="incidente-desplegable"
-                    aria-expanded={abierto}
-                    aria-controls={detalleID}
-                    onClick={() => alternarIncidente(incidente.id)}
-                  >
-                    <span className="incidente-desplegable-texto">
-                      <strong>{etiquetaTipo(incidente.tipo)}</strong>
-                      <span className="incidente-meta">
-                        {esCoordinador || esApoderado ? `Escolar: ${incidente.escolar_nombre}. ` : ''}
-                        Reportado por: {describirReportante(incidente)}. Tutor: {incidente.tutor_nombre}.
-                        Curso: {incidente.curso}. Tutoría: {incidente.inicio_lima}.
+                <section
+                  key={grupo.clave}
+                  className="incidente-grupo"
+                  aria-labelledby={`incidente-grupo-${indice}`}
+                >
+                  <h3 id={`incidente-grupo-${indice}`} className="incidente-grupo-titulo">
+                    <button
+                      type="button"
+                      className="incidente-desplegable incidente-grupo-desplegable"
+                      aria-expanded={abierto}
+                      aria-controls={detalleID}
+                      onClick={() => alternarTutor(grupo.clave)}
+                    >
+                      <span className="incidente-desplegable-texto">
+                        <strong>{grupo.tutorNombre}</strong>
+                        <span className="incidente-meta">
+                          {contarIncidentes(grupo.incidentes.length)} · {contarPendientes(grupo.pendientes)}
+                        </span>
                       </span>
-                    </span>
-                    <span className="incidente-desplegable-estado">{describirEstado(incidente.estado)}</span>
-                    <span className="incidente-desplegable-icono" aria-hidden="true">
-                      {abierto ? '−' : '+'}
-                    </span>
-                  </button>
-
+                      <span className="incidente-desplegable-icono" aria-hidden="true">
+                        {abierto ? '−' : '+'}
+                      </span>
+                    </button>
+                  </h3>
                   {abierto && (
-                    <div id={detalleID} className="incidente-detalle">
-                      <p>{incidente.descripcion}</p>
-                      <Evidencias incidente={incidente} />
-                      {esCoordinador && incidente.estado === 'pendiente' && (
-                        <Revision
-                          incidente={incidente}
-                          revision={revisiones[incidente.id] || { resultado: 'procede', comentario: '' }}
-                          errores={erroresRevision[incidente.id] || {}}
-                          revisando={revisando === incidente.id}
-                          alCambiar={(campo, valor) => cambiarRevision(incidente.id, campo, valor)}
-                          alEnviar={() => enviarRevision(incidente.id)}
-                        />
-                      )}
-                      {incidente.estado === 'revisado' && (
-                        <div className="incidente-revision-final">
-                          <strong>{describirResultado(incidente.resultado)}</strong>
-                          {incidente.comentario_revision && <p>{incidente.comentario_revision}</p>}
-                        </div>
-                      )}
-                    </div>
+                    <ul id={detalleID} className="incidente-lista">
+                      {renderIncidentes(grupo.incidentes)}
+                    </ul>
                   )}
-                </li>
+                </section>
               );
             })}
-          </ul>
+          </div>
+        ) : (
+          <ul className="incidente-lista">{renderIncidentes(incidentes)}</ul>
         )}
       </section>
 
