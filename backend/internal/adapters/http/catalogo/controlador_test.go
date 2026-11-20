@@ -85,9 +85,16 @@ func TestCatalogoImportacionAprobacionYPermisos(t *testing.T) {
 	if respuesta := solicitudCatalogo(handler, http.MethodPost, rutaRevision, coord, decision); respuesta.Code != http.StatusConflict {
 		t.Fatalf("el curso solo debe revisarse una vez: estado %d, cuerpo %s", respuesta.Code, respuesta.Body.String())
 	}
+	rutaRevisionCiencias := "/api/catalogo/cursos/" + strconv.FormatInt(importada.Cursos[1].ID, 10) + "/revision"
+	if respuesta := solicitudCatalogo(handler, http.MethodPost, rutaRevisionCiencias, coord,
+		`{"estado":"rechazado","motivo_rechazo":"No corresponde al grado"}`); respuesta.Code != http.StatusOK {
+		t.Fatalf("coordinación debe rechazar el curso: estado %d, cuerpo %s", respuesta.Code, respuesta.Body.String())
+	}
 	respuestaPublica = solicitudCatalogo(handler, http.MethodGet, "/api/catalogo", nil, "")
-	if !strings.Contains(respuestaPublica.Body.String(), "Álgebra") || strings.Contains(respuestaPublica.Body.String(), "Ciencias") {
-		t.Fatalf("solo el curso aprobado debe ser público: %s", respuestaPublica.Body.String())
+	if !strings.Contains(respuestaPublica.Body.String(), "Álgebra") ||
+		strings.Contains(respuestaPublica.Body.String(), "Ciencias") ||
+		strings.Contains(respuestaPublica.Body.String(), "No corresponde") {
+		t.Fatalf("solo el curso aprobado debe ser público y sin motivos internos: %s", respuestaPublica.Body.String())
 	}
 	if respuesta := solicitudCatalogo(handler, http.MethodPost, "/api/catalogo/importaciones", coord,
 		`{"fuente":"test","cursos":[{"nombre":"x","grado":"1"},{"nombre":"X","grado":"1"}],"colegios":[{"nombre":"y","distrito":"z"}]}`); respuesta.Code != http.StatusUnprocessableEntity {
@@ -109,6 +116,21 @@ func TestCatalogoImportacionAprobacionYPermisos(t *testing.T) {
 		strings.Contains(respuestaSolicitudes.Body.String(), "solicitante_id") ||
 		!strings.Contains(respuestaSolicitudes.Body.String(), "Colegio Faltante") {
 		t.Fatalf("coordinación ve solicitud sin exponer quién la hizo: estado %d, cuerpo %s", respuestaSolicitudes.Code, respuestaSolicitudes.Body.String())
+	}
+}
+
+func TestImportacionCatalogoRequiereJSONValido(t *testing.T) {
+	handler := nuevoManejadorCatalogo(t)
+	coord := iniciarSesionCatalogo(t, handler, "coord.prueba@example.test")
+	for _, cuerpo := range []string{
+		`{"fuente":"prueba","cursos":[{"nombre":"Álgebra","grado":"1"}],"colegios":[{"nombre":"Colegio","distrito":"Lima"}],"campo_no_permitido":true}`,
+		`{"fuente":"prueba","cursos":[{"nombre":"Álgebra","grado":"1"}],"colegios":[{"nombre":"Colegio","distrito":"Lima"}]} {"fuente":"otra"}`,
+		`{"fuente":"prueba","cursos":[{"nombre":"Álgebra","grado":"1"}],"colegios":[{"nombre":"Colegio","distrito":"Lima"}]`,
+	} {
+		respuesta := solicitudCatalogo(handler, http.MethodPost, "/api/catalogo/importaciones", coord, cuerpo)
+		if respuesta.Code != http.StatusBadRequest {
+			t.Fatalf("cuerpo inválido debe rechazarse: estado %d, cuerpo %s", respuesta.Code, respuesta.Body.String())
+		}
 	}
 }
 

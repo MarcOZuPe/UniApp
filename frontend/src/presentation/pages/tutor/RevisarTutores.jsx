@@ -57,6 +57,7 @@ export default function RevisarTutores() {
   return (
     <main className="pagina-tutor">
       <h1>Revisión de expedientes de tutores</h1>
+      <p><Link to="/coordinacion/tutores/aprobados">Ver expedientes aprobados</Link></p>
       {error && <p className="error" role="alert">{error}</p>}
       {cargando && <p role="status">Cargando expedientes…</p>}
       {!cargando && expedientes.length === 0 && <p>No hay expedientes pendientes de revisión.</p>}

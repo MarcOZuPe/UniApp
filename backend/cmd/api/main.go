@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -95,13 +96,23 @@ func main() {
 		tutorRepo.RepositorioPostgres{DB: baseDatos},
 		storage.AlmacenDocumentosFS{Directorio: configuracion.DirectorioDocumentos},
 	)
+	if configuracion.SembrarSintetico {
+		if err := sembrarExpedienteTutor(ctx, baseDatos, configuracion, servicioTutor); err != nil {
+			registro.Fatalf("semilla de expediente de tutor: %v", err)
+		}
+		registro.Println("expediente sintético I02 listo")
+	}
 
 	tutores := ctrlTutor.Nuevo(servicioTutor, controlador.Autenticar()).Rutas()
 
-	catalogo := ctrlCatalogo.Nuevo(
-		modeloCatalogo.NuevoServicio(catalogoRepo.RepositorioPostgres{DB: baseDatos}),
-		controlador.Autenticar(),
-	).Rutas()
+	catalogoServicio := modeloCatalogo.NuevoServicio(catalogoRepo.RepositorioPostgres{DB: baseDatos})
+	if configuracion.SembrarSintetico {
+		if err := sembrarCatalogoSintetico(ctx, baseDatos, catalogoServicio); err != nil {
+			registro.Fatalf("semilla de catálogo: %v", err)
+		}
+		registro.Println("muestra sintética del catálogo I07 lista")
+	}
+	catalogo := ctrlCatalogo.Nuevo(catalogoServicio, controlador.Autenticar()).Rutas()
 
 	// Reservas I09: mantiene la autorización del flujo A.
 	// I10 agrega la anticipación de recordatorios.
@@ -238,6 +249,30 @@ func construirServicioReserva(
 		Limites:      modeloReserva.LimitesPorDefecto,
 		Autorizacion: autorizacion,
 	})
+}
+
+func sembrarExpedienteTutor(
+	ctx context.Context,
+	baseDatos *sql.DB,
+	configuracion config.Config,
+	servicio *modeloTutor.Servicio,
+) error {
+	email := "tutor.prueba@" + primerDominio(configuracion.DominiosTutor)
+	tutor, err := (accesoRepo.RepositorioPostgres{DB: baseDatos}).UsuarioPorEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("buscar tutor sintético: %w", err)
+	}
+	return modeloTutor.SembrarExpedienteSintetico(ctx, servicio, tutor.ID)
+}
+
+func sembrarCatalogoSintetico(ctx context.Context, baseDatos *sql.DB, servicio *modeloCatalogo.Servicio) error {
+	coordinador, err := (accesoRepo.RepositorioPostgres{DB: baseDatos}).UsuarioPorEmail(
+		ctx, modelo.EmailCoordinadorSintetico,
+	)
+	if err != nil {
+		return fmt.Errorf("buscar coordinador sintético: %w", err)
+	}
+	return modeloCatalogo.SembrarAprobacionSintetica(ctx, servicio, coordinador.ID)
 }
 
 // ofertaConTutorReal asocia la oferta de demostración al tutor sembrado para que la

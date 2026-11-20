@@ -28,7 +28,10 @@ func (r *RepositorioMemoria) Guardar(_ context.Context, expediente *Expediente) 
 	copia := Copiar(expediente)
 	anterior := r.expedientes[expediente.TutorID]
 	if anterior != nil {
-		copia.Documentos = append(copia.Documentos, anterior.Documentos...)
+		for _, documento := range anterior.Documentos {
+			delete(r.propietario, documento.ID)
+			delete(r.documentos, documento.ID)
+		}
 	}
 	for _, documento := range expediente.Documentos {
 		r.propietario[documento.ID] = expediente.TutorID
@@ -57,6 +60,19 @@ func (r *RepositorioMemoria) Pendientes(_ context.Context) ([]Expediente, error)
 			resultado = append(resultado, *Copiar(expediente))
 		}
 	}
+	return resultado, nil
+}
+
+func (r *RepositorioMemoria) Aprobados(_ context.Context) ([]Expediente, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	resultado := make([]Expediente, 0)
+	for _, expediente := range r.expedientes {
+		if expediente.Estado == EstadoAprobado {
+			resultado = append(resultado, *Copiar(expediente))
+		}
+	}
+	sort.Slice(resultado, func(i, j int) bool { return resultado[i].TutorID < resultado[j].TutorID })
 	return resultado, nil
 }
 

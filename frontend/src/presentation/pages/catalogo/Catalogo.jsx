@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { obtenerCatalogo, solicitarColegio } from '../../../adapters/http/catalogoApi.js';
 import { obtenerPerfilesPublicos } from '../../../adapters/http/tutorApi.js';
+import { esFuenteSintetica } from '../../../domain/catalogo/fuente.js';
 import { useSesion } from '../../hooks/useSesion.js';
 
 export default function Catalogo() {
@@ -63,7 +64,7 @@ export default function Catalogo() {
       {catalogo && (
         <>
           <p>
-            {catalogo.fuente.toLocaleLowerCase().startsWith('sintetico:')
+            {esFuenteSintetica(catalogo.fuente)
               ? 'Datos de demostración; no representan un padrón institucional.'
               : <>Origen: <strong>{catalogo.fuente}</strong></>}
             {' · Actualizado '}

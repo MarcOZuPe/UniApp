@@ -48,6 +48,7 @@ func (c *Controlador) Rutas() http.Handler {
 	mux.Handle("GET /api/tutor/mi-expediente", c.proteger(http.HandlerFunc(c.miExpediente), c.presentarTutor))
 	mux.Handle("POST /api/tutor/expediente", c.proteger(http.HandlerFunc(c.presentarExpediente), c.presentarTutor))
 	mux.Handle("GET /api/tutor/revision", c.proteger(http.HandlerFunc(c.pendientes), c.coordinacion))
+	mux.Handle("GET /api/tutor/revision/aprobados", c.proteger(http.HandlerFunc(c.aprobados), c.coordinacion))
 	mux.Handle("POST /api/tutor/{id}/revision", c.proteger(http.HandlerFunc(c.revisar), c.coordinacion))
 	mux.Handle("GET /api/tutor/documentos/{id}", c.proteger(http.HandlerFunc(c.documento), nil))
 	return mux
@@ -116,6 +117,19 @@ func (c *Controlador) presentarExpediente(w http.ResponseWriter, r *http.Request
 
 func (c *Controlador) pendientes(w http.ResponseWriter, r *http.Request) {
 	expedientes, err := c.servicio.Pendientes(r.Context())
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	resultado := make([]vista.Expediente, 0, len(expedientes))
+	for indice := range expedientes {
+		resultado = append(resultado, vista.PresentarExpediente(&expedientes[indice]))
+	}
+	vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]any{"expedientes": resultado})
+}
+
+func (c *Controlador) aprobados(w http.ResponseWriter, r *http.Request) {
+	expedientes, err := c.servicio.Aprobados(r.Context())
 	if err != nil {
 		c.responderError(w, err)
 		return

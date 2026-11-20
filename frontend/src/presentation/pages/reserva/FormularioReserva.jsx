@@ -4,6 +4,7 @@ import Campo from '../../components/Campo.jsx';
 import {
   crearReserva,
   listarSlots,
+  obtenerAutorizacionReserva,
   subirAdjunto,
   urlAdjunto,
 } from '../../../adapters/http/reservaApi.js';
@@ -15,6 +16,8 @@ import {
 } from '../../../domain/reserva/validadores.js';
 
 const FORMULARIO_INICIAL = { slot_id: '', tema: '', objetivo: '', grado: '' };
+const MENSAJE_SIN_AUTORIZACION =
+  'No tienes una autorización vigente para reservar tutorías. Pide a tu apoderado que la active.';
 
 function crearClaveIdempotencia() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -40,9 +43,52 @@ export default function FormularioReserva() {
   const [enviando, setEnviando] = useState(false);
   const [reserva, setReserva] = useState(null);
   const [adjuntos, setAdjuntos] = useState([]);
+  const [autorizacion, setAutorizacion] = useState({
+    cargando: true,
+    autorizado: false,
+    mensaje: '',
+  });
   const noDisponibles = slots.filter((slot) => !slot.disponible);
 
   useEffect(() => {
+    if (reserva) return undefined;
+
+    let activo = true;
+    setAutorizacion((actual) => ({ ...actual, cargando: true }));
+    obtenerAutorizacionReserva()
+      .then((datos) => {
+        if (!activo) return;
+        const autorizado = datos?.autorizado === true;
+        setAutorizacion({
+          cargando: false,
+          autorizado,
+          mensaje: autorizado
+            ? ''
+            : datos?.mensaje || MENSAJE_SIN_AUTORIZACION,
+        });
+      })
+      .catch((error) => {
+        if (activo) {
+          setAutorizacion({
+            cargando: false,
+            autorizado: false,
+            mensaje: error.message || 'No se pudo verificar tu autorización para reservar.',
+          });
+        }
+      });
+    return () => {
+      activo = false;
+    };
+  }, [reserva]);
+
+  useEffect(() => {
+    if (!autorizacion.autorizado) {
+      setSlots([]);
+      setCargandoSlots(false);
+      return undefined;
+    }
+    if (reserva) return undefined;
+
     let activo = true;
     setCargandoSlots(true);
     listarSlots()
@@ -58,7 +104,7 @@ export default function FormularioReserva() {
     return () => {
       activo = false;
     };
-  }, [reserva]);
+  }, [autorizacion.autorizado, reserva]);
 
   const cambiarCampo = (campo) => (evento) =>
     setFormulario((actual) => ({ ...actual, [campo]: evento.target.value }));
@@ -90,6 +136,16 @@ export default function FormularioReserva() {
       setAdjuntos(resultados);
       setArchivos([]);
     } catch (error) {
+      if (error.codigo === 'sin_autorizacion') {
+        setErrores({});
+        setMensaje('');
+        setAutorizacion({
+          cargando: false,
+          autorizado: false,
+          mensaje: error.message || MENSAJE_SIN_AUTORIZACION,
+        });
+        return;
+      }
       setErrores(error.campos ?? {});
       setMensaje(error.message);
     } finally {
@@ -145,6 +201,29 @@ export default function FormularioReserva() {
 
         <button type="button" onClick={reiniciar}>Hacer otra reserva</button>
         <p><Link to="/">Volver al inicio</Link></p>
+      </main>
+    );
+  }
+
+  if (autorizacion.cargando) {
+    return (
+      <main>
+        <h1>Reservar una tutoría</h1>
+        <p role="status">Verificando tu autorización para reservar…</p>
+      </main>
+    );
+  }
+
+  if (!autorizacion.autorizado) {
+    return (
+      <main>
+        <h1>Reservar una tutoría</h1>
+        <p className="error" role="alert">
+          {autorizacion.mensaje || MENSAJE_SIN_AUTORIZACION}
+        </p>
+        <p>
+          <Link to="/">Volver al inicio</Link>
+        </p>
       </main>
     );
   }

@@ -57,6 +57,13 @@ describe('modelo D: formulario de reserva', () => {
 });
 
 describe('controlador D: cliente de reservas', () => {
+  it('consulta la autorización del escolar antes de mostrar el formulario', async () => {
+    const fetchSimulado = vi.fn().mockResolvedValue(respuesta(200, { autorizado: true }));
+    const api = crearApiReserva(fetchSimulado);
+    await expect(api.obtenerAutorizacionReserva()).resolves.toEqual({ autorizado: true });
+    expect(fetchSimulado).toHaveBeenCalledWith('/api/reserva/autorizacion', expect.objectContaining({ method: 'GET' }));
+  });
+
   it('pide los horarios al endpoint del flujo D', async () => {
     const fetchSimulado = vi.fn().mockResolvedValue(respuesta(200, { slots: [] }));
     const api = crearApiReserva(fetchSimulado);

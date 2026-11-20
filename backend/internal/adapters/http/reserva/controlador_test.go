@@ -279,6 +279,39 @@ func TestReservaRequiereSesionDeEscolar(t *testing.T) {
 	}
 }
 
+func TestAutorizacionDeReservaExponeSoloEstadoDelEscolar(t *testing.T) {
+	autorizacion := &autorizacionVariable{permitido: false}
+	entorno := nuevoEntornoConAutorizacion(t, autorizacion, modelo.AnalizadorBasico{})
+
+	sinSesion := llamar(entorno.manejador, "GET", "/api/reserva/autorizacion", "", nil)
+	if sinSesion.Code != http.StatusUnauthorized {
+		t.Fatalf("sin sesión: %d", sinSesion.Code)
+	}
+
+	sinPermiso := llamar(entorno.manejador, "GET", "/api/reserva/autorizacion", "", entorno.escolar)
+	cuerpoSinPermiso := decodificar(t, sinPermiso)
+	mensaje, tieneMensaje := cuerpoSinPermiso["mensaje"].(string)
+	if sinPermiso.Code != http.StatusOK || cuerpoSinPermiso["autorizado"] != false ||
+		!tieneMensaje || !strings.Contains(mensaje, "autorización vigente") {
+		t.Fatalf("escolar sin autorización: %d %s", sinPermiso.Code, sinPermiso.Body)
+	}
+
+	autorizacion.permitido = true
+	conPermiso := llamar(entorno.manejador, "GET", "/api/reserva/autorizacion", "", entorno.escolar)
+	cuerpoConPermiso := decodificar(t, conPermiso)
+	if conPermiso.Code != http.StatusOK || cuerpoConPermiso["autorizado"] != true {
+		t.Fatalf("escolar autorizado: %d %s", conPermiso.Code, conPermiso.Body)
+	}
+	if _, existe := cuerpoConPermiso["mensaje"]; existe {
+		t.Fatalf("no debe enviarse mensaje cuando hay autorización: %s", conPermiso.Body)
+	}
+
+	noEscolar := llamar(entorno.manejador, "GET", "/api/reserva/autorizacion", "", entorno.tutor)
+	if noEscolar.Code != http.StatusForbidden || decodificar(t, noEscolar)["codigo"] != "solo_escolar" {
+		t.Fatalf("un tutor no consulta esta autorización: %d %s", noEscolar.Code, noEscolar.Body)
+	}
+}
+
 func TestReservaRechazaDatosYReglas(t *testing.T) {
 	entorno := nuevoEntorno(t)
 	casos := []struct {
