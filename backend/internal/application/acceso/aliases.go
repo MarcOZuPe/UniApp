@@ -54,6 +54,9 @@ const (
 	PermisoCatalogoSolicitarColegio = dominio.PermisoCatalogoSolicitarColegio
 	PermisoCoordinacionAcceder      = dominio.PermisoCoordinacionAcceder
 	PermisoExpedientePresentar      = dominio.PermisoExpedientePresentar
+	PermisoIncidenteAcceder         = dominio.PermisoIncidenteAcceder
+	PermisoIncidenteRegistrar       = dominio.PermisoIncidenteRegistrar
+	PermisoIncidenteRevisar         = dominio.PermisoIncidenteRevisar
 	PermisoReservaCrear             = dominio.PermisoReservaCrear
 	RecuperacionSolicitada          = dominio.RecuperacionSolicitada
 	RolApoderado                    = dominio.RolApoderado

@@ -48,9 +48,9 @@ describe('expedientes aprobados para coordinación', () => {
     obtenerAprobados.mockResolvedValue({ expedientes: [aprobadoVigente, aprobadoVencido] });
     renderizar();
 
-    expect(await screen.findByRole('heading', { name: 'Expedientes aprobados' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Expediente tutor-vigente' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Expediente tutor-vigente' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Expediente tutor-vencido' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Expedientes aprobados' })).toBeTruthy();
     expect(screen.getByText('Aprobado, vigente')).toBeTruthy();
     expect(screen.getByText('Aprobado, vencido')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'vigente.pdf' }).getAttribute('href')).toBe(

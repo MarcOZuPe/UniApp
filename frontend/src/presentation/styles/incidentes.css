@@ -1,0 +1,150 @@
+.pagina-incidentes {
+  max-width: 56rem;
+}
+
+.pagina-incidentes section {
+  border-top: 1px solid var(--borde);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+
+.pagina-incidentes textarea {
+  resize: vertical;
+}
+
+.incidente-tutoria {
+  padding: .7rem .9rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.incidente-archivos {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.incidente-archivos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .4rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.incidente-archivos button {
+  padding: .3rem .6rem;
+}
+
+.incidente-lista {
+  display: grid;
+  gap: 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.incidente-grupos {
+  display: grid;
+  gap: 1rem;
+}
+
+.pagina-incidentes .incidente-grupo {
+  margin-top: 0;
+  padding: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.incidente-grupo-titulo {
+  margin: 0;
+}
+
+.incidente-grupo-desplegable {
+  width: 100%;
+}
+
+.incidente-grupo .incidente-lista {
+  margin-top: 1rem;
+}
+
+.incidente-tarjeta {
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.incidente-desplegable {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.incidente-desplegable-texto {
+  display: grid;
+  gap: .2rem;
+}
+
+.incidente-desplegable-texto strong {
+  font-size: 1.05rem;
+}
+
+.incidente-desplegable-estado {
+  color: var(--muted);
+  font-size: .85rem;
+  white-space: nowrap;
+}
+
+.incidente-desplegable-icono {
+  min-width: 1.25rem;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.incidente-detalle {
+  margin-top: .85rem;
+  padding-top: .85rem;
+  border-top: 1px solid var(--borde);
+}
+
+.incidente-meta {
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.incidente-revision {
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.incidente-revision legend {
+  padding: 0 .35rem;
+  font-weight: 650;
+}
+
+.incidente-revision-final {
+  margin-top: .75rem;
+  padding: .75rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.incidente-exito {
+  padding: .75rem 1rem;
+  border-radius: 8px;
+  background: #e9f8f1;
+  color: #176b4d;
+}

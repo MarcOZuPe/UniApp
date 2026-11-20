@@ -14,6 +14,7 @@ export default function Coordinacion() {
       {mensajeError && <p className="error" role="alert">{mensajeError}</p>}
       {!panel && !mensajeError && <p role="status">Cargando panel…</p>}
       {panel && <PanelCoordinacion panel={panel} />}
+      <p><Link to="/incidentes">Revisar incidentes confidenciales</Link></p>
       <p><Link to="/">Volver al inicio</Link></p>
     </main>
   );

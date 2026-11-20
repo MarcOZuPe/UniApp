@@ -15,18 +15,21 @@ import (
 
 	ctrl "uniapp/internal/adapters/http/acceso"
 	ctrlCatalogo "uniapp/internal/adapters/http/catalogo"
+	ctrlIncidente "uniapp/internal/adapters/http/incidente"
 	ctrlOferta "uniapp/internal/adapters/http/oferta"
 	ctrlReserva "uniapp/internal/adapters/http/reserva"
 	ctrlSesion "uniapp/internal/adapters/http/sesion"
 	ctrlTutor "uniapp/internal/adapters/http/tutor"
 	accesoRepo "uniapp/internal/adapters/repositories/postgres/acceso"
 	catalogoRepo "uniapp/internal/adapters/repositories/postgres/catalogo"
+	incidenteRepo "uniapp/internal/adapters/repositories/postgres/incidente"
 	ofertaRepo "uniapp/internal/adapters/repositories/postgres/oferta"
 	reservaRepo "uniapp/internal/adapters/repositories/postgres/reserva"
 	sesionRepo "uniapp/internal/adapters/repositories/postgres/sesion"
 	tutorRepo "uniapp/internal/adapters/repositories/postgres/tutor"
 	modelo "uniapp/internal/application/acceso"
 	modeloCatalogo "uniapp/internal/application/catalogo"
+	modeloIncidente "uniapp/internal/application/incidente"
 	modeloReserva "uniapp/internal/application/reserva"
 	modeloTutor "uniapp/internal/application/tutor"
 	infra "uniapp/internal/infrastructure"
@@ -114,6 +117,22 @@ func main() {
 	}
 	catalogo := ctrlCatalogo.Nuevo(catalogoServicio, controlador.Autenticar()).Rutas()
 
+	servicioIncidente := modeloIncidente.NuevoServicio(
+		incidenteRepo.RepositorioPostgres{DB: baseDatos},
+		storage.AlmacenEvidenciasFS{Directorio: configuracion.DirectorioIncidentes},
+	)
+	if configuracion.SembrarSintetico {
+		if err := incidenteRepo.SembrarTutoriasSinteticas(
+			ctx,
+			baseDatos,
+			primerDominio(configuracion.DominiosTutor),
+		); err != nil {
+			registro.Fatalf("semilla de tutorías I13: %v", err)
+		}
+		registro.Println("tutorías sintéticas I13 listas")
+	}
+	incidentes := ctrlIncidente.Nuevo(servicioIncidente, controlador.Autenticar()).Rutas()
+
 	// Reservas I09: mantiene la autorización del flujo A.
 	// I10 agrega la anticipación de recordatorios.
 	reservas := construirServicioReserva(baseDatos, configuracion, servicio.Autorizacion)
@@ -137,6 +156,7 @@ func main() {
 		configuracion,
 		baseDatos,
 	)
+	manejador = construirManejadorConIncidentes(manejador, incidentes, registro, configuracion)
 
 	servidor := nuevoServidor(configuracion.Puerto, manejador)
 
@@ -205,15 +225,20 @@ func construirServicio(
 			registro.Fatalf("semilla: %v", err)
 		}
 
-		if err := modelo.SembrarVinculacion(
-			ctx,
-			servicio,
-			modelo.DatosSiembraVinculacion{
-				EmailApoderado: modelo.EmailApoderadoSintetico,
-				EmailEscolar:   modelo.EmailEscolarSintetico,
-			},
-		); err != nil {
-			registro.Fatalf("semilla de vinculación: %v", err)
+		for _, emailEscolar := range []string{
+			modelo.EmailEscolarSintetico,
+			modelo.EmailEscolarSinteticoDos,
+		} {
+			if err := modelo.SembrarVinculacion(
+				ctx,
+				servicio,
+				modelo.DatosSiembraVinculacion{
+					EmailApoderado: modelo.EmailApoderadoSintetico,
+					EmailEscolar:   emailEscolar,
+				},
+			); err != nil {
+				registro.Fatalf("semilla de vinculación: %v", err)
+			}
 		}
 
 		registro.Println("cuentas sintéticas de prueba listas")
@@ -481,6 +506,25 @@ func construirManejadorConAgenda(
 		),
 	)
 
+	raiz.Handle("/", anterior)
+	return raiz
+}
+
+func construirManejadorConIncidentes(
+	anterior, incidentes http.Handler,
+	registro *log.Logger,
+	configuracion config.Config,
+) http.Handler {
+	raiz := http.NewServeMux()
+	rutas := ctrl.Encadenar(
+		incidentes,
+		ctrl.Recuperar(registro),
+		ctrl.Registro(registro),
+		ctrl.CabecerasSeguras(),
+		ctrl.OrigenPermitido(configuracion.OrigenesFrontend...),
+	)
+	raiz.Handle("/api/incidentes", rutas)
+	raiz.Handle("/api/incidentes/", rutas)
 	raiz.Handle("/", anterior)
 	return raiz
 }

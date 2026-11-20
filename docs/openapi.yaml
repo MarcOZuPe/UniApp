@@ -6,6 +6,7 @@ info:
 servers: [{ url: / }]
 tags:
   - { name: A-acceso, description: "Flujo A · Víctor · implementado en I01 e I06" }
+  - { name: A-incidentes, description: "Flujo A · I13 · reporte confidencial, evidencia y revisión" }
   - { name: B-tutor, description: "Flujo B · expediente y revisión mínima (I02)" }
   - { name: B-catalogo, description: "Flujo B · catálogo de cursos y perfil público (I07)" }
   - { name: C-oferta, description: "Flujo C · Mateo · esqueleto (I03)" }
@@ -188,6 +189,68 @@ components:
         codigo: { type: string }
         mensaje: { type: string }
         campos: { type: object, additionalProperties: { type: string } }
+    TutoriaIncidente:
+      type: object
+      description: Sesión ya finalizada del escolar; es la base obligatoria del reporte I13.
+      required: [reserva_id, escolar_id, escolar_nombre, tutor_id, tutor_nombre, curso, inicio, fin, inicio_lima, fin_lima, asistio]
+      properties:
+        reserva_id: { type: string, format: uuid }
+        escolar_id: { type: string, format: uuid }
+        escolar_nombre: { type: string }
+        tutor_id: { type: string }
+        tutor_nombre: { type: string }
+        curso: { type: string }
+        inicio: { type: string, format: date-time }
+        fin: { type: string, format: date-time }
+        inicio_lima: { type: string }
+        fin_lima: { type: string }
+        asistio: { type: boolean, description: "Asistencia declarada por el escolar en el flujo E; no altera el permiso de reporte." }
+    EvidenciaIncidente:
+      type: object
+      description: Metadatos de una evidencia sensible. Solo escolar, apoderado y coordinación pueden descargarla.
+      required: [id, nombre, tipo, tamano_bytes, creado_en, descargar_en]
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        tipo: { type: string, enum: [application/pdf, image/jpeg, image/png] }
+        tamano_bytes: { type: integer, format: int64, maximum: 10485760 }
+        creado_en: { type: string, format: date-time }
+        descargar_en: { type: string, description: "Ruta privada relativa al mismo origen." }
+    Incidente:
+      type: object
+      required: [id, escolar_id, escolar_nombre, reportado_por, reportado_por_rol, tutor_id, tutor_nombre, reserva_id, curso, inicio, tipo, descripcion, estado, creado_en, evidencias]
+      properties:
+        id: { type: string, format: uuid }
+        escolar_id: { type: string, format: uuid }
+        escolar_nombre: { type: string }
+        reportado_por: { type: string, format: uuid }
+        reportado_por_rol: { type: string, enum: [escolar, apoderado], description: "Indica si el reporte lo registró el escolar afectado o su apoderado." }
+        tutor_id: { type: string, description: "Tutor denunciado; nunca recibe acceso a las evidencias." }
+        tutor_nombre: { type: string }
+        reserva_id: { type: string, format: uuid }
+        curso: { type: string }
+        inicio: { type: string, format: date-time }
+        inicio_lima: { type: string }
+        tipo: { type: string, enum: [trato_inadecuado, discriminacion, acoso, seguridad, otro] }
+        tipo_etiqueta: { type: string }
+        descripcion: { type: string, minLength: 20, maxLength: 2000 }
+        estado: { type: string, enum: [pendiente, revisado] }
+        resultado: { type: string, enum: [procede, no_procede], nullable: true }
+        comentario_revision: { type: string, nullable: true }
+        revisado_por: { type: string, format: uuid, nullable: true }
+        revisado_en: { type: string, format: date-time, nullable: true }
+        creado_en: { type: string, format: date-time }
+        evidencias:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: { $ref: '#/components/schemas/EvidenciaIncidente' }
+    RevisionIncidente:
+      type: object
+      required: [resultado, comentario]
+      properties:
+        resultado: { type: string, enum: [procede, no_procede] }
+        comentario: { type: string, minLength: 5, maxLength: 1000 }
     SlotReserva:
       type: object
       description: Horario publicado por el flujo C. En I04 proviene de una oferta sintética.
@@ -497,6 +560,158 @@ paths:
         '200': { description: OK; vinculacion es null si no hay apoderado, content: { application/json: { schema: { type: object, properties: { vinculacion: { allOf: [{ $ref: '#/components/schemas/Vinculacion' }], nullable: true } } } } } }
         '401': { description: Sin sesión }
         '403': { description: El usuario no es escolar }
+  /api/incidentes/salud:
+    get:
+      tags: [A-incidentes]
+      summary: Estado del flujo I13
+      responses:
+        '200': { description: OK }
+  /api/incidentes/tutorias:
+    get:
+      tags: [A-incidentes]
+      security: [{ sesion: [] }]
+      summary: Tutorías previas disponibles para reportar
+      description: >
+        Para el escolar devuelve sus sesiones confirmadas y ya finalizadas. Para el
+        apoderado devuelve las de sus escolares vinculados. Coordinación no usa este
+        listado y recibe un arreglo vacío.
+      responses:
+        '200':
+          description: Tutorías previas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tutorias:
+                    type: array
+                    items: { $ref: '#/components/schemas/TutoriaIncidente' }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso incidente:acceder }
+  /api/incidentes:
+    get:
+      tags: [A-incidentes]
+      security: [{ sesion: [] }]
+      summary: Listar incidentes visibles para el usuario
+      description: >
+        Coordinación ve todos. El escolar ve los de su cuenta. El apoderado ve los de
+        sus escolares vinculados. El tutor denunciado no tiene permiso para listar.
+      responses:
+        '200':
+          description: Incidentes visibles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  incidentes:
+                    type: array
+                    items: { $ref: '#/components/schemas/Incidente' }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso incidente:acceder }
+    post:
+      tags: [A-incidentes]
+      security: [{ sesion: [] }]
+      summary: Registrar un incidente con evidencia obligatoria
+      description: >
+        Solo escolar (permiso incidente:registrar) y apoderado. La tutoría debe
+        pertenecer al escolar y haber finalizado. La evidencia se valida por contenido
+        real y extensión: PDF, JPG o PNG, de 1 a 5 archivos de hasta 10 MB. El
+        formulario es multipart/form-data.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [reserva_id, tipo, descripcion, evidencias]
+              properties:
+                escolar_id:
+                  type: string
+                  format: uuid
+                  description: Obligatorio para apoderado; debe estar vinculado. El escolar no lo envía.
+                reserva_id: { type: string, format: uuid }
+                tipo: { type: string, enum: [trato_inadecuado, discriminacion, acoso, seguridad, otro] }
+                descripcion: { type: string, minLength: 20, maxLength: 2000 }
+                evidencias:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items: { type: string, format: binary }
+      responses:
+        '201':
+          description: Incidente pendiente de revisión
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Incidente' }
+        '400': { description: multipart inválido o evidencia ilegible }
+        '401': { description: Sin sesión }
+        '403': { description: "Rol sin permiso, tutor o escolar no vinculado" }
+        '413': { description: La solicitud supera el tamaño permitido }
+        '422': { description: "Validación, evidencia inválida o tutoría ajena/futura" }
+  /api/incidentes/{id}:
+    get:
+      tags: [A-incidentes]
+      security: [{ sesion: [] }]
+      summary: Consultar un incidente visible
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Incidente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Incidente' }
+        '401': { description: Sin sesión }
+        '403': { description: El usuario no es el escolar, su apoderado o coordinación }
+        '404': { description: Incidente inexistente }
+  /api/incidentes/{id}/evidencias/{evidenciaId}:
+    get:
+      tags: [A-incidentes]
+      security: [{ sesion: [] }]
+      summary: Descargar una evidencia confidencial
+      description: >
+        Solo el escolar afectado, un apoderado vinculado y coordinación. El tutor
+        denunciado recibe 403 aunque conozca el identificador.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: evidenciaId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Contenido de la evidencia como adjunto
+          headers:
+            Content-Disposition: { schema: { type: string } }
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+        '401': { description: Sin sesión }
+        '403': { description: Usuario sin acceso al incidente }
+        '404': { description: Incidente o evidencia inexistente }
+  /api/incidentes/{id}/revision:
+    post:
+      tags: [A-incidentes]
+      security: [{ sesion: [] }]
+      summary: Revisar un incidente (solo coordinación)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RevisionIncidente' }
+      responses:
+        '200':
+          description: Incidente revisado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Incidente' }
+        '400': { description: JSON inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Solo coordinación (permiso incidente:revisar) }
+        '404': { description: Incidente inexistente }
+        '409': { description: El incidente ya fue revisado }
+        '422': { description: Resultado o comentario inválido }
   /api/coordinacion/panel:
     get:
       security: [{ sesion: [] }]
