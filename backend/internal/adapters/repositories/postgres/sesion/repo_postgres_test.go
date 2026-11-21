@@ -48,7 +48,7 @@ func prepararPostgresSesionAislado(t *testing.T) (*sql.DB, context.Context) {
 	if _, err := db.ExecContext(ctx, "SET search_path TO pg_temp"); err != nil {
 		t.Fatal("no se pudo aislar el esquema")
 	}
-	for _, nombre := range []string{"005_sesion.up.sql", "010_sesion_ausencias.up.sql", "011_sesion_resultados.up.sql"} {
+	for _, nombre := range []string{"005_sesion.up.sql", "011_sesion_ausencias.up.sql", "012_sesion_resultados.up.sql"} {
 		migracion, err := migrations.FS.ReadFile(nombre)
 		if err != nil {
 			t.Fatal(err)

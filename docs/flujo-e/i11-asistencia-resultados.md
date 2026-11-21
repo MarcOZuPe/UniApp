@@ -15,7 +15,7 @@ Registro del resultado de la sesión.
 | Ausencia | `backend/internal/domain/sesion/ausencia.go` | ausencia **propia**, excluyente con la asistencia y sin duplicados |
 | Resultado | `backend/internal/domain/sesion/resultado.go` | un único resultado del tutor asignado (1–2000 caracteres) |
 | Plazos | `backend/internal/domain/sesion/plazos.go` | `Intervalo` (value object) y ventanas de declaración y de resultado |
-| Persistencia | migraciones `010_sesion_ausencias`, `011_sesion_resultados` | tablas con clave única por participante / por sesión |
+| Persistencia | migraciones `011_sesion_ausencias`, `012_sesion_resultados` | tablas con clave única por participante / por sesión |
 | Repositorios | `adapters/repositories/{postgres,memory}/sesion` | transacción con `SELECT … FOR UPDATE` sobre la sesión |
 | HTTP | `adapters/http/sesion/{ausencia,resultado,controlador}.go` | endpoints, mapeo de errores y plazos publicados |
 | Vista | `frontend/src/presentation/pages/sesion/DetalleSesion.jsx` | botones de asistencia/ausencia, formulario de resultado y avisos de plazo |
