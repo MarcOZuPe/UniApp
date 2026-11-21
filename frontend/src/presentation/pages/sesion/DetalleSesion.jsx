@@ -10,6 +10,7 @@ import {
 
 import { EstadoPlazo, estadoPlazo } from '../../../domain/sesion/plazos.js';
 import { useSesion } from '../../hooks/useSesion.js';
+import SeccionMinutos from './SeccionMinutos.jsx';
 
 import '../../styles/sesion.css';
 
@@ -316,7 +317,8 @@ export default function DetalleSesion() {
         ) : <p>El tutor aún no ha registrado el resultado.</p>}
         <p><small>El resultado no sustituye las declaraciones de asistencia ni acredita minutos verificados.</small></p>
       </section>
-      {mensaje && <p className="sesion-exito" role="status">{mensaje}</p>}
+      <SeccionMinutos sesion={sesion} usuario={usuario} />
+      {mensaje &&<p className="sesion-exito" role="status">{mensaje}</p>}
       {error && <p role="alert" className="error">{error}</p>}
     </main>
   );
