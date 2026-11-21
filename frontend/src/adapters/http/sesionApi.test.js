@@ -9,6 +9,7 @@ import {
 import {
   obtenerSesion,
   declararAsistencia,
+  registrarResultado,
 } from './sesionApi.js';
 
 afterEach(() => {
@@ -127,4 +128,14 @@ describe('I05: cliente API de sesiones', () => {
       codigo: 'asistencia_duplicada',
     });
   });
+});
+
+it('envía solo el resumen del resultado con la sesión autenticada', async () => {
+  const resultado = { usuario_id: 'tutor', resumen: 'Ecuaciones resueltas.' };
+  const fetchSimulado = vi.fn().mockResolvedValue(simularRespuesta(201, resultado));
+  vi.stubGlobal('fetch', fetchSimulado);
+  expect(await registrarResultado('sesion de prueba', resultado.resumen)).toEqual(resultado);
+  expect(fetchSimulado).toHaveBeenCalledWith('/api/sesion/sesion%20de%20prueba/resultado', expect.objectContaining({
+    method: 'POST', credentials: 'same-origin', body: JSON.stringify({ resumen: resultado.resumen }),
+  }));
 });

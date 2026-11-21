@@ -4,11 +4,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom';
 import App from '../../../app/App.jsx';
 import Inicio from '../acceso/Inicio.jsx';
-import { obtenerSesion, declararAsistencia } from '../../../adapters/http/sesionApi.js';
+import { obtenerSesion, declararAsistencia, reportarAusencia, registrarResultado } from '../../../adapters/http/sesionApi.js';
 const estado = vi.hoisted(() => ({ usuario: null, cargando: false }));
 vi.mock('../../hooks/useSesion.js', () => ({ useSesion: () => estado }));
 vi.mock('../../../application/acceso/sesion.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
-vi.mock('../../../adapters/http/sesionApi.js', () => ({ obtenerSesion: vi.fn(), declararAsistencia: vi.fn() }));
+vi.mock('../../../adapters/http/sesionApi.js', () => ({ obtenerSesion: vi.fn(), declararAsistencia: vi.fn(), reportarAusencia: vi.fn(), registrarResultado: vi.fn() }));
 const sesion = { id: 'sesion-i05-demo', reserva_id: 'reserva-i05-demo', tutor_id: 'tutor-001', escolar_id: 'escolar-001', inicio: '2026-10-20T15:00:00Z', fin: '2026-10-20T16:00:00Z', asistencias: [] };
 const asistencia = rol => ({ usuario_id: rol + '-001', rol, declarada_en: sesion.inicio });
 function abrir(ruta = '/sesiones/sesion-i05-demo') { window.history.replaceState({}, '', ruta); return render(<App />); }
@@ -124,5 +124,157 @@ describe('Inicio y modo demo', () => {
   it.each([['tutor', ['Mi expediente de tutor', 'Gestionar disponibilidad semanal']], ['escolar', ['Reservar una tutoría']], ['coordinador', ['Zona de coordinación']]])('conserva navegación del %s', (rol, enlaces) => {
     estado.usuario = { id: 'otro', rol }; render(<MemoryRouter><Inicio /></MemoryRouter>);
     enlaces.forEach(name => expect(screen.getByRole('link', { name })).toBeTruthy());
+  });
+});
+
+describe('Ausencias I11', () => {
+  it.each(['tutor', 'escolar'])('%s reporta su ausencia y bloquea declaraciones contradictorias', async rol => {
+    estado.usuario = { id: rol + '-001', rol };
+    const ausencia = { usuario_id: estado.usuario.id, rol, reportada_en: sesion.fin };
+    obtenerSesion.mockResolvedValueOnce(sesion).mockResolvedValue({ ...sesion, ausencias: [ausencia] });
+    let completar;
+    reportarAusencia.mockImplementation(() => new Promise(resolve => { completar = resolve; }));
+    abrir();
+    const boton = await screen.findByRole('button', { name: 'Reportar mi ausencia' });
+    expect(reportarAusencia).not.toHaveBeenCalled();
+    expect(declararAsistencia).not.toHaveBeenCalled();
+    fireEvent.click(boton);
+    fireEvent.click(boton);
+    expect(boton.disabled).toBe(true);
+    expect(reportarAusencia).toHaveBeenCalledTimes(1);
+    expect(reportarAusencia).toHaveBeenCalledWith(sesion.id);
+    completar(ausencia);
+    expect(await screen.findByText('Tu ausencia fue reportada correctamente.')).toBeTruthy();
+    expect((await screen.findByRole('button', { name: 'Ausencia ya reportada' })).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Declarar mi asistencia' }).disabled).toBe(true);
+    expect(screen.getByText('Ausencia reportada')).toBeTruthy();
+  });
+  it('conserva la ausencia confirmada aunque falle la recarga', async () => {
+    obtenerSesion.mockResolvedValueOnce(sesion).mockRejectedValue(new Error('Sin red'));
+    reportarAusencia.mockResolvedValue({ usuario_id: 'tutor-001', rol: 'tutor', reportada_en: sesion.fin });
+    abrir();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reportar mi ausencia' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Tu ausencia se guardó');
+    expect(screen.getByRole('button', { name: 'Ausencia ya reportada' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Declarar mi asistencia' }).disabled).toBe(true);
+  });
+  it('muestra conflictos del servidor y no anuncia éxito', async () => {
+    reportarAusencia.mockRejectedValue(new Error('Ausencia ya reportada.'));
+    abrir();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reportar mi ausencia' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Ausencia ya reportada');
+    expect(screen.queryByText('Tu ausencia fue reportada correctamente.')).toBeNull();
+  });
+  it('impide reportar ausencia cuando la asistencia ya está guardada', async () => {
+    obtenerSesion.mockResolvedValue({ ...sesion, asistencias: [asistencia('tutor')] });
+    abrir();
+    const boton = await screen.findByRole('button', { name: 'Reportar mi ausencia' });
+    expect(boton.disabled).toBe(true);
+    fireEvent.click(boton);
+    expect(reportarAusencia).not.toHaveBeenCalled();
+  });
+});
+
+describe('Resultado I11', () => {
+  const resultado = { usuario_id: 'tutor-001', resumen: 'Se resolvieron ecuaciones.', registrado_en: sesion.fin };
+  it('el tutor registra una vez y conserva el resultado al volver a entrar', async () => {
+    let completar;
+    registrarResultado.mockImplementation(() => new Promise(resolve => { completar = resolve; }));
+    const vista = abrir();
+    const campo = await screen.findByLabelText('Resumen del resultado');
+    expect(registrarResultado).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Registrar resultado' }).disabled).toBe(true);
+    fireEvent.change(campo, { target: { value: '  Se resolvieron ecuaciones.  ' } });
+    const boton = screen.getByRole('button', { name: 'Registrar resultado' });
+    fireEvent.click(boton); fireEvent.click(boton);
+    expect(screen.getByRole('button', { name: 'Guardando resultado...' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Reportar mi ausencia' }).disabled).toBe(true);
+    expect(registrarResultado).toHaveBeenCalledTimes(1);
+    expect(registrarResultado).toHaveBeenCalledWith(sesion.id, resultado.resumen);
+    completar(resultado);
+    expect(await screen.findByText('El resultado de la tutoría fue registrado correctamente.')).toBeTruthy();
+    expect(screen.getByText(resultado.resumen)).toBeTruthy();
+    expect(screen.queryByLabelText('Resumen del resultado')).toBeNull();
+    expect(declararAsistencia).not.toHaveBeenCalled();
+    expect(reportarAusencia).not.toHaveBeenCalled();
+    vista.unmount();
+    obtenerSesion.mockResolvedValue({ ...sesion, resultado });
+    abrir();
+    expect(await screen.findByText(resultado.resumen)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Registrar resultado' })).toBeNull();
+  });
+  it('el escolar consulta el resultado sin disponer de formulario', async () => {
+    estado.usuario = { id: 'escolar-001', rol: 'escolar' };
+    const vista = abrir();
+    expect(await screen.findByText('El tutor aún no ha registrado el resultado.')).toBeTruthy();
+    expect(screen.queryByLabelText('Resumen del resultado')).toBeNull();
+    vista.unmount();
+    obtenerSesion.mockResolvedValue({ ...sesion, resultado });
+    abrir();
+    expect(await screen.findByText(resultado.resumen)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Registrar resultado' })).toBeNull();
+    expect(registrarResultado).not.toHaveBeenCalled();
+  });
+  it('conserva el texto ante error o conflicto para no perder el trabajo', async () => {
+    registrarResultado.mockRejectedValue(new Error('Resultado ya registrado en otra pestaña.'));
+    abrir();
+    const campo = await screen.findByLabelText('Resumen del resultado');
+    fireEvent.change(campo, { target: { value: resultado.resumen } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar resultado' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('otra pestaña');
+    expect(campo.value).toBe(resultado.resumen);
+    expect(screen.queryByText('El resultado de la tutoría fue registrado correctamente.')).toBeNull();
+  });
+  it('rechaza texto vacío y más de 2.000 caracteres', async () => {
+    abrir();
+    const campo = await screen.findByLabelText('Resumen del resultado');
+    const boton = screen.getByRole('button', { name: 'Registrar resultado' });
+    for (const value of ['   ', 'ñ'.repeat(2001)]) {
+      fireEvent.change(campo, { target: { value } });
+      expect(boton.disabled).toBe(true);
+    }
+    expect(registrarResultado).not.toHaveBeenCalled();
+  });
+});
+
+describe('I11: plazos publicados por el backend', () => {
+  const dia = 24 * 60 * 60 * 1000;
+  const plazoRelativo = (desdeDias, hastaDias) => ({
+    desde: new Date(Date.now() + desdeDias * dia).toISOString(),
+    hasta: new Date(Date.now() + hastaDias * dia).toISOString(),
+  });
+
+  it('con el plazo de declaración cerrado bloquea asistencia y ausencia', async () => {
+    estado.usuario = { id: 'escolar-001', rol: 'escolar', nombre_uso: 'Escolar' };
+    obtenerSesion.mockResolvedValue({ ...sesion, plazos: { declaracion: plazoRelativo(-3, -1), resultado: plazoRelativo(-3, 5) } });
+    abrir();
+    expect((await screen.findByRole('button', { name: 'Declarar mi asistencia' })).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Reportar mi ausencia' }).disabled).toBe(true);
+    expect(screen.getByText(/El plazo para declarar tu asistencia o ausencia terminó/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Declarar mi asistencia' }));
+    expect(declararAsistencia).not.toHaveBeenCalled();
+  });
+
+  it('con el plazo de declaración abierto permite declarar e informa el rango', async () => {
+    estado.usuario = { id: 'escolar-001', rol: 'escolar', nombre_uso: 'Escolar' };
+    obtenerSesion.mockResolvedValue({ ...sesion, plazos: { declaracion: plazoRelativo(-1, 1), resultado: plazoRelativo(-1, 7) } });
+    abrir();
+    expect((await screen.findByRole('button', { name: 'Declarar mi asistencia' })).disabled).toBe(false);
+    expect(screen.getByText(/Puedes declarar tu asistencia o ausencia entre/)).toBeTruthy();
+  });
+
+  it('antes del inicio el tutor no ve el formulario de resultado', async () => {
+    obtenerSesion.mockResolvedValue({ ...sesion, plazos: { declaracion: plazoRelativo(1, 2), resultado: plazoRelativo(1, 8) } });
+    abrir();
+    expect(await screen.findByText(/Aún no puedes registrar el resultado/)).toBeTruthy();
+    expect(screen.queryByLabelText('Resumen del resultado')).toBeNull();
+    expect(screen.getByText(/Aún no puedes declarar tu asistencia o ausencia/)).toBeTruthy();
+  });
+
+  it('con el plazo de resultado abierto muestra el formulario y el rango', async () => {
+    obtenerSesion.mockResolvedValue({ ...sesion, plazos: { declaracion: plazoRelativo(-1, 1), resultado: plazoRelativo(-1, 7) } });
+    abrir();
+    expect(await screen.findByLabelText('Resumen del resultado')).toBeTruthy();
+    expect(screen.getByText(/Puedes registrar el resultado entre/)).toBeTruthy();
   });
 });
