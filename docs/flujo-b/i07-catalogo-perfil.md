@@ -4,6 +4,7 @@
 
 - La migración `008_catalogo` conserva importaciones versionadas de cursos y padrón escolar. Cada importación registra `fuente` y `importado_en` (hora UTC del servidor).
 - No hay una fuente institucional integrada. La migración inicial registra expresamente `sintetico: fixture inicial I07`; esos colegios y cursos no representan datos reales.
+- El fixture inicial deja los cursos en estado `pendiente`. Con `SEED_SYNTHETIC=true`, la semilla de aplicación aprueba de forma idempotente `Matemática básica` para que el catálogo público tenga una muestra visible; si coordinación ya revisó algún curso, no modifica nada y el resto permanece pendiente.
 - Coordinación puede registrar otra importación mediante JSON. No se consulta ni se simula una API externa. Sus cursos comienzan en estado `pendiente`; el padrón publicado corresponde a la importación más reciente.
 - Coordinación aprueba o rechaza cada curso para el grado importado. Solo cursos aprobados de la última importación aparecen en el catálogo público. Una nueva importación no hereda aprobaciones anteriores.
 - Escolares y apoderados pueden solicitar un colegio que no figure en el padrón. La solicitud queda local para coordinación; se marca incorporada al aparecer en una importación posterior. No se devuelve la identidad de quien la solicitó.

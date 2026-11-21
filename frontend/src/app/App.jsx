@@ -27,9 +27,12 @@ import MiApoderado from '../presentation/pages/apoderado/MiApoderado.jsx';
 
 import ExpedienteTutor from '../presentation/pages/tutor/ExpedienteTutor.jsx';
 import RevisarTutores from '../presentation/pages/tutor/RevisarTutores.jsx';
+import TutoresAprobados from '../presentation/pages/tutor/TutoresAprobados.jsx';
 
 import Catalogo from '../presentation/pages/catalogo/Catalogo.jsx';
 import GestionarCatalogo from '../presentation/pages/catalogo/GestionarCatalogo.jsx';
+import Incidentes from '../presentation/pages/incidente/Incidentes.jsx';
+import NuevoIncidente from '../presentation/pages/incidente/NuevoIncidente.jsx';
 
 export default function App() {
     useEffect(() => {
@@ -67,10 +70,37 @@ export default function App() {
                 />
 
                 <Route
+                    path="/coordinacion/tutores/aprobados"
+                    element={
+                        <RutaProtegida roles={['coordinador']}>
+                            <TutoresAprobados />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
                     path="/coordinacion/catalogo"
                     element={
                         <RutaProtegida roles={['coordinador']}>
                             <GestionarCatalogo />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/incidentes"
+                    element={
+                        <RutaProtegida roles={['escolar', 'apoderado', 'coordinador']}>
+                            <Incidentes />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/incidentes/nuevo"
+                    element={
+                        <RutaProtegida roles={['escolar', 'apoderado']}>
+                            <NuevoIncidente />
                         </RutaProtegida>
                     }
                 />

@@ -14,6 +14,7 @@ export default function Coordinacion() {
       {mensajeError && <p className="error" role="alert">{mensajeError}</p>}
       {!panel && !mensajeError && <p role="status">Cargando panel…</p>}
       {panel && <PanelCoordinacion panel={panel} />}
+      <p><Link to="/incidentes">Revisar incidentes confidenciales</Link></p>
       <p><Link to="/">Volver al inicio</Link></p>
     </main>
   );
@@ -48,6 +49,7 @@ function PanelCoordinacion({ panel }) {
       <h2>{panel.mensaje}</h2>
       <p>Permiso activo: <code>coordinacion:acceder</code></p>
       <p><Link to="/coordinacion/tutores">Revisar expedientes de tutores</Link></p>
+      <p><Link to="/coordinacion/tutores/aprobados">Ver expedientes aprobados</Link></p>
       <p><Link to="/coordinacion/catalogo">Importar y aprobar el catálogo escolar</Link></p>
     </section>
   );

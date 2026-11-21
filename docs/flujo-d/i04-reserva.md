@@ -67,9 +67,10 @@ listado, consulta solo por su dueño y recorrido HTTP completo (401/403/201/404/
 
 1. `SEED_SYNTHETIC=true` con `SEED_PASSWORD`, arrancar la API (`go run ./cmd/api`).
 2. Entrar como `apoderado.prueba@example.test`: la semilla ya creó el vínculo aceptado con
-   `escolar.prueba@example.test`. En `/panel_escolares` se ve la autorización vigente y su historial.
-3. Entrar como `escolar.prueba@example.test` y abrir `/reservar`: el horario a menos de 48 h aparece
-   deshabilitado con su motivo.
+   `escolar.prueba@example.test`. En `/panel_escolares` se otorga o revoca la autorización.
+   Sin autorización vigente, `/reservar` muestra el aviso y no el formulario.
+3. Entrar como `escolar.prueba@example.test` con la autorización otorgada y abrir `/reservar`: el
+   horario a menos de 48 h aparece deshabilitado con su motivo.
 4. Enviar tema, objetivo y grado; la reserva se confirma y muestra la hora en America/Lima.
 5. Repetir con el mismo horario: `409`.
 
@@ -78,6 +79,12 @@ listado, consulta solo por su dueño y recorrido HTTP completo (401/403/201/404/
 `POST /api/reserva` consulta el puerto `PuertoAutorizacion` del flujo A. Si el escolar no tiene
 un apoderado vinculado o su apoderado revocó el permiso, responde `403 sin_autorizacion`. Las
 reservas ya confirmadas no se modifican: la comprobación ocurre únicamente al crear una nueva.
+
+La pantalla `/reservar` consulta `GET /api/reserva/autorizacion` antes de cargar los horarios.
+Mientras verifica, no muestra el formulario; si no hay autorización vigente, muestra el mensaje
+"No tienes una autorización vigente para reservar tutorías. Pide a tu apoderado que la active."
+Si la autorización se revoca mientras el escolar completa el formulario, el `403 sin_autorizacion`
+del envío oculta el formulario y muestra el mismo aviso.
 
 ## Fuera de alcance (declarado, no inventado)
 

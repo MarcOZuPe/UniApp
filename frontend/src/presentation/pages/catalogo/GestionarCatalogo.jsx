@@ -7,6 +7,7 @@ import {
   obtenerSolicitudesColegio,
   revisarCurso,
 } from '../../../adapters/http/catalogoApi.js';
+import { esFuenteSintetica } from '../../../domain/catalogo/fuente.js';
 
 const cursoVacio = () => ({ nombre: '', grado: '' });
 const colegioVacio = () => ({ nombre: '', distrito: '' });
@@ -66,7 +67,7 @@ export default function GestionarCatalogo() {
           distrito: distrito.trim(),
         })),
       });
-      const sintetica = resultado.fuente.toLocaleLowerCase().startsWith('sintetico:');
+      const sintetica = esFuenteSintetica(resultado.fuente);
       setConfirmacion(sintetica
         ? 'Los datos de demostración se guardaron. Los cursos nuevos quedaron pendientes de revisión.'
         : 'El catálogo se actualizó. Los cursos nuevos quedaron pendientes de revisión.');

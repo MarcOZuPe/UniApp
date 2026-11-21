@@ -35,6 +35,8 @@ export function crearApiReserva(implementacionFetch = (...argumentos) => fetch(.
   const ruta = (id, sufijo = '') => `/api/reserva/${encodeURIComponent(id)}${sufijo}`;
 
   return {
+    obtenerAutorizacionReserva: () => pedir('GET', '/api/reserva/autorizacion'),
+
     listarSlots: () => pedir('GET', '/api/reserva/slots'),
 
     // La clave de idempotencia evita duplicar la reserva si el usuario reintenta.
@@ -66,6 +68,7 @@ export function crearApiReserva(implementacionFetch = (...argumentos) => fetch(.
 
 export const apiReserva = crearApiReserva();
 
+export const obtenerAutorizacionReserva = () => apiReserva.obtenerAutorizacionReserva();
 export const listarSlots = () => apiReserva.listarSlots();
 export const crearReserva = (datos, claveIdempotencia) => apiReserva.crearReserva(datos, claveIdempotencia);
 export const obtenerReserva = (id) => apiReserva.obtenerReserva(id);

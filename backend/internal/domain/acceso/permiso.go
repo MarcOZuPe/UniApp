@@ -9,6 +9,9 @@ const (
 	PermisoAutorizacionOtorgar      Permiso = "autorizacion:otorgar"
 	PermisoCatalogoGestionar        Permiso = "catalogo:gestionar"
 	PermisoCatalogoSolicitarColegio Permiso = "catalogo:solicitar_colegio"
+	PermisoIncidenteAcceder         Permiso = "incidente:acceder"
+	PermisoIncidenteRegistrar       Permiso = "incidente:registrar"
+	PermisoIncidenteRevisar         Permiso = "incidente:revisar"
 )
 
 func (rol Rol) Permisos() []Permiso {
