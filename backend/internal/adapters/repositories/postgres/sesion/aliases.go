@@ -5,23 +5,44 @@ package sesion
 import dominio "uniapp/internal/domain/sesion"
 
 type (
-	Asistencia        = dominio.Asistencia
-	Ausencia          = dominio.Ausencia
-	Bandeja           = dominio.Bandeja
-	Entrega           = dominio.Entrega
-	Intervalo         = dominio.Intervalo
-	Repositorio       = dominio.Repositorio
-	RepositorioOutbox = dominio.RepositorioOutbox
-	Resultado         = dominio.Resultado
-	Rol               = dominio.Rol
-	Sesion            = dominio.Sesion
+	AccionMinutos         = dominio.AccionMinutos
+	Asistencia            = dominio.Asistencia
+	Ausencia              = dominio.Ausencia
+	Bandeja               = dominio.Bandeja
+	DatosEntradaAuditoria = dominio.DatosEntradaAuditoria
+	DatosRegistroMinutos  = dominio.DatosRegistroMinutos
+	EntradaAuditoria      = dominio.EntradaAuditoria
+	Entrega               = dominio.Entrega
+	EstadoMinutos         = dominio.EstadoMinutos
+	EstadoReservas        = dominio.EstadoReservas
+	Intervalo             = dominio.Intervalo
+	RegistroMinutos       = dominio.RegistroMinutos
+	Repositorio           = dominio.Repositorio
+	RepositorioMinutos    = dominio.RepositorioMinutos
+	RepositorioOutbox     = dominio.RepositorioOutbox
+	Resultado             = dominio.Resultado
+	Rol                   = dominio.Rol
+	Sesion                = dominio.Sesion
 )
 
 const (
+	AccionAjustar           = dominio.AccionAjustar
+	AccionAnular            = dominio.AccionAnular
+	AccionAprobar           = dominio.AccionAprobar
+	AccionDisputar          = dominio.AccionDisputar
+	AccionProponer          = dominio.AccionProponer
+	AccionResolver          = dominio.AccionResolver
+	ActorSistema            = dominio.ActorSistema
 	AnticipacionDeclaracion = dominio.AnticipacionDeclaracion
 	DuracionSesion          = dominio.DuracionSesion
+	MaxCaracteresMotivo     = dominio.MaxCaracteresMotivo
 	MaxCaracteresResultado  = dominio.MaxCaracteresResultado
 	MaxIntentosOutbox       = dominio.MaxIntentosOutbox
+	MaxMinutosSesion        = dominio.MaxMinutosSesion
+	MinutosAnulados         = dominio.MinutosAnulados
+	MinutosEnDisputa        = dominio.MinutosEnDisputa
+	MinutosPropuestos       = dominio.MinutosPropuestos
+	MinutosVerificados      = dominio.MinutosVerificados
 	PlazoDeclaracion        = dominio.PlazoDeclaracion
 	PlazoReclamoOutbox      = dominio.PlazoReclamoOutbox
 	PlazoResultado          = dominio.PlazoResultado
@@ -31,19 +52,32 @@ const (
 
 var (
 	ErrAsistenciaDuplicada       = dominio.ErrAsistenciaDuplicada
+	ErrAsistenciaIncompleta      = dominio.ErrAsistenciaIncompleta
+	ErrAuditoriaInconsistente    = dominio.ErrAuditoriaInconsistente
 	ErrAusenciaDuplicada         = dominio.ErrAusenciaDuplicada
+	ErrAutoaprobacion            = dominio.ErrAutoaprobacion
 	ErrDeclaracionContradictoria = dominio.ErrDeclaracionContradictoria
+	ErrDisputaNoPermitida        = dominio.ErrDisputaNoPermitida
 	ErrFueraDePlazo              = dominio.ErrFueraDePlazo
+	ErrMinutosDuplicados         = dominio.ErrMinutosDuplicados
+	ErrMinutosInvalidos          = dominio.ErrMinutosInvalidos
+	ErrMinutosNoEncontrados      = dominio.ErrMinutosNoEncontrados
+	ErrMotivoInvalido            = dominio.ErrMotivoInvalido
 	ErrNoAutorizado              = dominio.ErrNoAutorizado
 	ErrReclamoVencido            = dominio.ErrReclamoVencido
 	ErrResultadoDuplicado        = dominio.ErrResultadoDuplicado
 	ErrResultadoInvalido         = dominio.ErrResultadoInvalido
+	ErrSesionCancelada           = dominio.ErrSesionCancelada
 	ErrSesionDuplicada           = dominio.ErrSesionDuplicada
 	ErrSesionInvalida            = dominio.ErrSesionInvalida
 	ErrSesionNoEncontrada        = dominio.ErrSesionNoEncontrada
+	ErrSesionNoFinalizada        = dominio.ErrSesionNoFinalizada
+	ErrTransicionMinutos         = dominio.ErrTransicionMinutos
 )
 
 var (
-	EsperaOutbox = dominio.EsperaOutbox
-	NuevaSesion  = dominio.NuevaSesion
+	EsperaOutbox             = dominio.EsperaOutbox
+	NuevaSesion              = dominio.NuevaSesion
+	ProponerMinutos          = dominio.ProponerMinutos
+	RestaurarRegistroMinutos = dominio.RestaurarRegistroMinutos
 )

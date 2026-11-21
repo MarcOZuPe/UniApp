@@ -1,0 +1,4 @@
+{
+  "_descripcion": "I17 (flujo E): reservas canceladas, datos SINTETICOS. Contrato provisional del puerto EstadoReservas hasta que el flujo D publique la cancelacion (I16). Se activa con I17_CANCELACIONES_FIXTURE=fixtures/sesion-cancelaciones.json.",
+  "reservas_canceladas": ["reserva-sintetica-cancelada-001"]
+}
