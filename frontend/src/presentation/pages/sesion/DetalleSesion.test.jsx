@@ -9,6 +9,11 @@ const estado = vi.hoisted(() => ({ usuario: null, cargando: false }));
 vi.mock('../../hooks/useSesion.js', () => ({ useSesion: () => estado }));
 vi.mock('../../../application/acceso/sesion.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
 vi.mock('../../../adapters/http/sesionApi.js', () => ({ obtenerSesion: vi.fn(), declararAsistencia: vi.fn(), reportarAusencia: vi.fn(), registrarResultado: vi.fn() }));
+// I17: la sección de minutos tiene sus propias pruebas; aquí no hay minutos propuestos.
+vi.mock('../../../adapters/http/minutosApi.js', () => ({
+  // Función simple (no vi.fn) para que vi.resetAllMocks() no la borre.
+  minutosApi: { obtener: () => Promise.reject(Object.assign(new Error('sin minutos'), { estado: 404 })) },
+}));
 const sesion = { id: 'sesion-i05-demo', reserva_id: 'reserva-i05-demo', tutor_id: 'tutor-001', escolar_id: 'escolar-001', inicio: '2026-10-20T15:00:00Z', fin: '2026-10-20T16:00:00Z', asistencias: [] };
 const asistencia = rol => ({ usuario_id: rol + '-001', rol, declarada_en: sesion.inicio });
 function abrir(ruta = '/sesiones/sesion-i05-demo') { window.history.replaceState({}, '', ruta); return render(<App />); }
