@@ -177,10 +177,21 @@ func (r RepositorioPostgres) CambiarCupo(ctx context.Context, tutorID string, mi
 	).Scan(&actual); err != nil {
 		return err
 	}
-	if minutos < actual {
+
+	// Compromisos activos: reservas confirmadas que todavía no ocurrieron. Reducir el
+	// cupo con compromisos pendientes dejaría sesiones sin capacidad, así que se rechaza.
+	var compromisos int
+	if err := transaccion.QueryRowContext(ctx,
+		`SELECT count(*) FROM reservas
+		 WHERE tutor_id = $1 AND estado = 'confirmada' AND inicio > now()`, tutorID,
+	).Scan(&compromisos); err != nil {
 		return ErrReduccionNoVerificable
 	}
+	if err := ValidarCambioCupoSemanal(CupoSemanal{TutorID: tutorID, Minutos: actual}, nuevo, compromisos); err != nil {
+		return err
+	}
 
+	// La disponibilidad publicada tampoco puede exceder el cupo nuevo.
 	var cantidadSlots int
 	if err := transaccion.QueryRowContext(ctx,
 		`SELECT count(*) FROM slots WHERE tutor_id = $1`, tutorID,
