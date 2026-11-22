@@ -159,6 +159,8 @@ func main() {
 	manejador = construirManejadorConIncidentes(manejador, incidentes, registro, configuracion)
 	// Minutos verificados I17.
 	manejador = construirManejadorConMinutos(manejador, controlador.Autenticar(), registro, configuracion, baseDatos)
+	// Reporte de minutos I18.
+	manejador = construirManejadorConReporte(manejador, controlador.Autenticar(), registro, configuracion, baseDatos)
 
 	servidor := nuevoServidor(configuracion.Puerto, manejador)
 
