@@ -1,15 +1,117 @@
-:root { --fg:#1b1f24; --bg:#fff; --muted:#5b6570; --accent:#1f5fbf; --err:#b42318; --borde:#c7ced6; font-family: system-ui, sans-serif; }
-@media (prefers-color-scheme: dark) { :root { --fg:#e8ecf1; --bg:#14181d; --muted:#9aa5b1; --accent:#6aa3ff; --err:#ff8a80; --borde:#3a444f; } }
-body { margin:0; background:var(--bg); color:var(--fg); }
-main { max-width:26rem; margin:3rem auto; padding:0 1rem; }
+@import "tailwindcss";
+@import "@fontsource-variable/source-sans-3";
+
+/* Estilo A · Institucional sobrio: guinda UNI sobre neutros piedra. */
+@theme {
+  --font-sans: "Source Sans 3 Variable", system-ui, sans-serif;
+  --color-guinda-50: oklch(97% 0.012 15);
+  --color-guinda-100: oklch(93% 0.03 15);
+  --color-guinda-300: oklch(75% 0.11 15);
+  --color-guinda-600: oklch(45% 0.15 15);
+  --color-guinda-700: oklch(38% 0.13 15);
+  --color-guinda-900: oklch(25% 0.08 15);
+}
+
+/* Tokens compartidos: el CSS de cada flujo (i10, oferta, incidentes, sesion) los usa. */
+:root {
+  color-scheme: light dark;
+  --fg: light-dark(var(--color-stone-900), var(--color-stone-100));
+  --bg: light-dark(white, var(--color-stone-900));
+  --fondo: light-dark(var(--color-stone-100), var(--color-stone-950));
+  --muted: light-dark(var(--color-stone-600), var(--color-stone-400));
+  --accent: light-dark(var(--color-guinda-700), var(--color-guinda-300));
+  --accent-fuerte: light-dark(var(--color-guinda-900), var(--color-guinda-100));
+  --accent-suave: light-dark(var(--color-guinda-50), var(--color-guinda-900));
+  --texto-sobre-accent: light-dark(white, var(--color-guinda-900));
+  --err: light-dark(var(--color-red-700), var(--color-red-300));
+  --borde: light-dark(var(--color-stone-300), var(--color-stone-700));
+  --borde-campo: light-dark(var(--color-stone-400), var(--color-stone-600));
+  accent-color: var(--accent);
+}
+
+@layer base {
+  body { background: var(--fondo); color: var(--fg); font-family: var(--font-sans); line-height: 1.5; }
+  h1, h2, h3, th { text-wrap: balance; }
+  h1 { font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin-block: 0 .75rem; }
+  h2 { font-size: 1.25rem; font-weight: 600; margin-block: 1.5rem .5rem; }
+  h3 { font-size: 1.05rem; font-weight: 600; margin-block: 1rem .4rem; }
+  p { margin-block: .5rem; }
+  ul, ol { padding-inline-start: 1.25rem; margin-block: .5rem; }
+  ul { list-style: disc; }
+  ol { list-style: decimal; }
+  a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  small { color: var(--muted); }
+  strong { font-weight: 600; }
+
+  /* Contenido por defecto: tarjeta blanca centrada. Las páginas con clase propia la redefinen. */
+  main { max-width: 26rem; margin: 2.5rem auto; padding: 0 1rem; }
+
+  label { font-weight: 600; font-size: .9rem; }
+  input:not([type="checkbox"], [type="radio"], [type="file"]), select, textarea {
+    padding: .5rem .75rem; border: 1px solid var(--borde-campo); border-radius: .375rem;
+    background: var(--bg); color: var(--fg); font: inherit;
+  }
+  input[aria-invalid="true"] { border-color: var(--err); }
+
+  button {
+    padding: .5rem 1rem; border: 1px solid transparent; border-radius: .375rem;
+    background: var(--accent); color: var(--texto-sobre-accent); font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--accent-fuerte); }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--bg); }
+  th { text-align: start; font-weight: 600; background: light-dark(var(--color-stone-50), var(--color-stone-800)); }
+  th, td { padding: .6rem .75rem; border-bottom: 1px solid var(--borde); vertical-align: top; }
+
+  [role="alert"].error, p.error {
+    border: 1px solid currentColor; border-radius: .375rem; padding: .6rem .75rem;
+    background: light-dark(var(--color-red-50), color-mix(in oklab, var(--color-red-950) 60%, transparent));
+  }
+  .error { color: var(--err); }
+  .error::before { content: "⚠ "; }
+  small.error { border: 0; padding: 0; background: none; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; border-color: var(--accent); }
+
+  /* ---- Área de contenido junto a la barra lateral ---- */
+  .contenido-app > main { max-width: 64rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  .contenido-app > main > h1 { font-size: clamp(1.75rem, 1.45rem + 1vw, 2.25rem); letter-spacing: -0.01em; }
+  .contenido-app > main > h1 + p { color: var(--muted); font-size: 1.05rem; max-width: 65ch; }
+  .contenido-app > main > form,
+  .contenido-app > main > section:not([class]) {
+    background: var(--bg); border: 1px solid var(--borde); border-radius: .875rem;
+    padding: 1.5rem; margin-block: 1.25rem; box-shadow: 0 1px 2px rgb(0 0 0 / .05);
+  }
+  .contenido-app > main > form { max-width: 42rem; }
+
+  /* ---- Pantallas de acceso: el formulario va en una tarjeta ---- */
+  .acceso-contenido main {
+    max-width: 28rem; margin: 1.5rem auto; padding: 2rem;
+    background: var(--bg); border: 1px solid var(--borde); border-radius: 1rem;
+    box-shadow: 0 12px 32px -16px rgb(0 0 0 / .25);
+  }
+  .acceso-contenido main form button:not([type="button"]) { width: 100%; padding-block: .7rem; margin-top: .25rem; }
+  .acceso-contenido main > p:last-child { text-align: center; font-size: .925rem; margin-top: 1.25rem; }
+}
+
+@layer base {
+  @media (width >= 48rem) {
+    .contenido-app > main { padding: 2.75rem 2.5rem 4rem; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}
+
+@media (forced-colors: active) {
+  button { border-color: ButtonText; }
+}
+
+/* ---- Reglas existentes de cada flujo (sin cambios de estructura) ---- */
 .campo { display:flex; flex-direction:column; gap:.25rem; margin-bottom:1rem; }
-input, select, textarea { padding:.55rem; border:1px solid var(--borde); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
-input[aria-invalid="true"] { border-color:var(--err); }
-button { padding:.6rem 1rem; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
-button:disabled { opacity:.6; }
-a { color:var(--accent); }
-small { color:var(--muted); }
-.error { color:var(--err); }
 .no-disponibles { margin-top:.4rem; }
 .no-disponibles ul { margin:.4rem 0 0; padding-left:1.2rem; color:var(--muted); }
 .pagina-tutor { max-width:48rem; }
@@ -17,7 +119,7 @@ small { color:var(--muted); }
 .pagina-apoderado { max-width:48rem; }
 .selector-escolar { display:flex; flex-direction:column; gap:.25rem; margin:1rem 0; }
 .selector-escolar select { max-width:100%; }
-.escolar-panel { border:1px solid var(--borde); border-radius:8px; padding:1rem; }
+.escolar-panel { border:1px solid var(--borde); border-radius:.875rem; padding:1.25rem; background:var(--bg); box-shadow:0 1px 2px rgb(0 0 0 / .05); }
 .escolar-panel h2 { font-size:1.15rem; margin:.25rem 0; }
 .historial-autorizaciones { margin-top:.75rem; }
 .historial-autorizaciones h3 { font-size:1rem; margin:.25rem 0; }
@@ -25,9 +127,9 @@ small { color:var(--muted); }
 .historial-autorizaciones caption { text-align:left; color:var(--muted); font-size:.85rem; margin-bottom:.35rem; }
 .historial-autorizaciones th,
 .historial-autorizaciones td { text-align:left; padding:.4rem; border-bottom:1px solid var(--borde); vertical-align:top; }
-.expediente { border:1px solid var(--borde); border-radius:8px; padding:1rem; margin:1rem 0; }
+.expediente { border:1px solid var(--borde); border-radius:.875rem; padding:1.25rem; margin:1rem 0; background:var(--bg); box-shadow:0 1px 2px rgb(0 0 0 / .05); }
 .pagina-catalogo { max-width:56rem; }
 .pagina-catalogo textarea { resize:vertical; font-family:ui-monospace, monospace; }
-.pagina-catalogo section { border-top:1px solid var(--borde); margin-top:1.5rem; padding-top:1rem; }
-.perfil-publico { border:1px solid var(--borde); border-radius:8px; margin:1rem 0; padding:1rem; }
-:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+.pagina-catalogo section { border:1px solid var(--borde); border-radius:.875rem; margin-top:1.25rem; padding:1.25rem 1.5rem; background:var(--bg); box-shadow:0 1px 2px rgb(0 0 0 / .05); }
+.pagina-catalogo section h2 { margin-top:0; }
+.perfil-publico { border:1px solid var(--borde); border-radius:.875rem; margin:1rem 0; padding:1.25rem; background:var(--bg); }

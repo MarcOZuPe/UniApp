@@ -30,7 +30,7 @@ function ListaReservas({ reservas }) {
   }
 
   if (reservas.length === 0) {
-    return <p>No tienes tutorías en esta sección.</p>;
+    return <p className="i10-vacio">No tienes tutorías en esta sección.</p>;
   }
 
   return (
@@ -185,13 +185,9 @@ export default function Agenda() {
 
       {usuario?.rol === 'escolar' && (
         <p>
-          <Link to="/reservar">Reservar otra tutoría</Link>
+          <Link to="/reservar" className="i10-principal">Reservar otra tutoría</Link>
         </p>
       )}
-
-      <p>
-        <Link to="/">Volver al inicio</Link>
-      </p>
     </main>
   );
 }
