@@ -371,6 +371,19 @@ components:
         valor_nuevo: { type: integer, nullable: true }
         motivo: { type: string }
         registrada_en: { type: string, format: date-time }
+    ConstanciaReporteI18:
+      type: object
+      description: Constancia inmutable de un reporte descargado (I18). La huella es la del archivo exacto entregado.
+      properties:
+        id: { type: string, example: rep-3e70ee25c700aa64 }
+        generado_por: { type: string, description: Id del coordinador que descargo el reporte }
+        generado_en: { type: string, format: date-time }
+        desde: { type: string, format: date-time, description: 'Inicio del periodo (incluido)' }
+        hasta: { type: string, format: date-time, description: 'Fin del periodo (excluido: inicio del dia siguiente al ultimo dia pedido)' }
+        tutor_id: { type: string, description: 'Vacio si el reporte incluye a todos los tutores' }
+        formato: { type: string, enum: [csv, pdf] }
+        filas: { type: integer, minimum: 0 }
+        sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
     SolicitudProponerMinutosI17:
       type: object
       required: [minutos]
@@ -1780,6 +1793,53 @@ paths:
                   registros: { type: array, items: { $ref: '#/components/schemas/MinutosI17' } }
         '400': { description: 'Coordinacion sin tutor_id' }
         '403': { description: 'Otro rol, o un tutor pidiendo el total de otro' }
+  /api/reportes/minutos:
+    get:
+      tags: [E-sesion]
+      summary: Descargar el reporte de minutos en CSV o PDF (I18)
+      description: |
+        Solo coordinacion (coordinacion:acceder). Las fechas son dias de Lima y "hasta" se incluye; el periodo
+        abarca como maximo 31 dias. Los escolares aparecen con un seudonimo estable (ESC- y 10 caracteres de
+        HMAC-SHA256); nunca con su id ni su nombre. Solo suman los minutos verificados (I17); una reserva
+        cancelada aparece anulada y suma 0. Cada descarga deja una constancia con la huella SHA-256 del archivo;
+        si la constancia no se puede guardar, el archivo no se entrega. El reporte no tiene validez oficial:
+        no hay conexion con ningun registro externo (RF-18, E01 pendiente).
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: desde, in: query, required: true, schema: { type: string, format: date, example: '2026-11-01' } }
+        - { name: hasta, in: query, required: true, schema: { type: string, format: date, example: '2026-11-30' } }
+        - { name: formato, in: query, required: true, schema: { type: string, enum: [csv, pdf] } }
+        - { name: tutor_id, in: query, required: false, schema: { type: string }, description: 'Vacio o ausente para todos los tutores' }
+      responses:
+        '200':
+          description: Archivo del reporte (adjunto)
+          headers:
+            Content-Disposition: { schema: { type: string, example: 'attachment; filename="reporte-minutos-20261101-20261130.csv"' } }
+            X-Reporte-Id: { schema: { type: string }, description: Id de la constancia }
+            X-Reporte-Sha256: { schema: { type: string }, description: Huella SHA-256 del archivo entregado }
+          content:
+            text/csv: { schema: { type: string, description: 'UTF-8 con BOM: metadatos, detalle por sesion y totales por tutor. Las celdas que empiezan con = + - @ llevan un apostrofo delante.' } }
+            application/pdf: { schema: { type: string, format: binary } }
+        '400': { description: 'Parametro desconocido o repetido (solicitud_invalida), formato distinto de csv/pdf (formato_invalido) o fecha mal escrita (fecha_invalida)' }
+        '401': { description: Sin sesion }
+        '403': { description: 'Rol sin permiso coordinacion:acceder (sin_permiso)' }
+        '422': { description: 'Hasta anterior a desde o periodo de mas de 31 dias (periodo_invalido)' }
+        '500': { description: 'No se pudo generar el reporte o guardar su constancia (error_interno); no se entrega el archivo' }
+  /api/reportes/registro:
+    get:
+      tags: [E-sesion]
+      summary: Constancias de los ultimos 50 reportes descargados (I18)
+      security: [{ sesion: [] }]
+      responses:
+        '200':
+          description: Constancias, la mas reciente primero
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportes: { type: array, items: { $ref: '#/components/schemas/ConstanciaReporteI18' } }
+        '403': { description: 'Rol sin permiso coordinacion:acceder (sin_permiso)' }
 
   /api/salud:
     get: { tags: [A-acceso], summary: Estado del servicio de acceso, responses: { '200': { description: OK } } }
