@@ -10,14 +10,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/source-sans-3": "^5.3.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.10",
     "@testing-library/react": "^16.3.3",
     "@vitejs/plugin-react": "^4.3.1",
     "jsdom": "^26.1.0",
+    "tailwindcss": "^4.1.10",
     "vite": "^5.4.8",
     "vitest": "^2.1.2"
   }
