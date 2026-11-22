@@ -18,7 +18,7 @@
 .pagina-sesion .sesion-tarjeta p { line-height: 1.6; }
 .pagina-sesion .sesion-estado { display: inline-block; margin-left: .4rem; padding: .15rem .65rem; border-radius: 20px; background: #fff5d9; color: #704b00; font-size: .9rem; font-weight: 650; }
 .pagina-sesion .sesion-estado.declarada { background: #e9f8f1; color: #176b4d; }
-.pagina-sesion .sesion-declarar { width: 100%; min-height: 2.8rem; margin-top: .7rem; background: #2458b3; color: #fff; font-weight: 650; }
+.pagina-sesion .sesion-declarar { width: 100%; min-height: 2.8rem; margin-top: .7rem; background: var(--accent); color: var(--texto-sobre-accent); font-weight: 650; }
 .pagina-sesion .sesion-declarar:disabled { cursor: not-allowed; opacity: .7; }
 .pagina-sesion .sesion-exito { padding: 1rem; border-radius: 10px; background: #e9f8f1; color: #176b4d; }
 .pagina-sesion [role="alert"] { padding: 1rem; border: 1px solid currentColor; border-radius: 10px; }
