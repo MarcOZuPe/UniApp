@@ -15,6 +15,7 @@ export const NAVEGACION = [
   { ruta: '/mi-apoderado', texto: 'Mi apoderado', descripcion: 'Quién te acompaña y qué autorizó.', icono: 'persona', roles: ['escolar'] },
   { ruta: '/coordinacion', texto: 'Coordinación', textoInicio: 'Zona de coordinación', descripcion: 'Resumen del piloto y pendientes.', icono: 'panel', roles: ['coordinador'], fin: true },
   { ruta: '/coordinacion/tutores', texto: 'Revisar tutores', descripcion: 'Aprueba o rechaza expedientes.', icono: 'verificado', roles: ['coordinador'] },
+  { ruta: '/coordinacion/minutos', texto: 'Revisión de minutos', descripcion: 'Aprueba, ajusta o resuelve minutos propuestos.', icono: 'reloj', roles: ['coordinador'] },
   { ruta: '/coordinacion/catalogo', texto: 'Gestionar catálogo', descripcion: 'Cursos, grados y colegios del padrón.', icono: 'lista', roles: ['coordinador'] },
   { ruta: '/catalogo', texto: 'Catálogo', descripcion: 'Cursos y perfiles públicos de tutores.', icono: 'catalogo' },
   { ruta: '/incidentes', texto: 'Incidentes', textoInicio: 'Incidentes confidenciales', descripcion: 'Reportes confidenciales y su seguimiento.', icono: 'bandera', roles: ['escolar', 'apoderado', 'coordinador'] },
