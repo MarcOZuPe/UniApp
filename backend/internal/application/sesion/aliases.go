@@ -6,23 +6,35 @@ import dominio "uniapp/internal/domain/sesion"
 
 type (
 	AccionMinutos         = dominio.AccionMinutos
+	AccionReporte         = dominio.AccionReporte
 	Asistencia            = dominio.Asistencia
+	AsistenciaReporte     = dominio.AsistenciaReporte
 	Ausencia              = dominio.Ausencia
 	Bandeja               = dominio.Bandeja
 	DatosEntradaAuditoria = dominio.DatosEntradaAuditoria
 	DatosRegistroMinutos  = dominio.DatosRegistroMinutos
+	DirectorioNombres     = dominio.DirectorioNombres
 	EntradaAuditoria      = dominio.EntradaAuditoria
+	EntradaReporte        = dominio.EntradaReporte
 	Entrega               = dominio.Entrega
 	EstadoMinutos         = dominio.EstadoMinutos
 	EstadoReservas        = dominio.EstadoReservas
+	FilaReporte           = dominio.FilaReporte
+	FiltroReporte         = dominio.FiltroReporte
+	FormatoReporte        = dominio.FormatoReporte
 	Intervalo             = dominio.Intervalo
 	RegistroMinutos       = dominio.RegistroMinutos
+	RegistroReporte       = dominio.RegistroReporte
+	Reporte               = dominio.Reporte
 	Repositorio           = dominio.Repositorio
 	RepositorioMinutos    = dominio.RepositorioMinutos
 	RepositorioOutbox     = dominio.RepositorioOutbox
+	RepositorioReportes   = dominio.RepositorioReportes
 	Resultado             = dominio.Resultado
 	Rol                   = dominio.Rol
 	Sesion                = dominio.Sesion
+	Seudonimizador        = dominio.Seudonimizador
+	TotalTutorReporte     = dominio.TotalTutorReporte
 )
 
 const (
@@ -34,11 +46,22 @@ const (
 	AccionResolver          = dominio.AccionResolver
 	ActorSistema            = dominio.ActorSistema
 	AnticipacionDeclaracion = dominio.AnticipacionDeclaracion
+	AsistenciaCompleta      = dominio.AsistenciaCompleta
+	AsistenciaConAusencia   = dominio.AsistenciaConAusencia
+	AsistenciaSinDeclarar   = dominio.AsistenciaSinDeclarar
+	AsistenciaSoloEscolar   = dominio.AsistenciaSoloEscolar
+	AsistenciaSoloTutor     = dominio.AsistenciaSoloTutor
+	AvisoSinValidezOficial  = dominio.AvisoSinValidezOficial
 	DuracionSesion          = dominio.DuracionSesion
+	EstadoSinRegistro       = dominio.EstadoSinRegistro
+	FormatoCSV              = dominio.FormatoCSV
+	FormatoPDF              = dominio.FormatoPDF
 	MaxCaracteresMotivo     = dominio.MaxCaracteresMotivo
 	MaxCaracteresResultado  = dominio.MaxCaracteresResultado
+	MaxDiasReporte          = dominio.MaxDiasReporte
 	MaxIntentosOutbox       = dominio.MaxIntentosOutbox
 	MaxMinutosSesion        = dominio.MaxMinutosSesion
+	MinBytesClaveSeudonimo  = dominio.MinBytesClaveSeudonimo
 	MinutosAnulados         = dominio.MinutosAnulados
 	MinutosEnDisputa        = dominio.MinutosEnDisputa
 	MinutosPropuestos       = dominio.MinutosPropuestos
@@ -46,6 +69,7 @@ const (
 	PlazoDeclaracion        = dominio.PlazoDeclaracion
 	PlazoReclamoOutbox      = dominio.PlazoReclamoOutbox
 	PlazoResultado          = dominio.PlazoResultado
+	PrefijoSeudonimo        = dominio.PrefijoSeudonimo
 	RolEscolar              = dominio.RolEscolar
 	RolTutor                = dominio.RolTutor
 )
@@ -56,8 +80,11 @@ var (
 	ErrAuditoriaInconsistente    = dominio.ErrAuditoriaInconsistente
 	ErrAusenciaDuplicada         = dominio.ErrAusenciaDuplicada
 	ErrAutoaprobacion            = dominio.ErrAutoaprobacion
+	ErrClaveSeudonimoInvalida    = dominio.ErrClaveSeudonimoInvalida
 	ErrDeclaracionContradictoria = dominio.ErrDeclaracionContradictoria
 	ErrDisputaNoPermitida        = dominio.ErrDisputaNoPermitida
+	ErrFiltroReporteInvalido     = dominio.ErrFiltroReporteInvalido
+	ErrFormatoReporteInvalido    = dominio.ErrFormatoReporteInvalido
 	ErrFueraDePlazo              = dominio.ErrFueraDePlazo
 	ErrMinutosDuplicados         = dominio.ErrMinutosDuplicados
 	ErrMinutosInvalidos          = dominio.ErrMinutosInvalidos
@@ -65,6 +92,7 @@ var (
 	ErrMotivoInvalido            = dominio.ErrMotivoInvalido
 	ErrNoAutorizado              = dominio.ErrNoAutorizado
 	ErrReclamoVencido            = dominio.ErrReclamoVencido
+	ErrReporteInvalido           = dominio.ErrReporteInvalido
 	ErrResultadoDuplicado        = dominio.ErrResultadoDuplicado
 	ErrResultadoInvalido         = dominio.ErrResultadoInvalido
 	ErrSesionCancelada           = dominio.ErrSesionCancelada
@@ -76,8 +104,13 @@ var (
 )
 
 var (
+	ConstruirReporte         = dominio.ConstruirReporte
 	EsperaOutbox             = dominio.EsperaOutbox
 	NuevaSesion              = dominio.NuevaSesion
+	NuevoFiltroReporte       = dominio.NuevoFiltroReporte
+	NuevoRegistroReporte     = dominio.NuevoRegistroReporte
+	NuevoSeudonimizador      = dominio.NuevoSeudonimizador
 	ProponerMinutos          = dominio.ProponerMinutos
 	RestaurarRegistroMinutos = dominio.RestaurarRegistroMinutos
+	ValidarFormatoReporte    = dominio.ValidarFormatoReporte
 )
