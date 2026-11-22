@@ -19,6 +19,7 @@ import FormularioReserva from '../presentation/pages/reserva/FormularioReserva.j
 import Agenda from '../presentation/pages/reserva/Agenda.jsx';
 import DetalleSesion from '../presentation/pages/sesion/DetalleSesion.jsx';
 import Notificaciones from '../presentation/pages/sesion/Notificaciones.jsx';
+import RevisionMinutos from '../presentation/pages/sesion/RevisionMinutos.jsx';
 
 import VincularEscolar from '../presentation/pages/apoderado/VincularEscolar.jsx';
 import PanelEscolares from '../presentation/pages/apoderado/PanelEscolares.jsx';
@@ -74,6 +75,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador']}>
                             <TutoresAprobados />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/coordinacion/minutos"
+                    element={
+                        <RutaProtegida roles={['coordinador']}>
+                            <RevisionMinutos />
                         </RutaProtegida>
                     }
                 />

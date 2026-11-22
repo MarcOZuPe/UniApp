@@ -66,6 +66,26 @@ func (repositorio RepositorioPostgres) SesionPorID(
 	return sesion, nil
 }
 
+// SesionPorReservaID permite abrir el detalle de sesion desde la agenda (I05).
+func (repositorio RepositorioPostgres) SesionPorReservaID(
+	ctx context.Context,
+	reservaID string,
+) (*Sesion, error) {
+	var sesionID string
+	err := repositorio.DB.QueryRowContext(ctx, `
+		SELECT id
+		FROM sesion_sesiones
+		WHERE reserva_id = $1
+	`, reservaID).Scan(&sesionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrSesionNoEncontrada
+	}
+	if err != nil {
+		return nil, err
+	}
+	return repositorio.SesionPorID(ctx, sesionID)
+}
+
 func (repositorio RepositorioPostgres) DeclararAsistencia(
 	ctx context.Context,
 	sesionID string,
@@ -160,6 +180,12 @@ func cargarSesion(
 	if err := cargarAsistencias(ctx, transaccion, sesion); err != nil {
 		return nil, err
 	}
+	if err := cargarAusencias(ctx, transaccion, sesion); err != nil {
+		return nil, err
+	}
+	if err := cargarResultado(ctx, transaccion, sesion); err != nil {
+		return nil, err
+	}
 	return sesion, nil
 }
 
@@ -188,7 +214,7 @@ func cargarAsistencias(
 			return err
 		}
 
-		if err := sesion.DeclararAsistencia(usuarioID, declaradaEn); err != nil {
+		if err := sesion.RestaurarAsistencia(usuarioID, declaradaEn); err != nil {
 			return fmt.Errorf("asistencia almacenada invalida: %w", err)
 		}
 
