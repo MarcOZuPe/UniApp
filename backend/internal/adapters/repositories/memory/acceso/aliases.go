@@ -71,6 +71,7 @@ const (
 )
 
 var (
+	ErrClaveActualIncorrecta = dominio.ErrClaveActualIncorrecta
 	ErrCoordinadorNoEncontrado = dominio.ErrCoordinadorNoEncontrado
 	ErrCredenciales = dominio.ErrCredenciales
 	ErrDemasiadosIntentos = dominio.ErrDemasiadosIntentos

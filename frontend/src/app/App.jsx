@@ -16,6 +16,7 @@ import Restablecer from '../presentation/pages/acceso/Restablecer.jsx';
 import Confirmar from '../presentation/pages/acceso/Confirmar.jsx';
 import Coordinacion from '../presentation/pages/acceso/Coordinacion.jsx';
 import GestionarCoordinadores from '../presentation/pages/acceso/GestionarCoordinadores.jsx';
+import Perfil from '../presentation/pages/acceso/Perfil.jsx';
 
 import Disponibilidad from '../presentation/pages/oferta/Disponibilidad.jsx';
 import FormularioReserva from '../presentation/pages/reserva/FormularioReserva.jsx';
@@ -59,6 +60,15 @@ export default function App() {
                 {/* Pantallas con barra lateral de navegación */}
                 <Route element={<DisenoApp />}>
                 <Route path="/catalogo" element={<Catalogo />} />
+
+                <Route
+                    path="/perfil"
+                    element={
+                        <RutaProtegida>
+                            <Perfil />
+                        </RutaProtegida>
+                    }
+                />
 
                 <Route
                     path="/coordinacion"

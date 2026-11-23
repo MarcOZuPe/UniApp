@@ -50,6 +50,24 @@ export function validarRestablecer(formularioRestablecimiento) {
   return erroresPorCampo;
 }
 
+export function validarCambioClave(formulario, { rol, email } = {}) {
+  const erroresPorCampo = {};
+  if (!String(formulario.clave_actual ?? '').trim()) {
+    erroresPorCampo.clave_actual = 'Ingresa tu contraseña actual';
+  }
+  const claveNueva = formulario.clave_nueva || '';
+  const observaciones = crearPolitica(rol)({ clave: claveNueva, email: email || '' });
+  if (observaciones.length) {
+    erroresPorCampo.clave_nueva = 'La contraseña ' + observaciones.join('; ');
+  } else if (claveNueva === formulario.clave_actual) {
+    erroresPorCampo.clave_nueva = 'La nueva contraseña debe ser diferente.';
+  }
+  if (claveNueva !== formulario.confirmar) {
+    erroresPorCampo.confirmar = 'Las contraseñas no coinciden';
+  }
+  return erroresPorCampo;
+}
+
 export function dominiosDe(dominios) {
   return String(dominios ?? '')
     .split(',')

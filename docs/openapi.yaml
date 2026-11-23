@@ -565,6 +565,28 @@ paths:
     post: { security: [{ sesion: [] }], summary: Cierra sesión, responses: { '204': { description: OK }, '401': { description: Sin sesión } } }
   /api/auth/yo:
     get: { security: [{ sesion: [] }], summary: Usuario de la sesión, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }, '401': { description: Sin sesión } } }
+  /api/perfil/clave:
+    put:
+      security: [{ sesion: [] }]
+      summary: Cambiar la contraseña propia
+      description: >
+        Exige la contraseña actual y aplica la política del rol. El correo y el nombre
+        de identificación no son editables desde el perfil.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clave_actual, clave_nueva]
+              properties:
+                clave_actual: { type: string, minLength: 1 }
+                clave_nueva: { type: string, minLength: 10 }
+      responses:
+        '204': { description: Contraseña actualizada }
+        '400': { description: JSON inválido }
+        '401': { description: Sin sesión }
+        '422': { description: Contraseña actual incorrecta o nueva contraseña inválida }
   /api/auth/recuperar:
     post:
       summary: Solicita enlace (respuesta idéntica exista o no el correo)

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ROLES, ROLES_REGISTRO, etiquetaRol, politicaDeRol, puedeAcceder, requiereCorreoInstitucional } from './roles.js';
-import { crearPolitica, validarRegistro, validarRestablecer } from './validadores.js';
+import { crearPolitica, validarCambioClave, validarRegistro, validarRestablecer } from './validadores.js';
 import { getInstance } from '../../application/acceso/almacenSesion.js';
 import { crearClienteHttp, ErrorApi } from '../../infrastructure/http/fetchClient.js';
 import { conSesionExpirada } from '../../adapters/http/decoradores.js';
@@ -43,6 +43,12 @@ describe('modelo: validadores (Strategy + Factory)', () => {
   it('detecta contraseñas distintas', () => {
     const erroresRegistro = validarRegistro({ email: 'a@b.co', nombre_uso: 'Ana', clave: 'clave-larga-ok', confirmar: 'otra', rol: 'escolar' });
     expect(erroresRegistro.confirmar).toBeTruthy();
+  });
+  it('valida cambio de clave según el rol sin tocar correo ni nombre', () => {
+    expect(validarCambioClave({ clave_actual: '', clave_nueva: 'Clave-Nueva-2026!', confirmar: 'Clave-Nueva-2026!' })).toHaveProperty('clave_actual');
+    expect(validarCambioClave({ clave_actual: 'Clave-Vieja-2026!', clave_nueva: 'corta', confirmar: 'corta' }, { rol: 'coordinador', email: 'c@example.com' })).toHaveProperty('clave_nueva');
+    expect(validarCambioClave({ clave_actual: 'Clave-Vieja-2026!', clave_nueva: 'Clave-Nueva-2026!', confirmar: 'otra' })).toHaveProperty('confirmar');
+    expect(validarCambioClave({ clave_actual: 'Clave-Vieja-2026!', clave_nueva: 'Clave-Nueva-2026!', confirmar: 'Clave-Nueva-2026!' }, { rol: 'escolar', email: 'e@example.com' })).toEqual({});
   });
   it('un escolar no puede acceder a rutas de coordinación', () => {
     expect(puedeAcceder('escolar', ['coordinador'])).toBe(false);

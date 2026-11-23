@@ -6,6 +6,7 @@ const ROLES_COORDINACION = ['coordinador', 'coordinador_general'];
 // los permisos reales siguen en App.jsx con RutaProtegida.
 export const NAVEGACION = [
   { ruta: '/', texto: 'Inicio', icono: 'inicio', fin: true, soloMenu: true },
+  { ruta: '/perfil', texto: 'Mi perfil', descripcion: 'Tus datos de cuenta y contraseña.', icono: 'persona' },
   { ruta: '/agenda', texto: 'Mi agenda', descripcion: 'Tus próximas tutorías y las pasadas.', icono: 'agenda', roles: ['escolar', 'tutor'] },
   { ruta: '/reservar', texto: 'Reservar tutoría', textoInicio: 'Reservar una tutoría', descripcion: 'Elige un horario publicado por un tutor.', icono: 'reservar', roles: ['escolar'] },
   { ruta: '/notificaciones', texto: 'Notificaciones', textoInicio: 'Mis notificaciones', descripcion: 'Avisos y recordatorios de tus sesiones.', icono: 'notificaciones', roles: ['escolar', 'tutor'] },

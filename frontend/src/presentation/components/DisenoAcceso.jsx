@@ -37,7 +37,6 @@ export default function DisenoAcceso() {
           </ul>
         </div>
 
-        <p className="relative m-0 text-sm text-guinda-100">Piloto independiente con datos sintéticos · Proyecto académico</p>
       </aside>
 
       <div className="acceso-contenido flex items-center justify-center p-4">

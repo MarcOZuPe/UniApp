@@ -20,6 +20,7 @@ type Servicio struct {
 	Vinculacion   *VinculacionService
 	Autorizacion  *AutorizacionService
 	Coordinadores *CoordinadoresService
+	Perfil        *PerfilService
 }
 
 func NuevoServicio(dependencias Dependencias) *Servicio {
@@ -63,5 +64,6 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 		Vinculacion:   &VinculacionService{Nucleo: nucleo},
 		Autorizacion:  &AutorizacionService{Nucleo: nucleo},
 		Coordinadores: &CoordinadoresService{Nucleo: nucleo},
+		Perfil:        &PerfilService{Nucleo: nucleo},
 	}
 }

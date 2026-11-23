@@ -11,4 +11,5 @@ var (
 	ErrDemasiadosIntentos      = errors.New("demasiados intentos; espera unos minutos")
 	ErrNoAutorizado            = errors.New("no autorizado")
 	ErrCoordinadorNoEncontrado = errors.New("coordinador no encontrado")
+	ErrClaveActualIncorrecta   = errors.New("la contraseña actual no es correcta")
 )
