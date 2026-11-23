@@ -1,0 +1,77 @@
+.pagina-coordinacion {
+  max-width: 64rem;
+}
+
+.pagina-coordinacion section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borde);
+}
+
+.panel-actualizado {
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.panel-metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+
+.panel-metricas article {
+  padding: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.panel-metricas h3 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.panel-metricas dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .35rem .75rem;
+  margin: 0;
+}
+
+.panel-metricas dt {
+  color: var(--muted);
+}
+
+.panel-metricas dd {
+  margin: 0;
+  font-weight: 650;
+}
+
+.panel-cifra {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 750;
+}
+
+.panel-tabla-scroll {
+  overflow-x: auto;
+}
+
+.panel-auditoria {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+}
+
+.panel-auditoria th,
+.panel-auditoria td {
+  padding: .55rem;
+  border-bottom: 1px solid var(--borde);
+  text-align: left;
+  vertical-align: top;
+}
+
+.panel-auditoria td small {
+  display: block;
+  margin-top: .15rem;
+  overflow-wrap: anywhere;
+}
