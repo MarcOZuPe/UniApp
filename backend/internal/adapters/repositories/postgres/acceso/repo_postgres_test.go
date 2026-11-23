@@ -229,3 +229,63 @@ func TestRepositorioPostgresVinculacion(testingT *testing.T) {
 		testingT.Fatalf("listado: %+v (%v)", vinculaciones, err)
 	}
 }
+
+func TestCambiarClaveConLimitePostgres(testingT *testing.T) {
+	urlBaseDatos := os.Getenv("TEST_DATABASE_URL")
+	if urlBaseDatos == "" {
+		testingT.Skip("TEST_DATABASE_URL no definida")
+	}
+	contexto := context.Background()
+	baseDatos, err := migrations.Abrir(urlBaseDatos)
+	if err != nil {
+		testingT.Fatal(err)
+	}
+	defer baseDatos.Close()
+	if err := migrations.Migrar(contexto, baseDatos, migrations.FS); err != nil {
+		testingT.Fatal(err)
+	}
+	_, _ = baseDatos.Exec(`TRUNCATE usuarios CASCADE`)
+
+	var usuarioID string
+	if err := baseDatos.QueryRow(`
+		INSERT INTO usuarios (email, nombre_uso, clave_hash, rol_id)
+		VALUES ('limite.pg@example.com', 'Límite PG', 'hash-viejo', 1)
+		RETURNING id::text`).Scan(&usuarioID); err != nil {
+		testingT.Fatal(err)
+	}
+	if _, err := baseDatos.Exec(`
+		INSERT INTO sesiones (token_hash, usuario_id, expira_en)
+		VALUES (decode('01', 'hex'), $1, now() + interval '1 hour')`, usuarioID); err != nil {
+		testingT.Fatal(err)
+	}
+	repositorio := postgresRepo.RepositorioPostgres{DB: baseDatos}
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	cambiar := func(momento time.Time) error {
+		return repositorio.CambiarClaveConLimite(contexto, usuarioID, "hash-nuevo", momento, 3, 1)
+	}
+	if err := cambiar(ahora); err != nil {
+		testingT.Fatal(err)
+	}
+	var sesiones, cambios int
+	if err := baseDatos.QueryRow(`SELECT count(*) FROM sesiones WHERE usuario_id=$1`, usuarioID).Scan(&sesiones); err != nil {
+		testingT.Fatal(err)
+	}
+	if err := baseDatos.QueryRow(`SELECT count(*) FROM perfil_cambios_clave WHERE usuario_id=$1`, usuarioID).Scan(&cambios); err != nil {
+		testingT.Fatal(err)
+	}
+	if sesiones != 0 || cambios != 1 {
+		testingT.Fatalf("sesiones=%d cambios=%d", sesiones, cambios)
+	}
+	if err := cambiar(ahora.Add(30 * time.Second)); !errors.Is(err, modelo.ErrDemasiadosCambiosClave) {
+		testingT.Fatalf("límite por minuto: %v", err)
+	}
+	if err := cambiar(ahora.Add(2 * time.Minute)); err != nil {
+		testingT.Fatal(err)
+	}
+	if err := cambiar(ahora.Add(4 * time.Minute)); err != nil {
+		testingT.Fatal(err)
+	}
+	if err := cambiar(ahora.Add(6 * time.Minute)); !errors.Is(err, modelo.ErrDemasiadosCambiosClave) {
+		testingT.Fatalf("límite por hora: %v", err)
+	}
+}

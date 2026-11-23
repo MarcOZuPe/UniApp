@@ -7,8 +7,6 @@ const PUNTOS = [
   { icono: 'verificado', texto: 'Cada minuto dictado se revisa antes de contar.' },
 ];
 
-// Pantallas de acceso (ingreso, registro, recuperación…): panel institucional a la
-// izquierda y el formulario de la página a la derecha. Cada página trae su propio <main>.
 export default function DisenoAcceso() {
   return (
     <div className="grid min-h-screen md:grid-cols-[1.1fr_1fr]">

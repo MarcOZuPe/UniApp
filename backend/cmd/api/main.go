@@ -361,6 +361,7 @@ func construirBus(
 		modelo.IngresoExitoso,
 		modelo.IngresoFallido,
 		modelo.ClaveRestablecida,
+		modelo.ClaveCambiada,
 		modelo.RecuperacionSolicitada,
 		modelo.ConfirmacionSolicitada,
 		modelo.CorreoConfirmado,
@@ -383,6 +384,10 @@ func construirBus(
 	bus.Registrar(
 		modelo.VinculacionSolicitada,
 		infra.NuevoCorreoVinculacion(mailer, configuracion.OrigenFrontend),
+	)
+	bus.Registrar(
+		modelo.ClaveCambiada,
+		infra.NuevoCorreoCambioClave(mailer),
 	)
 
 	return bus

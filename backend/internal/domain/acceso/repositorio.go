@@ -17,6 +17,15 @@ type RepositorioUsuarios interface {
 	EliminarUsuariosSinConfirmar(ctx context.Context, ahora time.Time) (int64, error)
 }
 
+type RepositorioPerfil interface {
+	CambiarClaveConLimite(
+		ctx context.Context,
+		usuarioID, hashClave string,
+		ahora time.Time,
+		maximoHora, maximoMinuto int,
+	) error
+}
+
 type RepositorioSesiones interface {
 	GuardarSesion(ctx context.Context, sesion Sesion) error
 	SesionPorHash(ctx context.Context, hashToken []byte) (*Sesion, error)
@@ -49,6 +58,7 @@ type RepositorioAutorizaciones interface {
 
 type Repositorio interface {
 	RepositorioUsuarios
+	RepositorioPerfil
 	RepositorioSesiones
 	RepositorioTokens
 	RepositorioVinculaciones

@@ -12,6 +12,7 @@ const DuracionSesion = 12 * time.Hour
 
 type Nucleo struct {
 	RepositorioUsuarios       RepositorioUsuarios
+	RepositorioPerfil         RepositorioPerfil
 	RepositorioSesiones       RepositorioSesiones
 	RepositorioTokens         RepositorioTokens
 	RepositorioVinculaciones  RepositorioVinculaciones

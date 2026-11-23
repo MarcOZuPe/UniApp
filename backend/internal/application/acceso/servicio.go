@@ -35,6 +35,7 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 	}
 	nucleo := &Nucleo{
 		RepositorioUsuarios:       dependencias.Repositorio,
+		RepositorioPerfil:         dependencias.Repositorio,
 		RepositorioSesiones:       dependencias.Repositorio,
 		RepositorioTokens:         dependencias.Repositorio,
 		RepositorioVinculaciones:  dependencias.Repositorio,

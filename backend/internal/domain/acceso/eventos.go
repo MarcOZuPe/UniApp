@@ -6,6 +6,7 @@ const (
 	IngresoFallido         = "ingreso.fallido"
 	RecuperacionSolicitada = "clave.recuperacion_solicitada"
 	ClaveRestablecida      = "clave.restablecida"
+	ClaveCambiada          = "clave.cambiada"
 	ConfirmacionSolicitada = "correo.confirmacion_solicitada"
 	CorreoConfirmado       = "correo.confirmado"
 	VinculacionSolicitada  = "vinculacion.solicitada"

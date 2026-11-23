@@ -571,7 +571,8 @@ paths:
       summary: Cambiar la contraseña propia
       description: >
         Exige la contraseña actual y aplica la política del rol. El correo y el nombre
-        de identificación no son editables desde el perfil.
+        de identificación no son editables desde el perfil. Al cambiar la contraseña se
+        revocan todas las sesiones y se envía un aviso al correo del titular.
       requestBody:
         required: true
         content:
@@ -587,6 +588,7 @@ paths:
         '400': { description: JSON inválido }
         '401': { description: Sin sesión }
         '422': { description: Contraseña actual incorrecta o nueva contraseña inválida }
+        '429': { description: Se excedió el máximo de cambios de contraseña; mensaje general }
   /api/auth/recuperar:
     post:
       summary: Solicita enlace (respuesta idéntica exista o no el correo)

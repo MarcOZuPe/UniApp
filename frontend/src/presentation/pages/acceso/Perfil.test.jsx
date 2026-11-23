@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 import Perfil from './Perfil.jsx';
 import { cambiarClavePerfil } from '../../../application/acceso/perfil.js';
+import { salir } from '../../../application/acceso/sesion.js';
 
 const estado = vi.hoisted(() => ({
   usuario: {
@@ -24,10 +25,27 @@ vi.mock('../../../application/acceso/perfil.js', () => ({
   cambiarClavePerfil: vi.fn(),
 }));
 
+vi.mock('../../../application/acceso/sesion.js', () => ({
+  salir: vi.fn(),
+}));
+
+function DestinoIngreso() {
+  const ubicacion = useLocation();
+  return (
+    <>
+      <h1>Ingresar</h1>
+      {ubicacion.state?.mensaje && <p role="status">{ubicacion.state.mensaje}</p>}
+    </>
+  );
+}
+
 function renderizar() {
   return render(
-    <MemoryRouter>
-      <Perfil />
+    <MemoryRouter initialEntries={['/perfil']}>
+      <Routes>
+        <Route path="/perfil" element={<Perfil />} />
+        <Route path="/ingreso" element={<DestinoIngreso />} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -35,6 +53,7 @@ function renderizar() {
 beforeEach(() => {
   vi.resetAllMocks();
   cambiarClavePerfil.mockResolvedValue(null);
+  salir.mockResolvedValue(undefined);
 });
 
 afterEach(cleanup);
@@ -65,6 +84,9 @@ describe('perfil de cuenta', () => {
         clave_nueva: 'Clave-Nueva-2026!',
       })
     );
-    expect(await screen.findByText('Contraseña actualizada.')).toBeTruthy();
+    expect(salir).toHaveBeenCalled();
+    expect(
+      await screen.findByText('Contraseña actualizada. Por seguridad, inicia sesión nuevamente.')
+    ).toBeTruthy();
   });
 });

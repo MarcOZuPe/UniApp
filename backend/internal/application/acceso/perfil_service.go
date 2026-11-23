@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+const (
+	maxCambiosClavePorHora   = 3
+	maxCambiosClavePorMinuto = 1
+)
+
 type PerfilService struct {
 	*Nucleo
 }
@@ -42,9 +47,16 @@ func (servicio *PerfilService) CambiarClave(
 	if err != nil {
 		return err
 	}
-	if err := servicio.RepositorioUsuarios.ActualizarClave(ctx, usuario.ID, nuevoHash); err != nil {
+	if err := servicio.RepositorioPerfil.CambiarClaveConLimite(
+		ctx, usuario.ID, nuevoHash, servicio.Ahora(),
+		maxCambiosClavePorHora, maxCambiosClavePorMinuto,
+	); err != nil {
 		return err
 	}
-	servicio.Bus.Notificar(eventoDeUsuario(ClaveRestablecida, usuario))
+	servicio.Bus.Notificar(Event{Nombre: ClaveCambiada, Payload: map[string]any{
+		"usuario_id": usuario.ID,
+		"rol":        string(usuario.Rol),
+		"email":      usuario.Email,
+	}})
 	return nil
 }

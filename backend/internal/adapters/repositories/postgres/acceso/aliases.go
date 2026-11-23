@@ -24,6 +24,7 @@ type (
 	PoliticaEstricta = dominio.PoliticaEstricta
 	Repositorio = dominio.Repositorio
 	RepositorioAutorizaciones = dominio.RepositorioAutorizaciones
+	RepositorioPerfil = dominio.RepositorioPerfil
 	RepositorioSesiones = dominio.RepositorioSesiones
 	RepositorioTokens = dominio.RepositorioTokens
 	RepositorioUsuarios = dominio.RepositorioUsuarios
@@ -42,6 +43,7 @@ type (
 const (
 	AutorizacionOtorgada = dominio.AutorizacionOtorgada
 	AutorizacionRevocada = dominio.AutorizacionRevocada
+	ClaveCambiada = dominio.ClaveCambiada
 	ClaveRestablecida = dominio.ClaveRestablecida
 	ConfirmacionSolicitada = dominio.ConfirmacionSolicitada
 	CorreoConfirmado = dominio.CorreoConfirmado
@@ -74,6 +76,7 @@ var (
 	ErrClaveActualIncorrecta = dominio.ErrClaveActualIncorrecta
 	ErrCoordinadorNoEncontrado = dominio.ErrCoordinadorNoEncontrado
 	ErrCredenciales = dominio.ErrCredenciales
+	ErrDemasiadosCambiosClave = dominio.ErrDemasiadosCambiosClave
 	ErrDemasiadosIntentos = dominio.ErrDemasiadosIntentos
 	ErrEmailEnUso = dominio.ErrEmailEnUso
 	ErrEscolarNoEncontrado = dominio.ErrEscolarNoEncontrado

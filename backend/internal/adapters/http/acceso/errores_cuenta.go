@@ -16,6 +16,21 @@ func registrarErroresDeCuenta(errorMapper *MapeadorDeErrores) {
 	registrarErrorDeDemasiadosIntentos(errorMapper)
 	registrarErrorDeTokenInvalido(errorMapper)
 	registrarErrorDeClaveActual(errorMapper)
+	registrarErrorDeLimiteCambiosClave(errorMapper)
+}
+
+func registrarErrorDeLimiteCambiosClave(errorMapper *MapeadorDeErrores) {
+	errorMapper.Registrar(
+		func(err error) bool {
+			return errors.Is(err, modelo.ErrDemasiadosCambiosClave)
+		},
+		func(error) vista.RespuestaError {
+			return vista.RespuestaError{
+				Estado: http.StatusTooManyRequests, Codigo: "demasiados_cambios_clave",
+				Mensaje: "Se ha excedido el número máximo de cambios de contraseña. Intenta más tarde.",
+			}
+		},
+	)
 }
 
 func registrarErrorDeClaveActual(errorMapper *MapeadorDeErrores) {

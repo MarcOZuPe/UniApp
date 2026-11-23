@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { cambiarClavePerfil } from '../../../application/acceso/perfil.js';
+import { salir } from '../../../application/acceso/sesion.js';
 import { etiquetaRol } from '../../../domain/acceso/roles.js';
 import { validarCambioClave } from '../../../domain/acceso/validadores.js';
 import { useSesion } from '../../hooks/useSesion.js';
@@ -11,9 +12,9 @@ const FORMULARIO_INICIAL = { clave_actual: '', clave_nueva: '', confirmar: '' };
 
 export default function Perfil() {
   const { usuario } = useSesion();
+  const navegar = useNavigate();
   const [formulario, setFormulario] = useState(FORMULARIO_INICIAL);
   const [errores, setErrores] = useState({});
-  const [mensaje, setMensaje] = useState('');
   const [errorGeneral, setErrorGeneral] = useState('');
   const [enviando, setEnviando] = useState(false);
 
@@ -24,7 +25,6 @@ export default function Perfil() {
 
   async function enviar(evento) {
     evento.preventDefault();
-    setMensaje('');
     setErrorGeneral('');
     const encontrados = validarCambioClave(formulario, {
       rol: usuario?.rol,
@@ -40,9 +40,16 @@ export default function Perfil() {
         clave_actual: formulario.clave_actual,
         clave_nueva: formulario.clave_nueva,
       });
-      setFormulario(FORMULARIO_INICIAL);
-      setErrores({});
-      setMensaje('Contraseña actualizada.');
+      try {
+        await salir();
+      } catch {
+      }
+      navegar('/ingreso', {
+        replace: true,
+        state: {
+          mensaje: 'Contraseña actualizada. Por seguridad, inicia sesión nuevamente.',
+        },
+      });
     } catch (error) {
       setErrores(error.campos || {});
       setErrorGeneral(error.message);
@@ -72,7 +79,6 @@ export default function Perfil() {
 
       <section aria-labelledby="titulo-clave">
         <h2 id="titulo-clave">Cambiar contraseña</h2>
-        {mensaje && <p className="incidente-exito" role="status">{mensaje}</p>}
         {errorGeneral && <p className="error" role="alert">{errorGeneral}</p>}
         <form onSubmit={enviar} noValidate>
           <label className="campo">
