@@ -239,7 +239,7 @@ func TestRecuperacion(testingT *testing.T) {
 }
 
 func TestObtenerPerfilFabricaSimple(testingT *testing.T) {
-	for _, r := range []Rol{RolEscolar, RolApoderado, RolTutor, RolCoordinador} {
+	for _, r := range []Rol{RolEscolar, RolApoderado, RolTutor, RolCoordinador, RolCoordinadorGeneral} {
 		p, err := ObtenerPerfil(r, "uni.edu.pe,uni.pe")
 		if err != nil || p.Rol() != r {
 			testingT.Fatalf("rol %s: %v", r, err)

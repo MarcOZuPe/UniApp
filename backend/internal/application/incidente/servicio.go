@@ -49,7 +49,7 @@ func (s *Servicio) Tutorias(ctx context.Context, usuarioID string, rol modeloAcc
 			tutorias = append(tutorias, delEscolar...)
 		}
 		return tutorias, nil
-	case modeloAcceso.RolCoordinador:
+	case modeloAcceso.RolCoordinador, modeloAcceso.RolCoordinadorGeneral:
 		return []Tutoria{}, nil
 	default:
 		return nil, ErrNoAutorizado
@@ -119,7 +119,7 @@ func (s *Servicio) Registrar(ctx context.Context, usuarioID string, rol modeloAc
 
 func (s *Servicio) Listar(ctx context.Context, usuarioID string, rol modeloAcceso.Rol) ([]Incidente, error) {
 	switch rol {
-	case modeloAcceso.RolCoordinador:
+	case modeloAcceso.RolCoordinador, modeloAcceso.RolCoordinadorGeneral:
 		return s.repositorio.Listar(ctx, Filtro{Todos: true})
 	case modeloAcceso.RolEscolar:
 		return s.repositorio.Listar(ctx, Filtro{EscolarID: usuarioID})
@@ -187,7 +187,7 @@ func (s *Servicio) Revisar(
 	incidenteID string,
 	datos DatosRevision,
 ) (*Incidente, error) {
-	if rol != modeloAcceso.RolCoordinador {
+	if !rol.EsCoordinacion() {
 		return nil, ErrNoAutorizado
 	}
 	incidente, err := s.repositorio.PorID(ctx, incidenteID)
@@ -205,7 +205,7 @@ func (s *Servicio) Revisar(
 
 func (s *Servicio) puedeVer(ctx context.Context, incidente *Incidente, usuarioID string, rol modeloAcceso.Rol) (bool, error) {
 	switch rol {
-	case modeloAcceso.RolCoordinador:
+	case modeloAcceso.RolCoordinador, modeloAcceso.RolCoordinadorGeneral:
 		return true, nil
 	case modeloAcceso.RolEscolar:
 		return incidente.EscolarID == usuarioID, nil

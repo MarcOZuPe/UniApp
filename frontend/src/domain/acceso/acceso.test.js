@@ -9,6 +9,8 @@ describe('modelo: catálogo de roles (registro centralizado)', () => {
   it('deriva los roles públicos y expone sus metadatos', () => {
     expect(ROLES_REGISTRO).toEqual(['escolar', 'apoderado', 'tutor']);
     expect(ROLES_REGISTRO).not.toContain('coordinador');
+    expect(ROLES_REGISTRO).not.toContain('coordinador_general');
+    expect(ROLES.coordinador_general.etiqueta).toBe('Coordinación general');
     for (const rol of Object.keys(ROLES)) {
       expect(etiquetaRol(rol)).toBeTruthy();
       expect(['basica', 'estricta']).toContain(politicaDeRol(rol));
@@ -45,6 +47,8 @@ describe('modelo: validadores (Strategy + Factory)', () => {
   it('un escolar no puede acceder a rutas de coordinación', () => {
     expect(puedeAcceder('escolar', ['coordinador'])).toBe(false);
     expect(puedeAcceder('coordinador', ['coordinador'])).toBe(true);
+    expect(puedeAcceder('coordinador_general', ['coordinador', 'coordinador_general'])).toBe(true);
+    expect(puedeAcceder('coordinador', ['coordinador_general'])).toBe(false);
     expect(puedeAcceder('escolar', undefined)).toBe(true);
   });
 });

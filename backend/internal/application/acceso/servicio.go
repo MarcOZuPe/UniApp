@@ -13,12 +13,13 @@ type Dependencias struct {
 type Servicio struct {
 	*Nucleo
 
-	Registro     *RegistroService
-	Sesion       *SesionService
-	Recuperacion *RecuperacionService
-	Confirmacion *ConfirmacionService
-	Vinculacion  *VinculacionService
-	Autorizacion *AutorizacionService
+	Registro      *RegistroService
+	Sesion        *SesionService
+	Recuperacion  *RecuperacionService
+	Confirmacion  *ConfirmacionService
+	Vinculacion   *VinculacionService
+	Autorizacion  *AutorizacionService
+	Coordinadores *CoordinadoresService
 }
 
 func NuevoServicio(dependencias Dependencias) *Servicio {
@@ -54,12 +55,13 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 		nucleo.Bus.Registrar(UsuarioRegistrado, NuevoConfirmacionListener(confirmacion))
 	}
 	return &Servicio{
-		Nucleo:       nucleo,
-		Registro:     &RegistroService{Nucleo: nucleo},
-		Sesion:       &SesionService{Nucleo: nucleo, lockout: bloqueo},
-		Recuperacion: &RecuperacionService{Nucleo: nucleo},
-		Confirmacion: confirmacion,
-		Vinculacion:  &VinculacionService{Nucleo: nucleo},
-		Autorizacion: &AutorizacionService{Nucleo: nucleo},
+		Nucleo:        nucleo,
+		Registro:      &RegistroService{Nucleo: nucleo},
+		Sesion:        &SesionService{Nucleo: nucleo, lockout: bloqueo},
+		Recuperacion:  &RecuperacionService{Nucleo: nucleo},
+		Confirmacion:  confirmacion,
+		Vinculacion:   &VinculacionService{Nucleo: nucleo},
+		Autorizacion:  &AutorizacionService{Nucleo: nucleo},
+		Coordinadores: &CoordinadoresService{Nucleo: nucleo},
 	}
 }

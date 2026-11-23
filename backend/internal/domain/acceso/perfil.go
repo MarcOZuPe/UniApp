@@ -76,6 +76,12 @@ func nuevoPerfilCoordinador() PerfilRol {
 	return &perfilCoordinador{perfilBase{rol: RolCoordinador, politica: PoliticaEstricta{Min: 12}, publico: false}}
 }
 
+type perfilCoordinadorGeneral struct{ perfilBase }
+
+func nuevoPerfilCoordinadorGeneral() PerfilRol {
+	return &perfilCoordinadorGeneral{perfilBase{rol: RolCoordinadorGeneral, politica: PoliticaEstricta{Min: 12}, publico: false}}
+}
+
 func DominiosDe(texto string) []string {
 	dominiosLimpios := make([]string, 0, 2)
 	for _, parte := range strings.Split(texto, ",") {

@@ -15,6 +15,8 @@ func FabricaParaRol(rol Rol) (FabricaRol, error) {
 		return fabricaRolTutor{}, nil
 	case RolCoordinador:
 		return fabricaRolCoordinador{}, nil
+	case RolCoordinadorGeneral:
+		return fabricaRolCoordinadorGeneral{}, nil
 	default:
 		return nil, ErrValidacion{
 			Campos: map[string]string{
@@ -71,6 +73,20 @@ func (fabricaRolCoordinador) CrearPerfil(string) PerfilRol {
 }
 
 func (fabricaRolCoordinador) Permisos() []Permiso {
+	return permisosDeCoordinacion()
+}
+
+type fabricaRolCoordinadorGeneral struct{}
+
+func (fabricaRolCoordinadorGeneral) CrearPerfil(string) PerfilRol {
+	return nuevoPerfilCoordinadorGeneral()
+}
+
+func (fabricaRolCoordinadorGeneral) Permisos() []Permiso {
+	return append(permisosDeCoordinacion(), PermisoCoordinadoresGestionar)
+}
+
+func permisosDeCoordinacion() []Permiso {
 	return []Permiso{
 		PermisoCoordinacionAcceder,
 		PermisoCatalogoGestionar,

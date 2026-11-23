@@ -22,7 +22,7 @@ func TestRepositorioPostgresMetricasAuditoriaEInmutabilidad(t *testing.T) {
 	escolarID := crearUsuarioPanel(t, db, "escolar-i14@example.test", 1)
 	apoderadoID := crearUsuarioPanel(t, db, "apoderado-i14@example.test", 2)
 	tutorID := crearUsuarioPanel(t, db, "tutor-i14@uni.edu.pe", 3)
-	coordinadorID := crearUsuarioPanel(t, db, "coord-i14@example.test", 4)
+	generalID := crearUsuarioPanel(t, db, "general-i14@example.test", 5)
 
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
 	inicio := ahora.Add(-2 * time.Hour)
@@ -30,13 +30,13 @@ func TestRepositorioPostgresMetricasAuditoriaEInmutabilidad(t *testing.T) {
 	reservaID := insertarReservaPanel(t, db, escolarID, tutorID, inicio, fin)
 	insertarSesionPanel(t, db, "sesion-i14-test", reservaID, tutorID, escolarID, inicio, fin)
 
-	incidenteID := insertarIncidentePanel(t, db, escolarID, coordinadorID, tutorID, reservaID, inicio, ahora)
+	incidenteID := insertarIncidentePanel(t, db, escolarID, escolarID, tutorID, reservaID, inicio, ahora)
 	if _, err := db.ExecContext(ctx, `
 		UPDATE incidentes
 		SET estado = 'revisado', resultado = 'procede',
 		    comentario_revision = 'Procede según la evidencia.',
 		    revisado_por = $2, revisado_en = now()
-		WHERE id = $1`, incidenteID, coordinadorID); err != nil {
+		WHERE id = $1`, incidenteID, generalID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -85,7 +85,7 @@ func TestRepositorioPostgresMetricasAuditoriaEInmutabilidad(t *testing.T) {
 	for _, evento := range eventos {
 		switch evento.Accion {
 		case "incidente.revisado":
-			revisado = evento.ActorRol == "coordinador" && evento.ActorID == coordinadorID
+			revisado = evento.ActorRol == "coordinador_general" && evento.ActorID == generalID
 		case "autorizacion.cambiada":
 			autorizacion = evento.ActorRol == "apoderado" && evento.ActorID == apoderadoID
 		case "cupo.actualizado":

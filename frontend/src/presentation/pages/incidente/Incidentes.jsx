@@ -62,7 +62,7 @@ function contarPendientes(cantidad) {
 export default function Incidentes() {
   const { usuario } = useSesion();
   const location = useLocation();
-  const esCoordinador = usuario?.rol === 'coordinador';
+  const esCoordinador = ['coordinador', 'coordinador_general'].includes(usuario?.rol);
   const esApoderado = usuario?.rol === 'apoderado';
 
   const [incidentes, setIncidentes] = useState([]);

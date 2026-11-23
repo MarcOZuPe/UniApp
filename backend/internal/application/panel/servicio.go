@@ -28,7 +28,7 @@ func NuevoServicio(repositorio Repositorio) *Servicio {
 func (s *Servicio) FijarReloj(f func() time.Time) { s.ahora = f }
 
 func (s *Servicio) Metricas(ctx context.Context, rol modeloAcceso.Rol) (*modelo.Metricas, error) {
-	if rol != modeloAcceso.RolCoordinador {
+	if !rol.EsCoordinacion() {
 		return nil, modelo.ErrNoAutorizado
 	}
 	return s.repositorio.Metricas(ctx, s.ahora().UTC())
@@ -39,7 +39,7 @@ func (s *Servicio) Auditoria(
 	rol modeloAcceso.Rol,
 	filtro modelo.FiltroAuditoria,
 ) ([]modelo.EventoAuditoria, error) {
-	if rol != modeloAcceso.RolCoordinador {
+	if !rol.EsCoordinacion() {
 		return nil, modelo.ErrNoAutorizado
 	}
 	if filtro.Limite <= 0 {

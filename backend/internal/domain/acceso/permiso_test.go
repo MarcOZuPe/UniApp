@@ -6,6 +6,13 @@ func TestPermisosPorRol(testingT *testing.T) {
 	if !RolCoordinador.TienePermiso(PermisoCoordinacionAcceder) {
 		testingT.Fatal("el coordinador debe tener coordinacion:acceder")
 	}
+	if !RolCoordinadorGeneral.TienePermiso(PermisoCoordinacionAcceder) ||
+		!RolCoordinadorGeneral.TienePermiso(PermisoCoordinadoresGestionar) {
+		testingT.Fatal("el coordinador general debe conservar coordinación y gestionar coordinadores")
+	}
+	if RolCoordinador.TienePermiso(PermisoCoordinadoresGestionar) {
+		testingT.Fatal("el coordinador no debe gestionar cuentas de coordinación")
+	}
 	for _, rol := range []Rol{RolEscolar, RolApoderado, RolTutor} {
 		if rol.TienePermiso(PermisoCoordinacionAcceder) {
 			testingT.Fatalf("%s no debe tener coordinacion:acceder", rol)

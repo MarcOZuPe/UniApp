@@ -75,3 +75,35 @@
   margin-top: .15rem;
   overflow-wrap: anywhere;
 }
+
+.panel-coordinadores {
+  display: grid;
+  gap: .75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-coordinadores li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .85rem 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.panel-coordinadores small {
+  display: block;
+  margin-top: .15rem;
+  overflow-wrap: anywhere;
+}
+
+.boton-peligro {
+  background: var(--err);
+}
+
+.boton-peligro:hover {
+  filter: brightness(.95);
+}

@@ -12,6 +12,7 @@ const (
 	PermisoIncidenteAcceder         Permiso = "incidente:acceder"
 	PermisoIncidenteRegistrar       Permiso = "incidente:registrar"
 	PermisoIncidenteRevisar         Permiso = "incidente:revisar"
+	PermisoCoordinadoresGestionar   Permiso = "coordinadores:gestionar"
 )
 
 func (rol Rol) Permisos() []Permiso {

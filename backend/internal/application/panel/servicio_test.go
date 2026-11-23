@@ -38,7 +38,10 @@ func TestServicioPanelSoloCoordinacion(t *testing.T) {
 	if _, err := servicio.Auditoria(context.Background(), modeloAcceso.RolTutor, modelo.FiltroAuditoria{}); !errors.Is(err, modelo.ErrNoAutorizado) {
 		t.Fatalf("tutor no debe consultar auditoría: %v", err)
 	}
-	if repositorio.consultas != 0 {
+	if _, err := servicio.Metricas(context.Background(), modeloAcceso.RolCoordinadorGeneral); err != nil {
+		t.Fatalf("coordinación general debe consultar métricas: %v", err)
+	}
+	if repositorio.consultas != 1 {
 		t.Fatalf("no debe consultar el repositorio sin permiso: %d", repositorio.consultas)
 	}
 }

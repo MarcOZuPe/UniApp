@@ -9,6 +9,8 @@ type RepositorioUsuarios interface {
 	CrearUsuario(ctx context.Context, usuario *Usuario) (*Usuario, error)
 	UsuarioPorEmail(ctx context.Context, email string) (*Usuario, error)
 	UsuarioPorID(ctx context.Context, usuarioID string) (*Usuario, error)
+	UsuariosActivosPorRol(ctx context.Context, rol Rol) ([]*Usuario, error)
+	DesactivarUsuario(ctx context.Context, usuarioID string) error
 	MarcarCorreoConfirmado(ctx context.Context, usuarioID string) error
 	ActualizarClave(ctx context.Context, usuarioID, hashClave string) error
 	RegistrarIngreso(ctx context.Context, usuarioID string, momento time.Time) error

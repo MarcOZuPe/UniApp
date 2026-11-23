@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	EmailApoderadoSintetico   = "apoderado.prueba@example.test"
-	EmailEscolarSintetico     = "escolar.prueba@example.test"
-	EmailEscolarSinteticoDos  = "escolar2.prueba@example.test"
-	EmailCoordinadorSintetico = "coord.prueba@example.test"
+	EmailApoderadoSintetico          = "apoderado.prueba@example.test"
+	EmailEscolarSintetico            = "escolar.prueba@example.test"
+	EmailEscolarSinteticoDos         = "escolar2.prueba@example.test"
+	EmailCoordinadorSintetico        = "coord.prueba@example.test"
+	EmailCoordinadorGeneralSintetico = "coord.general.prueba@example.test"
 )
 
 type DatosSiembra struct {
@@ -37,6 +38,7 @@ func Sembrar(ctx context.Context, servicio *Servicio, datos DatosSiembra) error 
 		{Email: correoTutor, NombreUso: "Tutor Prueba", Clave: datos.Clave, Rol: RolTutor},
 		{Email: correoTutorDos, NombreUso: "Tutor Prueba Dos", Clave: datos.Clave, Rol: RolTutor},
 		{Email: EmailCoordinadorSintetico, NombreUso: "Coordinación Prueba", Clave: datos.Clave, Rol: RolCoordinador},
+		{Email: EmailCoordinadorGeneralSintetico, NombreUso: "Coordinación General Prueba", Clave: datos.Clave, Rol: RolCoordinadorGeneral},
 	}
 	for _, cuenta := range cuentas {
 		if _, err := servicio.RepositorioUsuarios.UsuarioPorEmail(ctx, normalizarEmail(cuenta.Email)); err == nil {

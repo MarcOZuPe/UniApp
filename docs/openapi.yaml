@@ -154,7 +154,7 @@ components:
         id: { type: string, format: uuid }
         email: { type: string }
         nombre_uso: { type: string }
-        rol: { type: string, enum: [escolar, apoderado, tutor, coordinador] }
+        rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general] }
         correo_confirmado: { type: boolean, description: "false hasta que se usa el enlace de confirmación" }
     UsuarioResumen:
       type: object
@@ -225,7 +225,7 @@ components:
         ocurrido_en: { type: string, format: date-time }
         actor_id: { type: string, format: uuid }
         actor_nombre: { type: string }
-        actor_rol: { type: string, enum: [escolar, apoderado, tutor, coordinador] }
+        actor_rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general] }
         accion:
           type: string
           enum: [incidente.revisado, expediente.revisado, curso.revisado, autorizacion.cambiada, cupo.actualizado]
@@ -899,6 +899,60 @@ paths:
         '400': { description: Límite inválido }
         '401': { description: Sin sesión }
         '403': { description: Rol sin permiso coordinacion:acceder }
+  /api/coordinacion/coordinadores:
+    get:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Listar coordinadores activos (solo coordinador general)
+      responses:
+        '200':
+          description: Coordinadores activos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  coordinadores:
+                    type: array
+                    items: { $ref: '#/components/schemas/Usuario' }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinadores:gestionar }
+    post:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Crear un coordinador (solo coordinador general)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, nombre_uso, clave]
+              properties:
+                email: { type: string, format: email }
+                nombre_uso: { type: string, minLength: 2, maxLength: 60 }
+                clave: { type: string, minLength: 12 }
+      responses:
+        '201':
+          description: Coordinador creado
+          content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } }
+        '400': { description: JSON inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinadores:gestionar }
+        '409': { description: Correo ya registrado }
+        '422': { description: Validación de correo, nombre o clave }
+  /api/coordinacion/coordinadores/{id}:
+    delete:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Desactivar un coordinador y revocar sus sesiones (solo coordinador general)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Coordinador desactivado }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinadores:gestionar }
+        '404': { description: Coordinador inexistente, inactivo o no regular }
   /api/tutor/salud:
     get: { tags: [B-tutor], summary: Estado del flujo B, responses: { '200': { description: OK } } }
   /api/tutor/mi-expediente:
