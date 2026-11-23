@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import RutaProtegida from '../presentation/components/RutaProtegida.jsx';
 import RutaProtegidaConRetorno from '../presentation/components/RutaProtegidaConRetorno.jsx';
+import DisenoApp from '../presentation/components/DisenoApp.jsx';
+import DisenoAcceso from '../presentation/components/DisenoAcceso.jsx';
 import { cargarSesion } from '../application/acceso/sesion.js';
 
 import Inicio from '../presentation/pages/acceso/Inicio.jsx';
@@ -19,6 +21,7 @@ import FormularioReserva from '../presentation/pages/reserva/FormularioReserva.j
 import Agenda from '../presentation/pages/reserva/Agenda.jsx';
 import DetalleSesion from '../presentation/pages/sesion/DetalleSesion.jsx';
 import Notificaciones from '../presentation/pages/sesion/Notificaciones.jsx';
+import RevisionMinutos from '../presentation/pages/sesion/RevisionMinutos.jsx';
 
 import VincularEscolar from '../presentation/pages/apoderado/VincularEscolar.jsx';
 import PanelEscolares from '../presentation/pages/apoderado/PanelEscolares.jsx';
@@ -42,14 +45,19 @@ export default function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/catalogo" element={<Catalogo />} />
-
+                {/* Pantallas de acceso, sin barra lateral */}
+                <Route element={<DisenoAcceso />}>
                 <Route path="/ingreso" element={<Ingreso />} />
                 <Route path="/registro" element={<Registro />} />
                 <Route path="/recuperar" element={<Recuperar />} />
                 <Route path="/restablecer" element={<Restablecer />} />
                 <Route path="/confirmar" element={<Confirmar />} />
                 <Route path="/no-autorizado" element={<NoAutorizado />} />
+                </Route>
+
+                {/* Pantallas con barra lateral de navegación */}
+                <Route element={<DisenoApp />}>
+                <Route path="/catalogo" element={<Catalogo />} />
 
                 <Route
                     path="/coordinacion"
@@ -74,6 +82,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador']}>
                             <TutoresAprobados />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/coordinacion/minutos"
+                    element={
+                        <RutaProtegida roles={['coordinador']}>
+                            <RevisionMinutos />
                         </RutaProtegida>
                     }
                 />
@@ -203,6 +220,7 @@ export default function App() {
                         </RutaProtegida>
                     }
                 />
+                </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

@@ -362,7 +362,7 @@ components:
           items: { $ref: '#/components/schemas/AdjuntoReserva' }
     SesionI05:
       type: object
-      required: [id, reserva_id, tutor_id, escolar_id, inicio, fin, asistencias]
+      required: [id, reserva_id, tutor_id, escolar_id, inicio, fin, asistencias, ausencias, resultado, plazos]
       properties:
         id: { type: string }
         reserva_id: { type: string }
@@ -374,6 +374,93 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AsistenciaI05'
+        ausencias:
+          type: array
+          items:
+            $ref: '#/components/schemas/AusenciaI11'
+        resultado:
+          allOf: [{ $ref: '#/components/schemas/ResultadoI11' }]
+          nullable: true
+        plazos: { $ref: '#/components/schemas/PlazosI11' }
+    AusenciaI11:
+      type: object
+      required: [usuario_id, rol, reportada_en]
+      properties:
+        usuario_id: { type: string }
+        rol: { type: string, enum: [tutor, escolar] }
+        reportada_en: { type: string, format: date-time }
+    ResultadoI11:
+      type: object
+      required: [usuario_id, resumen, registrado_en]
+      properties:
+        usuario_id: { type: string, description: Tutor que registro el resultado }
+        resumen: { type: string, minLength: 1, maxLength: 2000 }
+        registrado_en: { type: string, format: date-time }
+    SolicitudResultadoI11:
+      type: object
+      required: [resumen]
+      additionalProperties: false
+      properties:
+        resumen: { type: string, minLength: 1, maxLength: 2000 }
+    MinutosI17:
+      type: object
+      description: Registro de minutos de una sesion (I17). Solo los verificados suman.
+      properties:
+        sesion_id: { type: string }
+        reserva_id: { type: string }
+        tutor_id: { type: string }
+        escolar_id: { type: string }
+        fin_sesion: { type: string, format: date-time }
+        estado: { type: string, enum: [propuesto, en_disputa, verificado, anulado] }
+        minutos_propuestos: { type: integer, minimum: 1, maximum: 60 }
+        minutos_verificados: { type: integer, minimum: 0, maximum: 60, nullable: true }
+        minutos_computables: { type: integer, minimum: 0, maximum: 60, description: 'Lo que aporta al total. Solo si esta verificado; en disputa o anulado vale 0' }
+        disputado_por: { type: string }
+    EntradaAuditoriaI17:
+      type: object
+      properties:
+        accion: { type: string, enum: [proponer, aprobar, ajustar, disputar, resolver, anular] }
+        actor_id: { type: string, description: 'Usuario que actuo, o sistema en una anulacion' }
+        valor_anterior: { type: integer, nullable: true }
+        valor_nuevo: { type: integer, nullable: true }
+        motivo: { type: string }
+        registrada_en: { type: string, format: date-time }
+    SolicitudProponerMinutosI17:
+      type: object
+      required: [minutos]
+      additionalProperties: false
+      properties:
+        minutos: { type: integer, minimum: 1, maximum: 60, example: 45 }
+    SolicitudDisputaMinutosI17:
+      type: object
+      required: [motivo]
+      additionalProperties: false
+      properties:
+        motivo: { type: string, minLength: 1, maxLength: 500 }
+    SolicitudAjusteMinutosI17:
+      type: object
+      required: [minutos, motivo]
+      additionalProperties: false
+      properties:
+        minutos: { type: integer, minimum: 0, maximum: 60 }
+        motivo: { type: string, minLength: 1, maxLength: 500 }
+    IntervaloI11:
+      type: object
+      required: [desde, hasta]
+      description: Intervalo inclusivo en UTC.
+      properties:
+        desde: { type: string, format: date-time }
+        hasta: { type: string, format: date-time }
+    PlazosI11:
+      type: object
+      required: [declaracion, resultado]
+      properties:
+        declaracion:
+          allOf: [{ $ref: '#/components/schemas/IntervaloI11' }]
+          description: Desde 15 minutos antes del inicio hasta 24 horas despues del fin.
+        resultado:
+          allOf: [{ $ref: '#/components/schemas/IntervaloI11' }]
+          description: Desde el inicio hasta 7 dias despues del fin.
     AsistenciaI05:
       type: object
       required: [usuario_id, rol, declarada_en]
@@ -1489,7 +1576,7 @@ paths:
               examples:
                 caso: { $ref: '#/components/examples/ErrorAdjuntoCuarentena' }
   /api/sesion/salud:
-    get: { tags: [E-sesion], summary: Esqueleto. Marco añade aquí su contrato., responses: { '200': { description: OK } } }
+    get: { tags: [E-sesion], summary: Estado del flujo E (sesiones), responses: { '200': { description: OK } } }
   /api/sesion/{id}:
     get:
       tags: [E-sesion]
@@ -1497,7 +1584,8 @@ paths:
       description: >
         Permite consultar una sesion asociada a una reserva.
         Solo sus participantes autorizados pueden acceder.
-        Durante I05 se utilizan reservas sinteticas.
+        Incluye declaraciones (I05/I11), el resultado y los plazos vigentes,
+        que son la fuente unica de la regla temporal para la interfaz.
       security: [{ sesion: [] }]
       parameters:
         - name: id
@@ -1540,8 +1628,253 @@ paths:
         '401': { description: Usuario no autenticado }
         '403': { description: Acceso no autorizado }
         '404': { description: Sesion inexistente }
-        '409': { description: Asistencia duplicada }
-        '422': { description: Declaracion invalida }
+        '409': { description: 'Asistencia duplicada (asistencia_duplicada) o ausencia ya reportada (declaracion_contradictoria)' }
+        '422': { description: 'Sesion invalida o fuera de plazo (fuera_de_plazo)' }
+
+  /api/sesion/por-reserva/{reservaID}:
+    get:
+      tags: [E-sesion]
+      summary: Consultar la sesion de una reserva
+      description: >
+        Devuelve el identificador de la sesion asociada a una reserva para
+        abrir su detalle desde la agenda. Solo para participantes.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: reservaID
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Sesion asociada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, reserva_id]
+                properties:
+                  id: { type: string }
+                  reserva_id: { type: string }
+        '401': { description: Usuario no autenticado }
+        '403': { description: Acceso no autorizado }
+        '404': { description: Reserva sin sesion }
+
+  /api/sesion/{id}/ausencias:
+    post:
+      tags: [E-sesion]
+      summary: Reportar ausencia propia (I11)
+      description: >
+        Registra la ausencia del participante autenticado. No admite cuerpo,
+        por lo que no se puede reportar la ausencia de otra persona. Es
+        excluyente con la asistencia y solo se acepta dentro del plazo de declaracion.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Ausencia registrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AusenciaI11' }
+        '400': { description: Se envio un cuerpo (solicitud_invalida) }
+        '401': { description: Usuario no autenticado }
+        '403': { description: No participa en la sesion u origen no permitido }
+        '404': { description: Sesion inexistente }
+        '409': { description: 'Ausencia duplicada (ausencia_duplicada) o asistencia ya declarada (declaracion_contradictoria)' }
+        '422':
+          description: Fuera de plazo (fuera_de_plazo)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/sesion/{id}/resultado:
+    post:
+      tags: [E-sesion]
+      summary: Registrar el resultado de la sesion (I11)
+      description: >
+        Solo el tutor asignado registra un unico resultado. El autor y la
+        fecha los fija el servidor. No acredita asistencia ni minutos.
+        Se acepta desde el inicio de la sesion hasta el fin del plazo de resultado.
+      security: [{ sesion: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SolicitudResultadoI11' }
+      responses:
+        '201':
+          description: Resultado registrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoI11' }
+        '400': { description: 'JSON invalido, campos ajenos o cuerpo mayor a 16 KiB (solicitud_invalida)' }
+        '401': { description: Usuario no autenticado }
+        '403': { description: No es el tutor de la sesion u origen no permitido }
+        '404': { description: Sesion inexistente }
+        '409': { description: Resultado ya registrado (resultado_duplicado) }
+        '422':
+          description: 'Resumen vacio o mayor a 2000 caracteres (resultado_invalido) o fuera de plazo (fuera_de_plazo)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/sesion/{id}/minutos:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [E-sesion]
+      summary: Consultar los minutos de la sesion (I17)
+      description: Lo ven el tutor, el escolar y coordinacion. Si la reserva fue cancelada, el registro se muestra anulado (suma 0).
+      security: [{ sesion: [] }]
+      responses:
+        '200': { description: Registro de minutos, content: { application/json: { schema: { $ref: '#/components/schemas/MinutosI17' } } } }
+        '401': { description: Usuario no autenticado }
+        '403': { description: No participa en la sesion ni es coordinacion }
+        '404': { description: 'La sesion no tiene minutos propuestos (minutos_no_encontrados)' }
+    post:
+      tags: [E-sesion]
+      summary: Proponer los minutos realmente dictados (I17)
+      description: >
+        Solo el tutor asignado, despues del fin de la sesion y dentro del plazo de resultado,
+        y solo si tutor y escolar declararon asistencia. Lo propuesto NO suma hasta que
+        coordinacion lo verifica (45 minutos suman 45, no 60).
+      security: [{ sesion: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SolicitudProponerMinutosI17' } } }
+      responses:
+        '201': { description: Minutos propuestos, content: { application/json: { schema: { $ref: '#/components/schemas/MinutosI17' } } } }
+        '400': { description: 'JSON invalido o campos ajenos (solicitud_invalida)' }
+        '401': { description: Usuario no autenticado }
+        '403': { description: No es el tutor de la sesion }
+        '404': { description: Sesion inexistente }
+        '409': { description: 'Ya propuestos (minutos_duplicados) o reserva cancelada (sesion_cancelada)' }
+        '422': { description: 'Fuera de 1-60 (minutos_invalidos), sin asistencia de ambos (asistencia_incompleta), antes del fin (sesion_no_finalizada) o fuera de plazo (fuera_de_plazo)' }
+  /api/sesion/{id}/minutos/disputa:
+    post:
+      tags: [E-sesion]
+      summary: Disputar los minutos, que quedan congelados en 0 (I17)
+      description: >
+        El escolar disputa minutos propuestos o verificados; el tutor solo un verificado menor
+        que lo que propuso. Tras una resolucion de coordinacion no se admiten mas disputas.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SolicitudDisputaMinutosI17' } } }
+      responses:
+        '200': { description: Minutos en disputa, content: { application/json: { schema: { $ref: '#/components/schemas/MinutosI17' } } } }
+        '400': { description: 'JSON invalido o campos ajenos (solicitud_invalida)' }
+        '403': { description: No participa en la sesion }
+        '409': { description: 'Disputa no permitida (disputa_no_permitida) o reserva cancelada (sesion_cancelada)' }
+        '422': { description: 'Motivo vacio o mayor a 500 (motivo_invalido) o fuera de plazo (fuera_de_plazo)' }
+  /api/minutos/pendientes:
+    get:
+      tags: [E-sesion]
+      summary: Bandeja de coordinacion con minutos propuestos y en disputa (I17)
+      security: [{ sesion: [] }]
+      responses:
+        '200':
+          description: Pendientes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pendientes: { type: array, items: { $ref: '#/components/schemas/MinutosI17' } }
+        '403': { description: 'Rol sin permiso coordinacion:acceder (sin_permiso)' }
+  /api/minutos/{id}/aprobar:
+    post:
+      tags: [E-sesion]
+      summary: Verificar los minutos propuestos tal como estan (I17)
+      description: Accion explicita de coordinacion. Un participante de la sesion nunca verifica sus propios minutos. Sin cuerpo.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: Id de la sesion }
+      responses:
+        '200': { description: Minutos verificados, content: { application/json: { schema: { $ref: '#/components/schemas/MinutosI17' } } } }
+        '403': { description: 'Sin permiso (sin_permiso) o participante de la sesion (autoaprobacion)' }
+        '404': { description: 'Sin minutos propuestos (minutos_no_encontrados)' }
+        '409': { description: 'Estado no admite aprobar (transicion_invalida) o reserva cancelada (sesion_cancelada)' }
+  /api/minutos/{id}/ajustar:
+    post:
+      tags: [E-sesion]
+      summary: Ajustar minutos propuestos o verificados con motivo auditado (I17)
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SolicitudAjusteMinutosI17' } } }
+      responses:
+        '200': { description: Minutos ajustados, content: { application/json: { schema: { $ref: '#/components/schemas/MinutosI17' } } } }
+        '403': { description: 'Sin permiso o autoaprobacion' }
+        '409': { description: 'En disputa, usar resolver (transicion_invalida), o reserva cancelada' }
+        '422': { description: 'Minutos fuera de 0-60 o motivo invalido' }
+  /api/minutos/{id}/resolver:
+    post:
+      tags: [E-sesion]
+      summary: Resolver una disputa fijando los minutos finales (I17)
+      description: La resolucion es final.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SolicitudAjusteMinutosI17' } } }
+      responses:
+        '200': { description: Disputa resuelta, content: { application/json: { schema: { $ref: '#/components/schemas/MinutosI17' } } } }
+        '403': { description: 'Sin permiso o autoaprobacion' }
+        '409': { description: 'No esta en disputa (transicion_invalida) o reserva cancelada' }
+        '422': { description: 'Minutos fuera de 0-60 o motivo invalido' }
+  /api/minutos/{id}/auditoria:
+    get:
+      tags: [E-sesion]
+      summary: Historia inmutable de los minutos de una sesion (I17)
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Registro y auditoria
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  minutos: { $ref: '#/components/schemas/MinutosI17' }
+                  auditoria: { type: array, items: { $ref: '#/components/schemas/EntradaAuditoriaI17' } }
+        '403': { description: 'Sin permiso coordinacion:acceder' }
+  /api/minutos/total:
+    get:
+      tags: [E-sesion]
+      summary: Total de minutos verificados de un tutor (I17, insumo de I18)
+      description: El tutor consulta el suyo sin parametro. Coordinacion indica tutor_id. Solo suman los verificados.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: tutor_id, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: Total
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tutor_id: { type: string }
+                  minutos_verificados: { type: integer }
+                  registros: { type: array, items: { $ref: '#/components/schemas/MinutosI17' } }
+        '400': { description: 'Coordinacion sin tutor_id' }
+        '403': { description: 'Otro rol, o un tutor pidiendo el total de otro' }
 
   /api/salud:
     get: { tags: [A-acceso], summary: Estado del servicio de acceso, responses: { '200': { description: OK } } }

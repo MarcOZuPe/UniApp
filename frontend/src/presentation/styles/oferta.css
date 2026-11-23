@@ -3,7 +3,7 @@
   --oferta-muted: #68778d;
   --oferta-linea: #e5eaf1;
   --oferta-fondo: #f5f7fb;
-  --oferta-azul: #3567d6;
+  --oferta-azul: var(--accent);
   --oferta-verde: #16866b;
   box-sizing: border-box;
   width: min(100% - 2rem, 1120px);
@@ -79,7 +79,7 @@
   height: 2.2rem;
   place-items: center;
   border-radius: 50%;
-  background: #eaf0ff;
+  background: var(--accent-suave);
   color: var(--oferta-azul);
   font-weight: 800;
 }
@@ -162,7 +162,7 @@
 .dia-calendario h3 { margin: 0; padding: .75rem; background: var(--oferta-fondo); font-size: .83rem; }
 .dia-vacio { padding: .4rem .7rem; color: #96a1b1; font-size: .75rem; }
 .lista-slots { display: grid; gap: .45rem; margin: 0; padding: .55rem; list-style: none; }
-.slot-calendario { display: grid; gap: .15rem; padding: .55rem; border-left: 3px solid var(--oferta-azul); border-radius: 5px; background: #eef3ff; }
+.slot-calendario { display: grid; gap: .15rem; padding: .55rem; border-left: 3px solid var(--oferta-azul); border-radius: 5px; background: var(--accent-suave); }
 .slot-hora { font-size: .84rem; font-weight: 750; }
 .slot-duracion { font-size: .72rem; }
 .boton-texto { justify-self: start; padding: .15rem 0; background: transparent; color: var(--err); font-size: .72rem; }
@@ -186,7 +186,7 @@
 .nota-edicion { margin: .9rem 0 0; font-size: .8rem; }
 
 .panel-informacion { display: flex; align-items: flex-start; gap: 1rem; padding: 1.2rem 1.4rem; background: var(--oferta-fondo); }
-.icono-privacidad { display: grid; width: 2.4rem; height: 2.4rem; flex: 0 0 auto; place-items: center; border-radius: 9px; background: #e8efff; color: var(--oferta-azul); font-size: 1.3rem; }
+.icono-privacidad { display: grid; width: 2.4rem; height: 2.4rem; flex: 0 0 auto; place-items: center; border-radius: 9px; background: var(--accent-suave); color: var(--oferta-azul); font-size: 1.3rem; }
 .panel-informacion h2 { font-size: 1rem; }
 .panel-informacion p { margin: .45rem 0 0; color: var(--oferta-muted); font-size: .85rem; line-height: 1.55; }
 

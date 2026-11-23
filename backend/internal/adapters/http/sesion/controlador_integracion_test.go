@@ -172,7 +172,16 @@ type comprobacionAsistencia struct {
 	esperado int
 }
 
+// inicioSesionI05 es el inicio fijo de la sesion sintetica de las pruebas.
+var inicioSesionI05 = time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+
+// prepararEntornoI05 fija el reloj a mitad de la sesion, dentro de todos los plazos.
 func prepararEntornoI05(testingT *testing.T) entornoI05 {
+	testingT.Helper()
+	return prepararEntornoI05EnMomento(testingT, inicioSesionI05.Add(30*time.Minute))
+}
+
+func prepararEntornoI05EnMomento(testingT *testing.T, momento time.Time) entornoI05 {
 	testingT.Helper()
 
 	contexto := context.Background()
@@ -202,10 +211,9 @@ func prepararEntornoI05(testingT *testing.T) entornoI05 {
 	}
 
 	repositorioSesion := memoriaSesion.NuevoRepositorioMemoria()
-	inicio := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
 	sesion, err := modeloSesion.NuevaSesion(
 		"sesion-i05", "reserva-i05", tutor.ID, escolar.ID,
-		inicio, inicio.Add(modeloSesion.DuracionSesion),
+		inicioSesionI05, inicioSesionI05.Add(modeloSesion.DuracionSesion),
 	)
 	if err != nil {
 		testingT.Fatal(err)
@@ -218,6 +226,7 @@ func prepararEntornoI05(testingT *testing.T) entornoI05 {
 	multiplexor := http.NewServeMux()
 	multiplexor.Handle("/api/sesion/", Rutas(
 		repositorioSesion, controladorAcceso.Autenticar(), origenI05,
+		ConReloj(func() time.Time { return momento }),
 	))
 	multiplexor.Handle("/", controladorAcceso.Rutas())
 
@@ -268,4 +277,89 @@ func solicitarI05(opciones opcionesSolicitudI05) *httptest.ResponseRecorder {
 	respuesta := httptest.NewRecorder()
 	opciones.manejador.ServeHTTP(respuesta, peticion)
 	return respuesta
+}
+
+// Restaurado del PR #53: navegacion agenda -> detalle de sesion.
+func TestI05ConsultaSesionPorReserva(t *testing.T) {
+	entorno := prepararEntornoI05(t)
+
+	tutor := iniciarSesionI05(
+		t,
+		entorno.manejador,
+		"tutor.prueba@uni.edu.pe",
+	)
+
+	escolar := iniciarSesionI05(
+		t,
+		entorno.manejador,
+		"escolar.prueba@example.test",
+	)
+
+	apoderado := iniciarSesionI05(
+		t,
+		entorno.manejador,
+		"apoderado.prueba@example.test",
+	)
+
+	ruta := "/api/sesion/por-reserva/reserva-i05"
+
+	casos := []struct {
+		nombre string
+		cookie *http.Cookie
+		estado int
+	}{
+		{"sin autenticacion", nil, http.StatusUnauthorized},
+		{"consulta tutor", tutor, http.StatusOK},
+		{"consulta escolar", escolar, http.StatusOK},
+		{"usuario ajeno", apoderado, http.StatusForbidden},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			respuesta := solicitarI05(opcionesSolicitudI05{manejador: entorno.manejador, metodo: http.MethodGet, ruta: ruta, cookie: caso.cookie, origen: ""})
+
+			if respuesta.Code != caso.estado {
+				t.Fatalf(
+					"esperado %d, obtenido %d: %s",
+					caso.estado,
+					respuesta.Code,
+					respuesta.Body.String(),
+				)
+			}
+
+			if caso.estado == http.StatusOK {
+				var resultado struct {
+					ID        string `json:"id"`
+					ReservaID string `json:"reserva_id"`
+				}
+
+				if err := json.Unmarshal(
+					respuesta.Body.Bytes(),
+					&resultado,
+				); err != nil {
+					t.Fatal(err)
+				}
+
+				if resultado.ID != "sesion-i05" ||
+					resultado.ReservaID != "reserva-i05" {
+					t.Fatalf(
+						"sesion incorrecta: %+v",
+						resultado,
+					)
+				}
+			}
+		})
+	}
+
+	t.Run("reserva inexistente", func(t *testing.T) {
+		respuesta := solicitarI05(opcionesSolicitudI05{manejador: entorno.manejador, metodo: http.MethodGet, ruta: "/api/sesion/por-reserva/reserva-inexistente", cookie: tutor, origen: ""})
+
+		if respuesta.Code != http.StatusNotFound {
+			t.Fatalf(
+				"esperado 404, obtenido %d: %s",
+				respuesta.Code,
+				respuesta.Body.String(),
+			)
+		}
+	})
 }
