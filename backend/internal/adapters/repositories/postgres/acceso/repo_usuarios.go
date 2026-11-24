@@ -10,7 +10,8 @@ import (
 )
 
 var identificadorPorRol = map[Rol]int{
-	RolEscolar: 1, RolApoderado: 2, RolTutor: 3, RolCoordinador: 4, RolCoordinadorGeneral: 5,
+	RolEscolar: 1, RolApoderado: 2, RolTutor: 3, RolCoordinador: 4,
+	RolCoordinadorGeneral: 5, RolAdministrador: 6,
 }
 
 const consultaUsuario = `SELECT u.id, u.email, u.nombre_uso, u.clave_hash, r.nombre,
@@ -55,7 +56,8 @@ func (repositorio RepositorioPostgres) UsuariosActivosPorRol(
 		return nil, ErrNoEncontrado
 	}
 	filas, err := repositorio.DB.QueryContext(ctx,
-		consultaUsuario+`WHERE u.rol_id = $1 AND u.activo = TRUE AND u.facultad_id = NULLIF($2,'')::smallint
+		consultaUsuario+`WHERE u.rol_id = $1 AND u.activo = TRUE
+		AND ($2 = '' OR u.facultad_id = $2::smallint)
 		ORDER BY u.nombre_uso, u.id`,
 		identificador, facultadID,
 	)

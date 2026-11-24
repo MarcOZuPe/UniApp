@@ -1,6 +1,10 @@
 package acceso
 
-import modelo "uniapp/internal/application/acceso"
+import (
+	"time"
+
+	modelo "uniapp/internal/application/acceso"
+)
 
 type UsuarioJSON struct {
 	ID               string `json:"id"`
@@ -47,4 +51,31 @@ func PresentarPanelCoordinacion(usuario *modelo.Usuario) PanelCoordinacionJSON {
 		Mensaje: "Panel de coordinación",
 		Usuario: PresentarUsuario(usuario),
 	}
+}
+
+type LogSistemaJSON struct {
+	ID        int64          `json:"id"`
+	CreadoEn  time.Time      `json:"creado_en"`
+	Categoria string         `json:"categoria"`
+	Evento    string         `json:"evento"`
+	ActorID   string         `json:"actor_id,omitempty"`
+	ActorRol  string         `json:"actor_rol"`
+	IP        string         `json:"ip"`
+	Detalle   map[string]any `json:"detalle"`
+}
+
+func PresentarLogsSistema(logs []modelo.LogSistema) []LogSistemaJSON {
+	presentados := make([]LogSistemaJSON, 0, len(logs))
+	for _, log := range logs {
+		detalle := log.Detalle
+		if detalle == nil {
+			detalle = map[string]any{}
+		}
+		presentados = append(presentados, LogSistemaJSON{
+			ID: log.ID, CreadoEn: log.CreadoEn, Categoria: log.Categoria,
+			Evento: log.Evento, ActorID: log.ActorID, ActorRol: log.ActorRol,
+			IP: log.IP, Detalle: detalle,
+		})
+	}
+	return presentados
 }

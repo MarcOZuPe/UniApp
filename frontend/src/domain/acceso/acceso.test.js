@@ -10,6 +10,8 @@ describe('modelo: catálogo de roles (registro centralizado)', () => {
     expect(ROLES_REGISTRO).toEqual(['escolar', 'apoderado', 'tutor']);
     expect(ROLES_REGISTRO).not.toContain('coordinador');
     expect(ROLES_REGISTRO).not.toContain('coordinador_general');
+    expect(ROLES_REGISTRO).not.toContain('administrador');
+    expect(ROLES.administrador.etiqueta).toBe('Administrador');
     expect(ROLES.coordinador_general.etiqueta).toBe('Coordinación general');
     for (const rol of Object.keys(ROLES)) {
       expect(etiquetaRol(rol)).toBeTruthy();

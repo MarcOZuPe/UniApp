@@ -16,6 +16,7 @@ type RepositorioMemoria struct {
 	autorizaciones      map[string]*Autorizacion
 	ordenAutorizaciones []string
 	cambiosClave        map[string][]time.Time
+	logsSistema         []LogSistema
 }
 
 type tokenRecuperacionMemoria struct {

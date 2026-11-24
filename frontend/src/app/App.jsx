@@ -16,6 +16,7 @@ import Restablecer from '../presentation/pages/acceso/Restablecer.jsx';
 import Confirmar from '../presentation/pages/acceso/Confirmar.jsx';
 import Coordinacion from '../presentation/pages/acceso/Coordinacion.jsx';
 import GestionarCoordinadores from '../presentation/pages/acceso/GestionarCoordinadores.jsx';
+import Administracion from '../presentation/pages/acceso/Administracion.jsx';
 import Perfil from '../presentation/pages/acceso/Perfil.jsx';
 
 import Disponibilidad from '../presentation/pages/oferta/Disponibilidad.jsx';
@@ -84,6 +85,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador_general']}>
                             <GestionarCoordinadores />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/administracion"
+                    element={
+                        <RutaProtegida roles={['administrador']}>
+                            <Administracion />
                         </RutaProtegida>
                     }
                 />

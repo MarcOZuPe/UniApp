@@ -36,9 +36,13 @@ func TestPerfilCambiarClaveConservaIdentidadYRevocaSesiones(t *testing.T) {
 		t.Fatal("la nueva clave debe cumplir la política")
 	}
 	if err := servicio.Perfil.CambiarClave(ctx, usuario.ID, DatosCambioClave{
-		ClaveActual: claveOK, ClaveNueva: "Nueva-Clave-2026!",
+		ClaveActual: claveOK, ClaveNueva: "Nueva-Clave-2026!", IP: "198.51.100.7",
 	}); err != nil {
 		t.Fatal(err)
+	}
+	logs, err := servicio.RepositorioLogs.LogsSistema(ctx, FiltroLogsSistema{Limite: 10})
+	if err != nil || len(logs) != 1 || logs[0].Evento != "clave.cambiada" || logs[0].IP != "198.51.100.7" {
+		t.Fatalf("el cambio de clave debe registrar IP: %+v, %v", logs, err)
 	}
 	if _, err := servicio.Sesion.UsuarioDeSesion(ctx, tokenAnterior); err == nil {
 		t.Fatal("el cambio de clave debe revocar las sesiones existentes")

@@ -53,7 +53,7 @@ func (repositorio *RepositorioMemoria) UsuariosActivosPorRol(
 	defer repositorio.mu.Unlock()
 	usuarios := make([]*Usuario, 0)
 	for _, usuario := range repositorio.usuarios {
-		if usuario.Rol != rol || !usuario.Activo || usuario.FacultadID != facultadID {
+		if usuario.Rol != rol || !usuario.Activo || (facultadID != "" && usuario.FacultadID != facultadID) {
 			continue
 		}
 		copia := *usuario

@@ -14,6 +14,8 @@ type (
 	Event = dominio.Event
 	FabricaRol = dominio.FabricaRol
 	Facultad = dominio.Facultad
+	FiltroLogsSistema = dominio.FiltroLogsSistema
+	LogSistema = dominio.LogSistema
 	Mailer = dominio.Mailer
 	Mensaje = dominio.Mensaje
 	Observador = dominio.Observador
@@ -26,6 +28,7 @@ type (
 	Repositorio = dominio.Repositorio
 	RepositorioAutorizaciones = dominio.RepositorioAutorizaciones
 	RepositorioFacultades = dominio.RepositorioFacultades
+	RepositorioLogs = dominio.RepositorioLogs
 	RepositorioPerfil = dominio.RepositorioPerfil
 	RepositorioSesiones = dominio.RepositorioSesiones
 	RepositorioTokens = dominio.RepositorioTokens
@@ -45,6 +48,9 @@ type (
 const (
 	AutorizacionOtorgada = dominio.AutorizacionOtorgada
 	AutorizacionRevocada = dominio.AutorizacionRevocada
+	CategoriaAdministracion = dominio.CategoriaAdministracion
+	CategoriaSeguridad = dominio.CategoriaSeguridad
+	CategoriaSistema = dominio.CategoriaSistema
 	ClaveCambiada = dominio.ClaveCambiada
 	ClaveRestablecida = dominio.ClaveRestablecida
 	ConfirmacionSolicitada = dominio.ConfirmacionSolicitada
@@ -53,6 +59,7 @@ const (
 	EstadoVinculacionPendiente = dominio.EstadoVinculacionPendiente
 	IngresoExitoso = dominio.IngresoExitoso
 	IngresoFallido = dominio.IngresoFallido
+	PermisoAdministracionAcceder = dominio.PermisoAdministracionAcceder
 	PermisoAutorizacionOtorgar = dominio.PermisoAutorizacionOtorgar
 	PermisoCatalogoGestionar = dominio.PermisoCatalogoGestionar
 	PermisoCatalogoSolicitarColegio = dominio.PermisoCatalogoSolicitarColegio
@@ -64,6 +71,7 @@ const (
 	PermisoIncidenteRevisar = dominio.PermisoIncidenteRevisar
 	PermisoReservaCrear = dominio.PermisoReservaCrear
 	RecuperacionSolicitada = dominio.RecuperacionSolicitada
+	RolAdministrador = dominio.RolAdministrador
 	RolApoderado = dominio.RolApoderado
 	RolCoordinador = dominio.RolCoordinador
 	RolCoordinadorGeneral = dominio.RolCoordinadorGeneral

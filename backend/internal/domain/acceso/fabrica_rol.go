@@ -17,6 +17,8 @@ func FabricaParaRol(rol Rol) (FabricaRol, error) {
 		return fabricaRolCoordinador{}, nil
 	case RolCoordinadorGeneral:
 		return fabricaRolCoordinadorGeneral{}, nil
+	case RolAdministrador:
+		return fabricaRolAdministrador{}, nil
 	default:
 		return nil, ErrValidacion{
 			Campos: map[string]string{
@@ -93,4 +95,14 @@ func permisosDeCoordinacion() []Permiso {
 		PermisoIncidenteAcceder,
 		PermisoIncidenteRevisar,
 	}
+}
+
+type fabricaRolAdministrador struct{}
+
+func (fabricaRolAdministrador) CrearPerfil(string) PerfilRol {
+	return nuevoPerfilAdministrador()
+}
+
+func (fabricaRolAdministrador) Permisos() []Permiso {
+	return []Permiso{PermisoAdministracionAcceder}
 }

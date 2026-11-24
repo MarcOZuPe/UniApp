@@ -20,6 +20,7 @@ const (
 	EmailCoordinadorGeneralIndustrialSistemas = "general.sistemas@example.test"
 	EmailCoordinadorGeneralMecanica           = "general.mecanica@example.test"
 	EmailCoordinadorGeneralArquitectura       = "general.arquitectura@example.test"
+	EmailAdministradorSintetico               = "admin@uni.edu.pe"
 )
 
 type DatosSiembra struct {
@@ -84,6 +85,8 @@ func Sembrar(ctx context.Context, servicio *Servicio, datos DatosSiembra) error 
 		{Email: EmailCoordinadorGeneralArquitectura, NombreUso: "Coordinación General Arquitectura", Clave: datos.Clave, Rol: RolCoordinadorGeneral, FacultadID: "4"},
 		{Email: EmailCoordinadorArquitectura, NombreUso: "Coordinación Arquitectura", Clave: datos.Clave, Rol: RolCoordinador, FacultadID: "4"},
 		{Email: "tutor.arquitectura@" + dominio, NombreUso: "Tutor Arquitectura", Clave: datos.Clave, Rol: RolTutor, FacultadID: "4"},
+
+		{Email: EmailAdministradorSintetico, NombreUso: "Administrador", Clave: datos.Clave, Rol: RolAdministrador},
 	}
 	for _, cuenta := range cuentas {
 		if _, err := servicio.RepositorioUsuarios.UsuarioPorEmail(ctx, normalizarEmail(cuenta.Email)); err == nil {

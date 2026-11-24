@@ -40,6 +40,7 @@ func (ensamblador *Controlador) montarControladoresDeCuenta(mux *http.ServeMux) 
 	(&RecuperacionControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
 	(&ConfirmacionControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
 	(&PerfilControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
+	(&AdministracionControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
 }
 
 func (ensamblador *Controlador) montarControladoresDeVinculacion(mux *http.ServeMux) {

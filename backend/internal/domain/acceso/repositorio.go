@@ -65,6 +65,7 @@ type Repositorio interface {
 	RepositorioUsuarios
 	RepositorioFacultades
 	RepositorioPerfil
+	RepositorioLogs
 	RepositorioSesiones
 	RepositorioTokens
 	RepositorioVinculaciones

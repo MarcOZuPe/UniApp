@@ -33,6 +33,7 @@ func (controlador *PerfilControlador) cambiarClave(response http.ResponseWriter,
 	if err := controlador.servicio.Perfil.CambiarClave(request.Context(), usuario.ID, modelo.DatosCambioClave{
 		ClaveActual: entrada.ClaveActual,
 		ClaveNueva:  entrada.ClaveNueva,
+		IP:          ipCliente(request),
 	}); err != nil {
 		controlador.responderError(response, err)
 		return

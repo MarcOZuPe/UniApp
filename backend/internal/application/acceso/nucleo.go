@@ -14,6 +14,7 @@ type Nucleo struct {
 	RepositorioUsuarios       RepositorioUsuarios
 	RepositorioFacultades     RepositorioFacultades
 	RepositorioPerfil         RepositorioPerfil
+	RepositorioLogs           RepositorioLogs
 	RepositorioSesiones       RepositorioSesiones
 	RepositorioTokens         RepositorioTokens
 	RepositorioVinculaciones  RepositorioVinculaciones

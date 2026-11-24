@@ -17,6 +17,7 @@ type PerfilService struct {
 type DatosCambioClave struct {
 	ClaveActual string
 	ClaveNueva  string
+	IP          string
 }
 
 func (servicio *PerfilService) CambiarClave(
@@ -53,6 +54,14 @@ func (servicio *PerfilService) CambiarClave(
 	); err != nil {
 		return err
 	}
+	_ = servicio.RepositorioLogs.RegistrarLogSistema(ctx, LogSistema{
+		Categoria: CategoriaSeguridad,
+		Evento:    "clave.cambiada",
+		ActorID:   usuario.ID,
+		ActorRol:  string(usuario.Rol),
+		IP:        datos.IP,
+		Detalle:   map[string]any{"sesiones_revocadas": true},
+	})
 	servicio.Bus.Notificar(Event{Nombre: ClaveCambiada, Payload: map[string]any{
 		"usuario_id": usuario.ID,
 		"rol":        string(usuario.Rol),

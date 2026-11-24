@@ -154,7 +154,7 @@ components:
         id: { type: string, format: uuid }
         email: { type: string }
         nombre_uso: { type: string }
-        rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general] }
+        rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general, administrador] }
         facultad_id: { type: string, nullable: true, description: "Obligatoria para tutor, coordinador y coordinador general; vacía para escolar/apoderado." }
         facultad_nombre: { type: string, nullable: true }
         correo_confirmado: { type: boolean, description: "false hasta que se usa el enlace de confirmación" }
@@ -227,7 +227,7 @@ components:
         ocurrido_en: { type: string, format: date-time }
         actor_id: { type: string, format: uuid }
         actor_nombre: { type: string }
-        actor_rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general] }
+        actor_rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general, administrador] }
         accion:
           type: string
           enum: [incidente.revisado, expediente.revisado, curso.revisado, autorizacion.cambiada, cupo.actualizado]
@@ -239,6 +239,18 @@ components:
           type: object
           additionalProperties: true
           description: "Datos de negocio saneados; nunca credenciales, tokens ni evidencias."
+    LogSistema:
+      type: object
+      required: [id, creado_en, categoria, evento, actor_rol, ip, detalle]
+      properties:
+        id: { type: integer, format: int64 }
+        creado_en: { type: string, format: date-time }
+        categoria: { type: string, enum: [seguridad, administracion, sistema] }
+        evento: { type: string }
+        actor_id: { type: string, format: uuid }
+        actor_rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general, administrador] }
+        ip: { type: string, description: "Dirección IP desde la que ocurrió el evento." }
+        detalle: { type: object, additionalProperties: true }
     Error:
       type: object
       properties:
@@ -1008,6 +1020,84 @@ paths:
         '401': { description: Sin sesión }
         '403': { description: Rol sin permiso coordinadores:gestionar }
         '404': { description: Coordinador inexistente, inactivo o no regular }
+  /api/administracion/coordinadores-generales:
+    get:
+      tags: [I19-administracion]
+      security: [{ sesion: [] }]
+      summary: Listar coordinadores generales (solo administrador)
+      responses:
+        '200':
+          description: Coordinadores generales activos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  coordinadores_generales:
+                    type: array
+                    items: { $ref: '#/components/schemas/Usuario' }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso administracion:acceder }
+    post:
+      tags: [I19-administracion]
+      security: [{ sesion: [] }]
+      summary: Crear un coordinador general (solo administrador)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, nombre_uso, clave, facultad_id]
+              properties:
+                email: { type: string, format: email }
+                nombre_uso: { type: string, minLength: 2, maxLength: 60 }
+                clave: { type: string, minLength: 12 }
+                facultad_id: { type: string }
+      responses:
+        '201':
+          description: Coordinador general creado
+          content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } }
+        '400': { description: JSON inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso administracion:acceder }
+        '409': { description: Correo ya registrado }
+        '422': { description: Validación de datos o facultad inexistente }
+  /api/administracion/coordinadores-generales/{id}:
+    delete:
+      tags: [I19-administracion]
+      security: [{ sesion: [] }]
+      summary: Desactivar un coordinador general y revocar sus sesiones
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Coordinador general desactivado }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso administracion:acceder }
+        '404': { description: Coordinador general inexistente o inactivo }
+  /api/administracion/logs:
+    get:
+      tags: [I19-administracion]
+      security: [{ sesion: [] }]
+      summary: Bitácora de seguridad y administración (solo administrador)
+      parameters:
+        - in: query
+          name: limite
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Logs del sistema
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items: { $ref: '#/components/schemas/LogSistema' }
+        '400': { description: Límite inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso administracion:acceder }
   /api/tutor/salud:
     get: { tags: [B-tutor], summary: Estado del flujo B, responses: { '200': { description: OK } } }
   /api/tutor/mi-expediente:

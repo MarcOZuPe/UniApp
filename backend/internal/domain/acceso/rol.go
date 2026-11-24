@@ -8,6 +8,7 @@ const (
 	RolTutor              Rol = "tutor"
 	RolCoordinador        Rol = "coordinador"
 	RolCoordinadorGeneral Rol = "coordinador_general"
+	RolAdministrador      Rol = "administrador"
 )
 
 func (rol Rol) EsCoordinacion() bool {

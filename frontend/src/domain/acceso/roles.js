@@ -31,6 +31,12 @@ export const ROLES = {
     politicaClave: 'estricta',
     requiereCorreoInstitucional: false,
   },
+  administrador: {
+    etiqueta: 'Administrador',
+    permiteRegistro: false,
+    politicaClave: 'estricta',
+    requiereCorreoInstitucional: false,
+  },
 };
 
 export const ROLES_REGISTRO = Object.entries(ROLES)

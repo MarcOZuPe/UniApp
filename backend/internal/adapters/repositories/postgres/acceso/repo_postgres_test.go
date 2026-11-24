@@ -289,3 +289,41 @@ func TestCambiarClaveConLimitePostgres(testingT *testing.T) {
 		testingT.Fatalf("límite por hora: %v", err)
 	}
 }
+
+func TestLogsSistemaPostgresYInmutabilidad(testingT *testing.T) {
+	urlBaseDatos := os.Getenv("TEST_DATABASE_URL")
+	if urlBaseDatos == "" {
+		testingT.Skip("TEST_DATABASE_URL no definida")
+	}
+	contexto := context.Background()
+	baseDatos, err := migrations.Abrir(urlBaseDatos)
+	if err != nil {
+		testingT.Fatal(err)
+	}
+	defer baseDatos.Close()
+	if err := migrations.Migrar(contexto, baseDatos, migrations.FS); err != nil {
+		testingT.Fatal(err)
+	}
+	repositorio := postgresRepo.RepositorioPostgres{DB: baseDatos}
+	log := modelo.LogSistema{
+		Categoria: modelo.CategoriaSeguridad,
+		Evento:    "clave.cambiada",
+		ActorID:   "00000000-0000-4000-8000-000000000006",
+		ActorRol:  "administrador",
+		IP:        "203.0.113.77",
+		Detalle:   map[string]any{"prueba": true},
+	}
+	if err := repositorio.RegistrarLogSistema(contexto, log); err != nil {
+		testingT.Fatal(err)
+	}
+	logs, err := repositorio.LogsSistema(contexto, modelo.FiltroLogsSistema{Limite: 20})
+	if err != nil || len(logs) == 0 || logs[0].IP != "203.0.113.77" {
+		testingT.Fatalf("logs: %+v, %v", logs, err)
+	}
+	if _, err := baseDatos.Exec(`UPDATE logs_sistema SET ip='0.0.0.0'`); err == nil {
+		testingT.Fatal("los logs no deben permitir UPDATE")
+	}
+	if _, err := baseDatos.Exec(`DELETE FROM logs_sistema`); err == nil {
+		testingT.Fatal("los logs no deben permitir DELETE")
+	}
+}
