@@ -10,7 +10,7 @@ import (
 )
 
 const columnasIncidente = `i.id, i.escolar_id, e.nombre_uso, i.reportado_por,
-	i.tutor_id, i.tutor_nombre, i.reserva_id, i.curso, i.inicio_sesion, i.tipo,
+	i.tutor_id, i.tutor_nombre, i.facultad_id::text, i.reserva_id, i.curso, i.inicio_sesion, i.tipo,
 	i.descripcion, i.estado, i.resultado, i.comentario_revision, i.revisado_por,
 	i.revisado_en, i.creado_en`
 
@@ -26,8 +26,8 @@ func (r RepositorioPostgres) TutoriasDeEscolar(
 	ahora time.Time,
 ) ([]Tutoria, error) {
 	filas, err := r.DB.QueryContext(ctx, `
-		SELECT r.id, r.escolar_id, u.nombre_uso, r.tutor_id, r.tutor_nombre, r.curso,
-		       r.inicio, r.fin,
+		SELECT r.id, r.escolar_id, u.nombre_uso, r.tutor_id, r.tutor_nombre,
+		       COALESCE(tu.facultad_id::text, ''), r.curso, r.inicio, r.fin,
 		       EXISTS (
 		           SELECT 1
 		           FROM sesion_sesiones s
@@ -38,6 +38,7 @@ func (r RepositorioPostgres) TutoriasDeEscolar(
 		       )
 		FROM reservas r
 		JOIN usuarios u ON u.id = r.escolar_id
+		JOIN usuarios tu ON tu.id::text = r.tutor_id
 		WHERE r.escolar_id = $1 AND r.estado = 'confirmada' AND r.fin <= $2
 		ORDER BY r.inicio DESC, r.id`, escolarID, ahora.UTC())
 	if err != nil {
@@ -49,8 +50,8 @@ func (r RepositorioPostgres) TutoriasDeEscolar(
 		var tutoria Tutoria
 		if err := filas.Scan(
 			&tutoria.ReservaID, &tutoria.EscolarID, &tutoria.EscolarNombre,
-			&tutoria.TutorID, &tutoria.TutorNombre, &tutoria.Curso,
-			&tutoria.Inicio, &tutoria.Fin, &tutoria.Asistio,
+			&tutoria.TutorID, &tutoria.TutorNombre, &tutoria.TutorFacultadID,
+			&tutoria.Curso, &tutoria.Inicio, &tutoria.Fin, &tutoria.Asistio,
 		); err != nil {
 			return nil, err
 		}
@@ -66,8 +67,8 @@ func (r RepositorioPostgres) TutoriaDeEscolar(
 ) (*Tutoria, error) {
 	var tutoria Tutoria
 	err := r.DB.QueryRowContext(ctx, `
-		SELECT r.id, r.escolar_id, u.nombre_uso, r.tutor_id, r.tutor_nombre, r.curso,
-		       r.inicio, r.fin,
+		SELECT r.id, r.escolar_id, u.nombre_uso, r.tutor_id, r.tutor_nombre,
+		       COALESCE(tu.facultad_id::text, ''), r.curso, r.inicio, r.fin,
 		       EXISTS (
 		           SELECT 1
 		           FROM sesion_sesiones s
@@ -78,12 +79,13 @@ func (r RepositorioPostgres) TutoriaDeEscolar(
 		       )
 		FROM reservas r
 		JOIN usuarios u ON u.id = r.escolar_id
+		JOIN usuarios tu ON tu.id::text = r.tutor_id
 		WHERE r.id = $1 AND r.escolar_id = $2 AND r.estado = 'confirmada' AND r.fin <= $3`,
 		reservaID, escolarID, ahora.UTC(),
 	).Scan(
 		&tutoria.ReservaID, &tutoria.EscolarID, &tutoria.EscolarNombre,
-		&tutoria.TutorID, &tutoria.TutorNombre, &tutoria.Curso,
-		&tutoria.Inicio, &tutoria.Fin, &tutoria.Asistio,
+		&tutoria.TutorID, &tutoria.TutorNombre, &tutoria.TutorFacultadID,
+		&tutoria.Curso, &tutoria.Inicio, &tutoria.Fin, &tutoria.Asistio,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrTutoriaNoEncontrada
@@ -139,12 +141,12 @@ func (r RepositorioPostgres) Crear(ctx context.Context, incidente *Incidente) (*
 	copia := *incidente
 	if err := tx.QueryRowContext(ctx, `
 		INSERT INTO incidentes (
-			escolar_id, reportado_por, tutor_id, tutor_nombre, reserva_id, curso,
+			escolar_id, reportado_por, tutor_id, tutor_nombre, facultad_id, reserva_id, curso,
 			inicio_sesion, tipo, descripcion, estado, creado_en
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pendiente',$10)
+		) VALUES ($1,$2,$3,$4,NULLIF($5,'')::smallint,$6,$7,$8,$9,$10,'pendiente',$11)
 		RETURNING id, creado_en`,
 		copia.EscolarID, copia.ReportadoPor, copia.TutorID, copia.TutorNombre,
-		copia.ReservaID, copia.Curso, copia.Inicio.UTC(), string(copia.Tipo),
+		copia.FacultadID, copia.ReservaID, copia.Curso, copia.Inicio.UTC(), string(copia.Tipo),
 		copia.Descripcion, copia.CreadoEn.UTC(),
 	).Scan(&copia.ID, &copia.CreadoEn); err != nil {
 		return nil, err
@@ -197,6 +199,9 @@ func (r RepositorioPostgres) Listar(ctx context.Context, filtro Filtro) ([]Incid
 		JOIN usuarios e ON e.id = i.escolar_id`
 	argumentos := make([]any, 0, 1)
 	switch {
+	case filtro.FacultadID != "":
+		consulta += " WHERE i.facultad_id = NULLIF($1,'')::smallint"
+		argumentos = append(argumentos, filtro.FacultadID)
 	case filtro.Todos:
 	case filtro.EscolarID != "":
 		consulta += " WHERE i.escolar_id = $1"
@@ -323,7 +328,7 @@ func escanearIncidente(fila escaneador) (*Incidente, error) {
 	if err := fila.Scan(
 		&incidente.ID, &incidente.EscolarID, &incidente.EscolarNombre,
 		&incidente.ReportadoPor, &incidente.TutorID, &incidente.TutorNombre,
-		&incidente.ReservaID, &incidente.Curso, &incidente.Inicio, &tipo,
+		&incidente.FacultadID, &incidente.ReservaID, &incidente.Curso, &incidente.Inicio, &tipo,
 		&incidente.Descripcion, &estado, &resultado, &incidente.ComentarioRevision,
 		&revisadoPor, &revisadoEn, &incidente.CreadoEn,
 	); err != nil {

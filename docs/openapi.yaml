@@ -155,6 +155,8 @@ components:
         email: { type: string }
         nombre_uso: { type: string }
         rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general] }
+        facultad_id: { type: string, nullable: true, description: "Obligatoria para tutor, coordinador y coordinador general; vacía para escolar/apoderado." }
+        facultad_nombre: { type: string, nullable: true }
         correo_confirmado: { type: boolean, description: "false hasta que se usa el enlace de confirmación" }
     UsuarioResumen:
       type: object
@@ -538,13 +540,42 @@ components:
         distrito: { type: string }
         solicitado_en: { type: string, format: date-time }
 paths:
+  /api/facultades:
+    get:
+      summary: Facultades disponibles para tutores
+      description: Catálogo público. Los escolares y apoderados no pertenecen a una facultad.
+      responses:
+        '200':
+          description: Facultades
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  facultades:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        nombre: { type: string }
   /api/auth/registro:
     post:
       summary: Registro público (escolar, apoderado, tutor). Coordinación no se autoasigna.
       description: La cuenta nace sin confirmar y se envía un enlace de un solo uso (30 min) al correo. Si no se confirma en ese plazo, la cuenta se borra y el correo queda libre. Un correo admite un solo registro.
       requestBody:
         required: true
-        content: { application/json: { schema: { type: object, required: [email, nombre_uso, clave, rol], properties: { email: {type: string}, nombre_uso: {type: string}, clave: {type: string}, rol: {type: string, enum: [escolar, apoderado, tutor]} } } } }
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, nombre_uso, clave, rol]
+              properties:
+                email: { type: string }
+                nombre_uso: { type: string }
+                clave: { type: string }
+                rol: { type: string, enum: [escolar, apoderado, tutor] }
+                facultad_id: { type: string, description: "Obligatorio para tutor; inmutable después de crear la cuenta." }
       responses:
         '201': { description: Creado sin confirmar; se envió un enlace al correo, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
         '400': { description: Solicitud inválida }

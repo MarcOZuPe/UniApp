@@ -103,10 +103,10 @@ func main() {
 		storage.AlmacenDocumentosFS{Directorio: configuracion.DirectorioDocumentos},
 	)
 	if configuracion.SembrarSintetico {
-		if err := sembrarExpedienteTutor(ctx, baseDatos, configuracion, servicioTutor); err != nil {
-			registro.Fatalf("semilla de expediente de tutor: %v", err)
+		if err := sembrarExpedientesTutores(ctx, baseDatos, configuracion, servicioTutor); err != nil {
+			registro.Fatalf("semilla de expedientes de tutores: %v", err)
 		}
-		registro.Println("expediente sintético I02 listo")
+		registro.Println("expedientes sintéticos I02 listos")
 	}
 
 	tutores := ctrlTutor.Nuevo(servicioTutor, controlador.Autenticar()).Rutas()
@@ -286,18 +286,23 @@ func construirServicioReserva(
 	})
 }
 
-func sembrarExpedienteTutor(
+func sembrarExpedientesTutores(
 	ctx context.Context,
 	baseDatos *sql.DB,
 	configuracion config.Config,
 	servicio *modeloTutor.Servicio,
 ) error {
-	email := "tutor.prueba@" + primerDominio(configuracion.DominiosTutor)
-	tutor, err := (accesoRepo.RepositorioPostgres{DB: baseDatos}).UsuarioPorEmail(ctx, email)
-	if err != nil {
-		return fmt.Errorf("buscar tutor sintético: %w", err)
+	repositorio := accesoRepo.RepositorioPostgres{DB: baseDatos}
+	for _, email := range modelo.CorreosTutoresSinteticos(primerDominio(configuracion.DominiosTutor)) {
+		tutor, err := repositorio.UsuarioPorEmail(ctx, email)
+		if err != nil {
+			return fmt.Errorf("buscar tutor sintético %s: %w", email, err)
+		}
+		if err := modeloTutor.SembrarExpedienteSintetico(ctx, servicio, tutor.ID); err != nil {
+			return fmt.Errorf("sembrar expediente de %s: %w", email, err)
+		}
 	}
-	return modeloTutor.SembrarExpedienteSintetico(ctx, servicio, tutor.ID)
+	return nil
 }
 
 func sembrarCatalogoSintetico(ctx context.Context, baseDatos *sql.DB, servicio *modeloCatalogo.Servicio) error {

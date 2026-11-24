@@ -56,7 +56,7 @@ func TestRepositorioPostgresMetricasAuditoriaEInmutabilidad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	metricas, err := repositorio.Metricas(ctx, ahora)
+	metricas, err := repositorio.Metricas(ctx, ahora, "1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,20 +74,18 @@ func TestRepositorioPostgresMetricasAuditoriaEInmutabilidad(t *testing.T) {
 		t.Fatalf("horas internas: %+v", metricas.Horas)
 	}
 
-	eventos, err := repositorio.Auditoria(ctx, modelo.FiltroAuditoria{Limite: 20})
+	eventos, err := repositorio.Auditoria(ctx, modelo.FiltroAuditoria{Limite: 20, FacultadID: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(eventos) < 4 {
+	if len(eventos) < 3 {
 		t.Fatalf("faltan eventos de auditoría: %+v", eventos)
 	}
-	var revisado, autorizacion, cupo bool
+	var revisado, cupo bool
 	for _, evento := range eventos {
 		switch evento.Accion {
 		case "incidente.revisado":
 			revisado = evento.ActorRol == "coordinador_general" && evento.ActorID == generalID
-		case "autorizacion.cambiada":
-			autorizacion = evento.ActorRol == "apoderado" && evento.ActorID == apoderadoID
 		case "cupo.actualizado":
 			cupo = evento.ActorRol == "tutor" && evento.ActorID == tutorID
 		}
@@ -97,8 +95,8 @@ func TestRepositorioPostgresMetricasAuditoriaEInmutabilidad(t *testing.T) {
 			}
 		}
 	}
-	if !revisado || !autorizacion || !cupo {
-		t.Fatalf("auditoría incompleta: revisado=%v autorizacion=%v cupo=%v", revisado, autorizacion, cupo)
+	if !revisado || !cupo {
+		t.Fatalf("auditoría incompleta: revisado=%v cupo=%v", revisado, cupo)
 	}
 
 	if _, err := db.ExecContext(ctx, `UPDATE auditoria_eventos SET accion = 'alterada'`); err == nil ||

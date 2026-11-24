@@ -117,10 +117,18 @@ func (s *Servicio) Registrar(ctx context.Context, usuarioID string, rol modeloAc
 	return creado, nil
 }
 
-func (s *Servicio) Listar(ctx context.Context, usuarioID string, rol modeloAcceso.Rol) ([]Incidente, error) {
+func (s *Servicio) Listar(
+	ctx context.Context,
+	usuarioID string,
+	rol modeloAcceso.Rol,
+	facultadID string,
+) ([]Incidente, error) {
 	switch rol {
 	case modeloAcceso.RolCoordinador, modeloAcceso.RolCoordinadorGeneral:
-		return s.repositorio.Listar(ctx, Filtro{Todos: true})
+		if facultadID == "" {
+			return []Incidente{}, nil
+		}
+		return s.repositorio.Listar(ctx, Filtro{FacultadID: facultadID})
 	case modeloAcceso.RolEscolar:
 		return s.repositorio.Listar(ctx, Filtro{EscolarID: usuarioID})
 	case modeloAcceso.RolApoderado:
@@ -141,12 +149,17 @@ func (s *Servicio) Listar(ctx context.Context, usuarioID string, rol modeloAcces
 	}
 }
 
-func (s *Servicio) PorID(ctx context.Context, usuarioID string, rol modeloAcceso.Rol, incidenteID string) (*Incidente, error) {
+func (s *Servicio) PorID(
+	ctx context.Context,
+	usuarioID string,
+	rol modeloAcceso.Rol,
+	facultadID, incidenteID string,
+) (*Incidente, error) {
 	incidente, err := s.repositorio.PorID(ctx, incidenteID)
 	if err != nil {
 		return nil, err
 	}
-	visible, err := s.puedeVer(ctx, incidente, usuarioID, rol)
+	visible, err := s.puedeVer(ctx, incidente, usuarioID, rol, facultadID)
 	if err != nil {
 		return nil, err
 	}
@@ -160,9 +173,9 @@ func (s *Servicio) AbrirEvidencia(
 	ctx context.Context,
 	usuarioID string,
 	rol modeloAcceso.Rol,
-	incidenteID, evidenciaID string,
+	facultadID, incidenteID, evidenciaID string,
 ) (*Incidente, Evidencia, []byte, error) {
-	incidente, err := s.PorID(ctx, usuarioID, rol, incidenteID)
+	incidente, err := s.PorID(ctx, usuarioID, rol, facultadID, incidenteID)
 	if err != nil {
 		return nil, Evidencia{}, nil, err
 	}
@@ -184,13 +197,13 @@ func (s *Servicio) Revisar(
 	ctx context.Context,
 	revisorID string,
 	rol modeloAcceso.Rol,
-	incidenteID string,
+	facultadID, incidenteID string,
 	datos DatosRevision,
 ) (*Incidente, error) {
 	if !rol.EsCoordinacion() {
 		return nil, ErrNoAutorizado
 	}
-	incidente, err := s.repositorio.PorID(ctx, incidenteID)
+	incidente, err := s.PorID(ctx, revisorID, rol, facultadID, incidenteID)
 	if err != nil {
 		return nil, err
 	}
@@ -203,10 +216,16 @@ func (s *Servicio) Revisar(
 	)
 }
 
-func (s *Servicio) puedeVer(ctx context.Context, incidente *Incidente, usuarioID string, rol modeloAcceso.Rol) (bool, error) {
+func (s *Servicio) puedeVer(
+	ctx context.Context,
+	incidente *Incidente,
+	usuarioID string,
+	rol modeloAcceso.Rol,
+	facultadID string,
+) (bool, error) {
 	switch rol {
 	case modeloAcceso.RolCoordinador, modeloAcceso.RolCoordinadorGeneral:
-		return true, nil
+		return facultadID != "" && incidente.FacultadID == facultadID, nil
 	case modeloAcceso.RolEscolar:
 		return incidente.EscolarID == usuarioID, nil
 	case modeloAcceso.RolApoderado:

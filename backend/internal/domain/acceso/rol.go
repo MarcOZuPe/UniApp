@@ -13,3 +13,7 @@ const (
 func (rol Rol) EsCoordinacion() bool {
 	return rol == RolCoordinador || rol == RolCoordinadorGeneral
 }
+
+func (rol Rol) RequiereFacultad() bool {
+	return rol == RolTutor || rol == RolCoordinador || rol == RolCoordinadorGeneral
+}

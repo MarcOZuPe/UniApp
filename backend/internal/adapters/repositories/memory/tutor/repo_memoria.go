@@ -26,6 +26,9 @@ func (r *RepositorioMemoria) Guardar(_ context.Context, expediente *Expediente) 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	copia := Copiar(expediente)
+	if copia.FacultadID == "" {
+		copia.FacultadID = "1"
+	}
 	anterior := r.expedientes[expediente.TutorID]
 	if anterior != nil {
 		for _, documento := range anterior.Documentos {
@@ -51,24 +54,24 @@ func (r *RepositorioMemoria) PorTutor(_ context.Context, tutorID string) (*Exped
 	return Copiar(expediente), nil
 }
 
-func (r *RepositorioMemoria) Pendientes(_ context.Context) ([]Expediente, error) {
+func (r *RepositorioMemoria) Pendientes(_ context.Context, facultadID string) ([]Expediente, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	resultado := make([]Expediente, 0)
 	for _, expediente := range r.expedientes {
-		if expediente.Estado == EstadoPendiente {
+		if expediente.Estado == EstadoPendiente && coincideFacultad(expediente.FacultadID, facultadID) {
 			resultado = append(resultado, *Copiar(expediente))
 		}
 	}
 	return resultado, nil
 }
 
-func (r *RepositorioMemoria) Aprobados(_ context.Context) ([]Expediente, error) {
+func (r *RepositorioMemoria) Aprobados(_ context.Context, facultadID string) ([]Expediente, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	resultado := make([]Expediente, 0)
 	for _, expediente := range r.expedientes {
-		if expediente.Estado == EstadoAprobado {
+		if expediente.Estado == EstadoAprobado && coincideFacultad(expediente.FacultadID, facultadID) {
 			resultado = append(resultado, *Copiar(expediente))
 		}
 	}
@@ -94,6 +97,10 @@ func (r *RepositorioMemoria) Documento(_ context.Context, id string) (Documento,
 		return Documento{}, "", ErrNoEncontrado
 	}
 	return documento, r.propietario[id], nil
+}
+
+func coincideFacultad(expediente, solicitada string) bool {
+	return solicitada == "" || expediente == "" || expediente == solicitada
 }
 
 func (r *RepositorioMemoria) PerfilesPublicos(_ context.Context, ahora time.Time) ([]PerfilListado, error) {

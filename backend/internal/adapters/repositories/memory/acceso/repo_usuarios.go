@@ -44,12 +44,16 @@ func (repositorio *RepositorioMemoria) UsuarioPorID(_ context.Context, usuarioID
 	return nil, ErrNoEncontrado
 }
 
-func (repositorio *RepositorioMemoria) UsuariosActivosPorRol(_ context.Context, rol Rol) ([]*Usuario, error) {
+func (repositorio *RepositorioMemoria) UsuariosActivosPorRol(
+	_ context.Context,
+	rol Rol,
+	facultadID string,
+) ([]*Usuario, error) {
 	repositorio.mu.Lock()
 	defer repositorio.mu.Unlock()
 	usuarios := make([]*Usuario, 0)
 	for _, usuario := range repositorio.usuarios {
-		if usuario.Rol != rol || !usuario.Activo {
+		if usuario.Rol != rol || !usuario.Activo || usuario.FacultadID != facultadID {
 			continue
 		}
 		copia := *usuario

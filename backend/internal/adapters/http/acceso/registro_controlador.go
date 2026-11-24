@@ -10,14 +10,27 @@ import (
 type RegistroControlador struct{ *controladorBase }
 
 type registroCuentaJSON struct {
-	Email     string `json:"email"`
-	NombreUso string `json:"nombre_uso"`
-	Clave     string `json:"clave"`
-	Rol       string `json:"rol"`
+	Email      string `json:"email"`
+	NombreUso  string `json:"nombre_uso"`
+	Clave      string `json:"clave"`
+	Rol        string `json:"rol"`
+	FacultadID string `json:"facultad_id"`
 }
 
 func (controlador *RegistroControlador) Montar(multiplexor *http.ServeMux) {
 	multiplexor.HandleFunc("POST /api/auth/registro", controlador.registro)
+	multiplexor.HandleFunc("GET /api/facultades", controlador.facultades)
+}
+
+func (controlador *RegistroControlador) facultades(response http.ResponseWriter, request *http.Request) {
+	facultades, err := controlador.servicio.Registro.Facultades(request.Context())
+	if err != nil {
+		controlador.responderError(response, err)
+		return
+	}
+	vista.EscribirJSON(response, http.StatusOK, map[string]any{
+		"facultades": vista.PresentarFacultades(facultades),
+	})
 }
 
 func (controlador *RegistroControlador) registro(response http.ResponseWriter, request *http.Request) {
@@ -38,10 +51,11 @@ func (controlador *RegistroControlador) registro(response http.ResponseWriter, r
 
 func (controlador *RegistroControlador) compilarSolicitudRegistro(payload registroCuentaJSON) modelo.SolicitudRegistro {
 	return modelo.SolicitudRegistro{
-		Email:     payload.Email,
-		NombreUso: payload.NombreUso,
-		Clave:     payload.Clave,
-		Rol:       modelo.Rol(payload.Rol),
+		Email:      payload.Email,
+		NombreUso:  payload.NombreUso,
+		Clave:      payload.Clave,
+		Rol:        modelo.Rol(payload.Rol),
+		FacultadID: payload.FacultadID,
 	}
 }
 

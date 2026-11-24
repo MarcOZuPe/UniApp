@@ -13,6 +13,8 @@ const estado = vi.hoisted(() => ({
     email: 'escolar@example.test',
     nombre_uso: 'Escolar Prueba',
     rol: 'escolar',
+    facultad_id: '',
+    facultad_nombre: '',
     correo_confirmado: true,
   },
 }));

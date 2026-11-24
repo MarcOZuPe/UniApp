@@ -7,10 +7,10 @@ type CoordinadoresService struct {
 }
 
 func (servicio *CoordinadoresService) Listar(ctx context.Context, actor *Usuario) ([]*Usuario, error) {
-	if !esCoordinadorGeneral(actor) {
+	if !esCoordinadorGeneral(actor) || actor.FacultadID == "" {
 		return nil, ErrNoAutorizado
 	}
-	return servicio.RepositorioUsuarios.UsuariosActivosPorRol(ctx, RolCoordinador)
+	return servicio.RepositorioUsuarios.UsuariosActivosPorRol(ctx, RolCoordinador, actor.FacultadID)
 }
 
 func (servicio *CoordinadoresService) Crear(
@@ -18,10 +18,11 @@ func (servicio *CoordinadoresService) Crear(
 	actor *Usuario,
 	datos SolicitudRegistro,
 ) (*Usuario, error) {
-	if !esCoordinadorGeneral(actor) {
+	if !esCoordinadorGeneral(actor) || actor.FacultadID == "" {
 		return nil, ErrNoAutorizado
 	}
 	datos.Rol = RolCoordinador
+	datos.FacultadID = actor.FacultadID
 	usuario, err := servicio.CreadorUsuarios.CrearInterno(datos)
 	if err != nil {
 		return nil, err
@@ -34,11 +35,12 @@ func (servicio *CoordinadoresService) Eliminar(
 	actor *Usuario,
 	coordinadorID string,
 ) error {
-	if !esCoordinadorGeneral(actor) {
+	if !esCoordinadorGeneral(actor) || actor.FacultadID == "" {
 		return ErrNoAutorizado
 	}
 	coordinador, err := servicio.RepositorioUsuarios.UsuarioPorID(ctx, coordinadorID)
-	if err != nil || coordinador.Rol != RolCoordinador || !coordinador.Activo {
+	if err != nil || coordinador.Rol != RolCoordinador || !coordinador.Activo ||
+		coordinador.FacultadID != actor.FacultadID {
 		return ErrCoordinadorNoEncontrado
 	}
 	if err := servicio.RepositorioUsuarios.DesactivarUsuario(ctx, coordinador.ID); err != nil {

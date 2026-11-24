@@ -58,5 +58,6 @@ type EventoAuditoria struct {
 }
 
 type FiltroAuditoria struct {
-	Limite int
+	Limite     int
+	FacultadID string
 }

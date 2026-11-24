@@ -56,7 +56,7 @@ func (c *Controlador) metricas(w http.ResponseWriter, r *http.Request) {
 		c.errores.Escribir(w, dominio.ErrNoAutorizado)
 		return
 	}
-	metricas, err := c.nucleo.Metricas(r.Context(), usuario.Rol)
+	metricas, err := c.nucleo.Metricas(r.Context(), usuario.Rol, usuario.FacultadID)
 	if err != nil {
 		c.errores.Escribir(w, err)
 		return
@@ -82,7 +82,7 @@ func (c *Controlador) auditoria(w http.ResponseWriter, r *http.Request) {
 		}
 		limite = convertido
 	}
-	eventos, err := c.nucleo.Auditoria(r.Context(), usuario.Rol, dominio.FiltroAuditoria{
+	eventos, err := c.nucleo.Auditoria(r.Context(), usuario.Rol, usuario.FacultadID, dominio.FiltroAuditoria{
 		Limite: limite,
 	})
 	if err != nil {

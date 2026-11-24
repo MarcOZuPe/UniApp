@@ -17,7 +17,7 @@ type repositorioPrueba struct {
 	consultas int
 }
 
-func (r *repositorioPrueba) Metricas(context.Context, time.Time) (*modelo.Metricas, error) {
+func (r *repositorioPrueba) Metricas(context.Context, time.Time, string) (*modelo.Metricas, error) {
 	r.consultas++
 	return r.metricas, nil
 }
@@ -32,13 +32,16 @@ func TestServicioPanelSoloCoordinacion(t *testing.T) {
 	repositorio := &repositorioPrueba{}
 	servicio := NuevoServicio(repositorio)
 
-	if _, err := servicio.Metricas(context.Background(), modeloAcceso.RolEscolar); !errors.Is(err, modelo.ErrNoAutorizado) {
+	if _, err := servicio.Metricas(context.Background(), modeloAcceso.RolEscolar, "1"); !errors.Is(err, modelo.ErrNoAutorizado) {
 		t.Fatalf("escolar no debe consultar métricas: %v", err)
 	}
-	if _, err := servicio.Auditoria(context.Background(), modeloAcceso.RolTutor, modelo.FiltroAuditoria{}); !errors.Is(err, modelo.ErrNoAutorizado) {
+	if _, err := servicio.Auditoria(context.Background(), modeloAcceso.RolTutor, "1", modelo.FiltroAuditoria{}); !errors.Is(err, modelo.ErrNoAutorizado) {
 		t.Fatalf("tutor no debe consultar auditoría: %v", err)
 	}
-	if _, err := servicio.Metricas(context.Background(), modeloAcceso.RolCoordinadorGeneral); err != nil {
+	if _, err := servicio.Metricas(context.Background(), modeloAcceso.RolCoordinadorGeneral, ""); !errors.Is(err, modelo.ErrNoAutorizado) {
+		t.Fatalf("sin facultad no debe consultar métricas: %v", err)
+	}
+	if _, err := servicio.Metricas(context.Background(), modeloAcceso.RolCoordinadorGeneral, "1"); err != nil {
 		t.Fatalf("coordinación general debe consultar métricas: %v", err)
 	}
 	if repositorio.consultas != 1 {
@@ -51,13 +54,13 @@ func TestServicioPanelAplicaLimitesDeAuditoria(t *testing.T) {
 	servicio := NuevoServicio(repositorio)
 	servicio.FijarReloj(func() time.Time { return time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC) })
 
-	if _, err := servicio.Auditoria(context.Background(), modeloAcceso.RolCoordinador, modelo.FiltroAuditoria{}); err != nil {
+	if _, err := servicio.Auditoria(context.Background(), modeloAcceso.RolCoordinador, "1", modelo.FiltroAuditoria{}); err != nil {
 		t.Fatal(err)
 	}
 	if repositorio.filtro.Limite != modelo.LimiteAuditoriaPorDefecto {
 		t.Fatalf("límite por defecto: %d", repositorio.filtro.Limite)
 	}
-	if _, err := servicio.Auditoria(context.Background(), modeloAcceso.RolCoordinador, modelo.FiltroAuditoria{Limite: 1000}); err != nil {
+	if _, err := servicio.Auditoria(context.Background(), modeloAcceso.RolCoordinador, "1", modelo.FiltroAuditoria{Limite: 1000}); err != nil {
 		t.Fatal(err)
 	}
 	if repositorio.filtro.Limite != modelo.LimiteAuditoriaMaximo {

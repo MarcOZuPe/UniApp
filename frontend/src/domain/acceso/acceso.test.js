@@ -29,11 +29,12 @@ describe('modelo: validadores (Strategy + Factory)', () => {
     expect(crearPolitica('tutor')({ clave: 'larga-pero-simple' }).length).toBeGreaterThan(0);
   });
   it('tutor exige correo institucional', () => {
-    const datosBaseTutor = { nombre_uso: 'Tito', clave: 'Clave-Segura-2026!', confirmar: 'Clave-Segura-2026!', rol: 'tutor' };
+    const datosBaseTutor = { nombre_uso: 'Tito', clave: 'Clave-Segura-2026!', confirmar: 'Clave-Segura-2026!', rol: 'tutor', facultad_id: '1' };
     expect(validarRegistro({ ...datosBaseTutor, email: 't@gmail.com' }).email).toBeTruthy();
     expect(validarRegistro({ ...datosBaseTutor, email: 't@uni.edu.pe.evil.com' }).email).toBeTruthy();
     expect(validarRegistro({ ...datosBaseTutor, email: 't@uni.edu.pe' })).toEqual({});
     expect(validarRegistro({ ...datosBaseTutor, email: 't@uni.pe' })).toEqual({});
+    expect(validarRegistro({ ...datosBaseTutor, email: 't@uni.pe', facultad_id: '' }).facultad_id).toBeTruthy();
   });
   it('restablecer exige la política básica y confirma la clave', () => {
     expect(validarRestablecer({ clave: 'corta', confirmar: 'corta' }).clave).toBeTruthy();

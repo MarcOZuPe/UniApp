@@ -25,13 +25,13 @@ func TestFabricaPorRol(testingT *testing.T) {
 		testingT.Fatalf("las cuentas internas nacen confirmadas: %v", err)
 	}
 	for _, correo := range []string{"testingT@uni.edu.pe", "testingT@uni.pe"} {
-		if _, err := fabrica.CrearPublico(SolicitudRegistro{Email: correo, NombreUso: "Tito", Clave: claveOK, Rol: RolTutor}); err != nil {
+		if _, err := fabrica.CrearPublico(SolicitudRegistro{Email: correo, NombreUso: "Tito", Clave: claveOK, Rol: RolTutor, FacultadID: "1"}); err != nil {
 			testingT.Fatalf("tutor con %s debe registrarse: %v", correo, err)
 		}
 	}
 	var ev ErrValidacion
 	for _, correo := range []string{"testingT@gmail.com", "testingT@uni.edu.pe.evil.com"} {
-		_, err := fabrica.CrearPublico(SolicitudRegistro{Email: correo, NombreUso: "Tito", Clave: claveOK, Rol: RolTutor})
+		_, err := fabrica.CrearPublico(SolicitudRegistro{Email: correo, NombreUso: "Tito", Clave: claveOK, Rol: RolTutor, FacultadID: "1"})
 		if !errors.As(err, &ev) || ev.Campos["email"] == "" {
 			testingT.Fatalf("tutor con %s no debe registrarse: %v", correo, err)
 		}

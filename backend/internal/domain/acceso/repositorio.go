@@ -9,12 +9,17 @@ type RepositorioUsuarios interface {
 	CrearUsuario(ctx context.Context, usuario *Usuario) (*Usuario, error)
 	UsuarioPorEmail(ctx context.Context, email string) (*Usuario, error)
 	UsuarioPorID(ctx context.Context, usuarioID string) (*Usuario, error)
-	UsuariosActivosPorRol(ctx context.Context, rol Rol) ([]*Usuario, error)
+	UsuariosActivosPorRol(ctx context.Context, rol Rol, facultadID string) ([]*Usuario, error)
 	DesactivarUsuario(ctx context.Context, usuarioID string) error
 	MarcarCorreoConfirmado(ctx context.Context, usuarioID string) error
 	ActualizarClave(ctx context.Context, usuarioID, hashClave string) error
 	RegistrarIngreso(ctx context.Context, usuarioID string, momento time.Time) error
 	EliminarUsuariosSinConfirmar(ctx context.Context, ahora time.Time) (int64, error)
+}
+
+type RepositorioFacultades interface {
+	Facultades(ctx context.Context) ([]Facultad, error)
+	FacultadPorID(ctx context.Context, facultadID string) (*Facultad, error)
 }
 
 type RepositorioPerfil interface {
@@ -58,6 +63,7 @@ type RepositorioAutorizaciones interface {
 
 type Repositorio interface {
 	RepositorioUsuarios
+	RepositorioFacultades
 	RepositorioPerfil
 	RepositorioSesiones
 	RepositorioTokens

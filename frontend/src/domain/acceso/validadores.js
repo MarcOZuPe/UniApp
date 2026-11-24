@@ -19,6 +19,9 @@ export function validarRegistro(formularioRegistro, dominiosTutor = DOMINIOS_INS
   }
 
   validarNombreUso(erroresPorCampo, formularioRegistro.nombre_uso);
+  if (formularioRegistro.rol === 'tutor' && !String(formularioRegistro.facultad_id ?? '').trim()) {
+    erroresPorCampo.facultad_id = 'Elige tu facultad.';
+  }
   validarClave(erroresPorCampo, {
     clave: formularioRegistro.clave || '',
     email,

@@ -64,17 +64,26 @@ func (s *Servicio) MiExpediente(ctx context.Context, tutorID string) (*Expedient
 	return s.repositorio.PorTutor(ctx, tutorID)
 }
 
-func (s *Servicio) Pendientes(ctx context.Context) ([]Expediente, error) {
-	return s.repositorio.Pendientes(ctx)
+func (s *Servicio) Pendientes(ctx context.Context, facultadID string) ([]Expediente, error) {
+	return s.repositorio.Pendientes(ctx, facultadID)
 }
 
-func (s *Servicio) Aprobados(ctx context.Context) ([]Expediente, error) {
-	return s.repositorio.Aprobados(ctx)
+func (s *Servicio) Aprobados(ctx context.Context, facultadID string) ([]Expediente, error) {
+	return s.repositorio.Aprobados(ctx, facultadID)
 }
 
-func (s *Servicio) Revisar(ctx context.Context, tutorID, revisorID string, estado Estado, motivo string, venceEn time.Time) (*Expediente, error) {
+func (s *Servicio) Revisar(
+	ctx context.Context,
+	tutorID, revisorID, facultadID string,
+	estado Estado,
+	motivo string,
+	venceEn time.Time,
+) (*Expediente, error) {
 	expediente, err := s.repositorio.PorTutor(ctx, tutorID)
 	if err != nil {
+		return nil, err
+	}
+	if err := exigirMismaFacultad(expediente.FacultadID, facultadID); err != nil {
 		return nil, err
 	}
 	if err := expediente.Revisar(estado, revisorID, motivo, venceEn, s.ahora()); err != nil {
@@ -105,7 +114,11 @@ func (s *Servicio) PerfilesPublicos(ctx context.Context) ([]PerfilListado, error
 	return s.repositorio.PerfilesPublicos(ctx, s.ahora())
 }
 
-func (s *Servicio) DescargarDocumento(ctx context.Context, documentoID, usuarioID string, coordinador bool) ([]byte, Documento, error) {
+func (s *Servicio) DescargarDocumento(
+	ctx context.Context,
+	documentoID, usuarioID, facultadID string,
+	coordinador bool,
+) ([]byte, Documento, error) {
 	documento, propietarioID, err := s.repositorio.Documento(ctx, documentoID)
 	if err != nil {
 		return nil, Documento{}, err
@@ -113,11 +126,27 @@ func (s *Servicio) DescargarDocumento(ctx context.Context, documentoID, usuarioI
 	if !coordinador && propietarioID != usuarioID {
 		return nil, Documento{}, ErrSinPermiso
 	}
+	if coordinador {
+		expediente, err := s.repositorio.PorTutor(ctx, propietarioID)
+		if err != nil {
+			return nil, Documento{}, err
+		}
+		if err := exigirMismaFacultad(expediente.FacultadID, facultadID); err != nil {
+			return nil, Documento{}, err
+		}
+	}
 	contenido, err := s.almacen.Leer(ctx, documentoID)
 	if err != nil {
 		return nil, Documento{}, err
 	}
 	return contenido, documento, nil
+}
+
+func exigirMismaFacultad(facultadTutor, facultadCoordinador string) error {
+	if facultadCoordinador != "" && facultadTutor != "" && facultadTutor != facultadCoordinador {
+		return ErrSinPermiso
+	}
+	return nil
 }
 
 func (s *Servicio) eliminarDocumentos(ctx context.Context, ids []string) error {

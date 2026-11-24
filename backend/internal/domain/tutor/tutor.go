@@ -26,6 +26,7 @@ type Documento struct {
 
 type Expediente struct {
 	TutorID      string
+	FacultadID   string
 	Presentacion string
 	Cursos       string
 	Experiencia  string

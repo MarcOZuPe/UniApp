@@ -72,6 +72,12 @@ export default function Perfil() {
           <dd>{usuario?.email}</dd>
           <dt>Rol</dt>
           <dd>{etiquetaRol(usuario?.rol)}</dd>
+          {usuario?.facultad_nombre && (
+            <>
+              <dt>Facultad</dt>
+              <dd>{usuario.facultad_nombre}</dd>
+            </>
+          )}
           <dt>Correo confirmado</dt>
           <dd>{usuario?.correo_confirmado ? 'Sí' : 'No'}</dd>
         </dl>

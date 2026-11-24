@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
 import { useFormulario } from '../../hooks/useFormulario.js';
-import { registrar } from '../../../application/acceso/registro.js';
+import { listarFacultades, registrar } from '../../../application/acceso/registro.js';
 import { reenviarConfirmacion } from '../../../application/acceso/confirmacion.js';
 import { ROLES_REGISTRO, etiquetaRol, requiereCorreoInstitucional } from '../../../domain/acceso/roles.js';
 import { correosInstitucionales, validarRegistro } from '../../../domain/acceso/validadores.js';
@@ -15,6 +15,7 @@ const FORMULARIO_INICIAL = {
   clave: '',
   confirmar: '',
   rol: 'escolar',
+  facultad_id: '',
 };
 
 export default function Registro() {
@@ -24,10 +25,27 @@ export default function Registro() {
   const [registroCreado, setRegistroCreado] = useState(false);
   const [avisoReenvio, setAvisoReenvio] = useState('');
   const [enviandoReenvio, setEnviandoReenvio] = useState(false);
+  const [facultades, setFacultades] = useState([]);
+  const [errorFacultades, setErrorFacultades] = useState('');
   const requiereCorreo = requiereCorreoInstitucional(formulario.rol);
+  const requiereFacultad = formulario.rol === 'tutor';
   const ayudaCorreo = requiereCorreo
     ? `Correo institucional (${correosInstitucionales(DOMINIOS_INSTITUCIONALES)})`
     : undefined;
+
+  useEffect(() => {
+    let vigente = true;
+    listarFacultades()
+      .then((respuesta) => {
+        if (vigente) setFacultades(respuesta?.facultades ?? []);
+      })
+      .catch((error) => {
+        if (vigente) setErrorFacultades(error.message);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   async function enviarRegistro(evento) {
     evento.preventDefault();
@@ -77,6 +95,24 @@ export default function Registro() {
             {ROLES_REGISTRO.map((rol) => <option key={rol} value={rol}>{etiquetaRol(rol)}</option>)}
           </select>
         </div>
+        {requiereFacultad && (
+          <div className="campo">
+            <label htmlFor="facultad_id">Facultad</label>
+            <select
+              id="facultad_id"
+              value={formulario.facultad_id}
+              onChange={actualizarCampo('facultad_id')}
+              aria-invalid={Boolean(erroresFormulario.facultad_id)}
+            >
+              <option value="">Elige tu facultad</option>
+              {facultades.map((facultad) => (
+                <option key={facultad.id} value={facultad.id}>{facultad.nombre}</option>
+              ))}
+            </select>
+            {errorFacultades && <small className="error">{errorFacultades}</small>}
+            {erroresFormulario.facultad_id && <small className="error">{erroresFormulario.facultad_id}</small>}
+          </div>
+        )}
         <Campo
           etiqueta="Nombre de uso"
           autoComplete="nickname"

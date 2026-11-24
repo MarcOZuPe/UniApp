@@ -45,4 +45,18 @@ func TestCoordinadorGeneralGestionaCoordinadores(t *testing.T) {
 	if err := servicio.Coordinadores.Eliminar(ctx, general, general.ID); !errors.Is(err, ErrCoordinadorNoEncontrado) {
 		t.Fatalf("no se debe eliminar una cuenta general por esta vía: %v", err)
 	}
+
+	otraFacultad, err := servicio.Registro.CrearAdministrado(ctx, SolicitudRegistro{
+		Email: "general2@example.com", NombreUso: "General Dos", Clave: claveOK,
+		Rol: RolCoordinadorGeneral, FacultadID: "2",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listado, err := servicio.Coordinadores.Listar(ctx, otraFacultad); err != nil || len(listado) != 0 {
+		t.Fatalf("no debe listar coordinadores de otra facultad: %+v, %v", listado, err)
+	}
+	if err := servicio.Coordinadores.Eliminar(ctx, otraFacultad, regular.ID); !errors.Is(err, ErrCoordinadorNoEncontrado) {
+		t.Fatalf("no debe eliminar coordinadores de otra facultad: %v", err)
+	}
 }

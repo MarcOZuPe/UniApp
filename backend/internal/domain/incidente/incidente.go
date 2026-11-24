@@ -69,15 +69,16 @@ type Evidencia struct {
 }
 
 type Tutoria struct {
-	ReservaID     string
-	EscolarID     string
-	EscolarNombre string
-	TutorID       string
-	TutorNombre   string
-	Curso         string
-	Inicio        time.Time
-	Fin           time.Time
-	Asistio       bool
+	ReservaID       string
+	EscolarID       string
+	EscolarNombre   string
+	TutorID         string
+	TutorNombre     string
+	TutorFacultadID string
+	Curso           string
+	Inicio          time.Time
+	Fin             time.Time
+	Asistio         bool
 }
 
 type EscolarVinculado struct {
@@ -101,6 +102,7 @@ type Incidente struct {
 	ReportadoPor       string
 	TutorID            string
 	TutorNombre        string
+	FacultadID         string
 	ReservaID          string
 	Curso              string
 	Inicio             time.Time
@@ -126,6 +128,7 @@ type Filtro struct {
 	Todos       bool
 	EscolarID   string
 	EscolaresID []string
+	FacultadID  string
 }
 
 var (
@@ -223,6 +226,7 @@ func NuevoIncidente(datos DatosIncidente, tutoria *Tutoria, ahora time.Time) (*I
 		ReportadoPor:  datos.ReportadoPor,
 		TutorID:       tutoria.TutorID,
 		TutorNombre:   tutoria.TutorNombre,
+		FacultadID:    tutoria.TutorFacultadID,
 		ReservaID:     tutoria.ReservaID,
 		Curso:         tutoria.Curso,
 		Inicio:        tutoria.Inicio.UTC(),

@@ -90,6 +90,9 @@ func (r *RepositorioMemoria) Crear(_ context.Context, incidente *Incidente) (*In
 	r.secuencia++
 	copia := copiarIncidente(incidente)
 	copia.ID = fmt.Sprintf("incidente-%d", r.secuencia)
+	if copia.FacultadID == "" {
+		copia.FacultadID = "1"
+	}
 	if copia.CreadoEn.IsZero() {
 		copia.CreadoEn = time.Now().UTC()
 	}
@@ -173,6 +176,9 @@ func (r *RepositorioMemoria) EvidenciaDe(_ context.Context, incidenteID, evidenc
 }
 
 func coincideFiltro(incidente *Incidente, filtro Filtro) bool {
+	if filtro.FacultadID != "" {
+		return incidente.FacultadID == filtro.FacultadID
+	}
 	if filtro.Todos {
 		return true
 	}

@@ -158,7 +158,10 @@ export default function GestionarCoordinadores() {
               <li key={coordinador.id}>
                 <span>
                   <strong>{coordinador.nombre_uso}</strong>
-                  <small>{coordinador.email}</small>
+                  <small>
+                    {coordinador.email}
+                    {coordinador.facultad_nombre ? ` · ${coordinador.facultad_nombre}` : ''}
+                  </small>
                 </span>
                 <button
                   type="button"

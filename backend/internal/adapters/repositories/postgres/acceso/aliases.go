@@ -13,6 +13,7 @@ type (
 	EstadoVinculacion = dominio.EstadoVinculacion
 	Event = dominio.Event
 	FabricaRol = dominio.FabricaRol
+	Facultad = dominio.Facultad
 	Mailer = dominio.Mailer
 	Mensaje = dominio.Mensaje
 	Observador = dominio.Observador
@@ -24,6 +25,7 @@ type (
 	PoliticaEstricta = dominio.PoliticaEstricta
 	Repositorio = dominio.Repositorio
 	RepositorioAutorizaciones = dominio.RepositorioAutorizaciones
+	RepositorioFacultades = dominio.RepositorioFacultades
 	RepositorioPerfil = dominio.RepositorioPerfil
 	RepositorioSesiones = dominio.RepositorioSesiones
 	RepositorioTokens = dominio.RepositorioTokens

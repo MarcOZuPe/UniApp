@@ -43,6 +43,9 @@ func (fabrica *Fabrica) CrearInterno(datos SolicitudRegistro) (*Usuario, error) 
 	if err != nil {
 		return nil, err
 	}
+	if datos.Rol.RequiereFacultad() && strings.TrimSpace(datos.FacultadID) == "" {
+		datos.FacultadID = "1"
+	}
 	return fabrica.construirValidado(datos, perfil, true)
 }
 
@@ -61,6 +64,10 @@ func (fabrica *Fabrica) construirValidado(datos SolicitudRegistro, perfil Perfil
 func normalizarRegistro(datos SolicitudRegistro) SolicitudRegistro {
 	datos.Email = strings.ToLower(strings.TrimSpace(datos.Email))
 	datos.NombreUso = strings.TrimSpace(datos.NombreUso)
+	datos.FacultadID = strings.TrimSpace(datos.FacultadID)
+	if !datos.Rol.RequiereFacultad() {
+		datos.FacultadID = ""
+	}
 	return datos
 }
 
@@ -71,6 +78,9 @@ func validarRegistro(datos SolicitudRegistro, perfil PerfilRol) map[string]strin
 	}
 	if longitud := utf8.RuneCountInString(datos.NombreUso); longitud < 2 || longitud > 60 {
 		erroresCampos["nombre_uso"] = "entre 2 y 60 caracteres"
+	}
+	if datos.Rol.RequiereFacultad() && datos.FacultadID == "" {
+		erroresCampos["facultad_id"] = "Elige una facultad."
 	}
 	for campo, mensaje := range perfil.ValidarExtra(datos) {
 		if _, yaReportado := erroresCampos[campo]; !yaReportado {
@@ -98,6 +108,7 @@ func (fabrica *Fabrica) construirUsuario(datos SolicitudRegistro, cuentaConfirma
 		NombreUso:       datos.NombreUso,
 		ClaveHash:       claveHash,
 		Rol:             datos.Rol,
+		FacultadID:      datos.FacultadID,
 		Activo:          true,
 		EmailConfirmado: cuentaConfirmada,
 		CreadoEn:        time.Now().UTC(),

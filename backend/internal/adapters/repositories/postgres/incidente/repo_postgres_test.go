@@ -64,7 +64,8 @@ func TestRepositorioPostgresIncidentesTutoriasYRevision(t *testing.T) {
 
 	incidente := &Incidente{
 		EscolarID: escolarID, EscolarNombre: "Escolar I13", ReportadoPor: escolarID,
-		TutorID: tutorID, TutorNombre: "Tutor I13", ReservaID: reservaID, Curso: "Álgebra",
+		TutorID: tutorID, TutorNombre: "Tutor I13", FacultadID: tutoria.TutorFacultadID,
+		ReservaID: reservaID, Curso: "Álgebra",
 		Inicio: tutoria.Inicio, Tipo: TipoTratoInadecuado,
 		Descripcion: strings.Repeat("Descripción del incidente. ", 2),
 		Estado:      EstadoPendiente, CreadoEn: ahora,
