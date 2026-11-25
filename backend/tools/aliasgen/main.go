@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/format"
 	"go/parser"
 	"go/token"
 	"os"
@@ -111,7 +112,11 @@ func main() {
 		}
 		b.WriteString(")\n")
 	}
-	if err := os.WriteFile(out, []byte(b.String()), 0o644); err != nil {
+	formateado, err := format.Source([]byte(b.String()))
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile(out, formateado, 0o644); err != nil {
 		panic(err)
 	}
 }
