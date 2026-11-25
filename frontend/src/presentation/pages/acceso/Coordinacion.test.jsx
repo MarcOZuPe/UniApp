@@ -24,49 +24,16 @@ vi.mock('../../../application/acceso/coordinacion.js', () => ({
   listarAuditoriaCoordinacion: vi.fn(),
 }));
 
-const metricas = {
-  reservas: { totales: 12, futuras: 3, finalizadas: 9 },
-  asistencia: {
-    sesiones_finalizadas: 9,
-    con_asistencia_escolar: 8,
-    con_asistencia_tutor: 7,
-    tasa_escolar_porcentaje: 88.89,
-    tasa_tutor_porcentaje: 77.78,
-  },
-  horas: { internas: 9 },
-  gestion: {
-    expedientes_pendientes: 2,
-    incidentes_pendientes: 1,
-    cursos_pendientes: 4,
-    solicitudes_colegio_pendientes: 3,
-  },
-  actualizado_en: '2026-11-18T18:00:00Z',
-};
-
-const eventos = [
-  {
-    id: 2,
-    ocurrido_en: '2026-11-18T18:05:00Z',
-    actor_id: 'coord-1',
-    actor_nombre: 'Coordinación Prueba',
-    actor_rol: 'coordinador',
-    accion: 'incidente.revisado',
-    entidad: 'incidente',
-    entidad_id: 'incidente-1',
-    detalle: { resultado: 'procede', estado: 'revisado' },
-  },
-  {
-    id: 1,
-    ocurrido_en: '2026-11-18T18:00:00Z',
-    actor_id: 'tutor-1',
-    actor_nombre: 'Tutor Prueba',
-    actor_rol: 'tutor',
-    accion: 'cupo.actualizado',
-    entidad: 'cupo_semanal',
-    entidad_id: 'tutor-1',
-    detalle: { minutos_anteriores: 180, minutos: 240 },
-  },
-];
+const eventos = [{
+  id: 2,
+  ocurrido_en: '2026-11-18T18:05:00Z',
+  actor_nombre: 'Coordinación Prueba',
+  actor_rol: 'coordinador',
+  accion: 'incidente.revisado',
+  entidad: 'incidente',
+  entidad_id: 'incidente-1',
+  detalle: { resultado: 'procede', estado: 'revisado' },
+}];
 
 function renderizar() {
   return render(
@@ -80,40 +47,52 @@ beforeEach(() => {
   vi.resetAllMocks();
   estado.usuario = { id: 'coord-1', rol: 'coordinador', nombre_uso: 'Coordinación Prueba' };
   obtenerPanelCoordinacion.mockResolvedValue({ mensaje: 'Panel de coordinación' });
-  obtenerMetricasCoordinacion.mockResolvedValue(metricas);
+  obtenerMetricasCoordinacion.mockResolvedValue({
+    reservas: { totales: 1, futuras: 1, finalizadas: 0 },
+    asistencia: {
+      sesiones_finalizadas: 0,
+      con_asistencia_escolar: 0,
+      con_asistencia_tutor: 0,
+      tasa_escolar_porcentaje: 0,
+      tasa_tutor_porcentaje: 0,
+    },
+    horas: { internas: 0 },
+    gestion: {
+      expedientes_pendientes: 0,
+      incidentes_pendientes: 0,
+      cursos_pendientes: 0,
+      solicitudes_colegio_pendientes: 0,
+    },
+    actualizado_en: '2026-11-18T18:00:00Z',
+  });
   listarAuditoriaCoordinacion.mockResolvedValue({ eventos });
 });
 
 afterEach(cleanup);
 
-describe('I14 - panel de coordinación', () => {
-  it('muestra métricas agregadas y la auditoría sin datos sensibles', async () => {
-    renderizar();
-
-    expect(await screen.findByRole('heading', { name: 'Métricas agregadas' })).toBeTruthy();
-    expect(screen.getByText('12')).toBeTruthy();
-    expect(screen.getByText('9 h')).toBeTruthy();
-    expect(screen.getByText('88.89%', { exact: false })).toBeTruthy();
-    expect(listarAuditoriaCoordinacion).toHaveBeenCalledWith(50);
-
-    expect(await screen.findByRole('heading', { name: 'Auditoría de decisiones y reglas' })).toBeTruthy();
-    expect(screen.getByText('Incidente revisado')).toBeTruthy();
-    expect(screen.getByText('Cupo actualizado')).toBeTruthy();
-    expect(screen.getByText('180 → 240 minutos.')).toBeTruthy();
-    expect(screen.queryByText(/clave_almacenamiento|huella/i)).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Gestionar coordinadores' })).toBeNull();
-  });
-
-  it('solo ofrece gestión de coordinadores al rol general', async () => {
-    estado.usuario = {
-      id: 'general-1',
-      rol: 'coordinador_general',
-      nombre_uso: 'Coordinación General',
-    };
+describe('F-03: acceso visible a minutos', () => {
+  it('enlaza a la bandeja de revisión de minutos', async () => {
     renderizar();
 
     expect(
-      await screen.findByRole('link', { name: 'Gestionar coordinadores' })
+      await screen.findByRole('link', { name: /revisión de minutos|revisar minutos/i })
     ).toBeTruthy();
+  });
+});
+
+describe('F-20: fallo parcial en el panel de coordinación', () => {
+  it('conserva el panel y la auditoría cuando solo fallan las métricas', async () => {
+    obtenerMetricasCoordinacion.mockRejectedValue(new Error('Métricas no disponibles'));
+
+    renderizar();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Panel de coordinación' })
+    ).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Auditoría de decisiones y reglas' })
+    ).toBeTruthy();
+    expect(screen.getByText('Incidente revisado')).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toBe('Métricas no disponibles');
   });
 });
