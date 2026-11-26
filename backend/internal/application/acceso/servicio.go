@@ -13,12 +13,15 @@ type Dependencias struct {
 type Servicio struct {
 	*Nucleo
 
-	Registro     *RegistroService
-	Sesion       *SesionService
-	Recuperacion *RecuperacionService
-	Confirmacion *ConfirmacionService
-	Vinculacion  *VinculacionService
-	Autorizacion *AutorizacionService
+	Registro       *RegistroService
+	Sesion         *SesionService
+	Recuperacion   *RecuperacionService
+	Confirmacion   *ConfirmacionService
+	Vinculacion    *VinculacionService
+	Autorizacion   *AutorizacionService
+	Coordinadores  *CoordinadoresService
+	Administracion *AdministracionService
+	Perfil         *PerfilService
 }
 
 func NuevoServicio(dependencias Dependencias) *Servicio {
@@ -33,6 +36,9 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 	}
 	nucleo := &Nucleo{
 		RepositorioUsuarios:       dependencias.Repositorio,
+		RepositorioFacultades:     dependencias.Repositorio,
+		RepositorioPerfil:         dependencias.Repositorio,
+		RepositorioLogs:           dependencias.Repositorio,
 		RepositorioSesiones:       dependencias.Repositorio,
 		RepositorioTokens:         dependencias.Repositorio,
 		RepositorioVinculaciones:  dependencias.Repositorio,
@@ -54,12 +60,15 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 		nucleo.Bus.Registrar(UsuarioRegistrado, NuevoConfirmacionListener(confirmacion))
 	}
 	return &Servicio{
-		Nucleo:       nucleo,
-		Registro:     &RegistroService{Nucleo: nucleo},
-		Sesion:       &SesionService{Nucleo: nucleo, lockout: bloqueo},
-		Recuperacion: &RecuperacionService{Nucleo: nucleo},
-		Confirmacion: confirmacion,
-		Vinculacion:  &VinculacionService{Nucleo: nucleo},
-		Autorizacion: &AutorizacionService{Nucleo: nucleo},
+		Nucleo:         nucleo,
+		Registro:       &RegistroService{Nucleo: nucleo},
+		Sesion:         &SesionService{Nucleo: nucleo, lockout: bloqueo},
+		Recuperacion:   &RecuperacionService{Nucleo: nucleo},
+		Confirmacion:   confirmacion,
+		Vinculacion:    &VinculacionService{Nucleo: nucleo},
+		Autorizacion:   &AutorizacionService{Nucleo: nucleo},
+		Coordinadores:  &CoordinadoresService{Nucleo: nucleo},
+		Administracion: &AdministracionService{Nucleo: nucleo},
+		Perfil:         &PerfilService{Nucleo: nucleo},
 	}
 }

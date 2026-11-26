@@ -2,7 +2,9 @@ package acceso
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	vista "uniapp/internal/adapters/presentation/acceso"
@@ -65,4 +67,27 @@ func (base *controladorBase) renderizarErrorDeLectura(writer http.ResponseWriter
 		Codigo:  "solicitud_invalida",
 		Mensaje: "El cuerpo de la solicitud no es válido.",
 	})
+}
+
+func ipCliente(request *http.Request) string {
+	if reenviada := request.Header.Get("X-Forwarded-For"); reenviada != "" {
+		if primera := strings.TrimSpace(strings.Split(reenviada, ",")[0]); primera != "" {
+			return recortarIP(primera)
+		}
+	}
+	if real := strings.TrimSpace(request.Header.Get("X-Real-IP")); real != "" {
+		return recortarIP(real)
+	}
+	host, _, err := net.SplitHostPort(request.RemoteAddr)
+	if err == nil {
+		return recortarIP(host)
+	}
+	return recortarIP(request.RemoteAddr)
+}
+
+func recortarIP(ip string) string {
+	if len(ip) > 128 {
+		return ip[:128]
+	}
+	return ip
 }

@@ -15,6 +15,9 @@ import Registro from '../presentation/pages/acceso/Registro.jsx';
 import Restablecer from '../presentation/pages/acceso/Restablecer.jsx';
 import Confirmar from '../presentation/pages/acceso/Confirmar.jsx';
 import Coordinacion from '../presentation/pages/acceso/Coordinacion.jsx';
+import GestionarCoordinadores from '../presentation/pages/acceso/GestionarCoordinadores.jsx';
+import Administracion from '../presentation/pages/acceso/Administracion.jsx';
+import Perfil from '../presentation/pages/acceso/Perfil.jsx';
 
 import Disponibilidad from '../presentation/pages/oferta/Disponibilidad.jsx';
 import FormularioReserva from '../presentation/pages/reserva/FormularioReserva.jsx';
@@ -60,10 +63,37 @@ export default function App() {
                 <Route path="/catalogo" element={<Catalogo />} />
 
                 <Route
+                    path="/perfil"
+                    element={
+                        <RutaProtegida>
+                            <Perfil />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
                     path="/coordinacion"
                     element={
-                        <RutaProtegida roles={['coordinador']}>
+                        <RutaProtegida roles={['coordinador', 'coordinador_general']}>
                             <Coordinacion />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/coordinacion/coordinadores"
+                    element={
+                        <RutaProtegida roles={['coordinador_general']}>
+                            <GestionarCoordinadores />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/administracion"
+                    element={
+                        <RutaProtegida roles={['administrador']}>
+                            <Administracion />
                         </RutaProtegida>
                     }
                 />
@@ -71,7 +101,7 @@ export default function App() {
                 <Route
                     path="/coordinacion/tutores"
                     element={
-                        <RutaProtegida roles={['coordinador']}>
+                        <RutaProtegida roles={['coordinador', 'coordinador_general']}>
                             <RevisarTutores />
                         </RutaProtegida>
                     }
@@ -80,7 +110,7 @@ export default function App() {
                 <Route
                     path="/coordinacion/tutores/aprobados"
                     element={
-                        <RutaProtegida roles={['coordinador']}>
+                        <RutaProtegida roles={['coordinador', 'coordinador_general']}>
                             <TutoresAprobados />
                         </RutaProtegida>
                     }
@@ -89,7 +119,7 @@ export default function App() {
                 <Route
                     path="/coordinacion/minutos"
                     element={
-                        <RutaProtegida roles={['coordinador']}>
+                        <RutaProtegida roles={['coordinador', 'coordinador_general']}>
                             <RevisionMinutos />
                         </RutaProtegida>
                     }
@@ -98,7 +128,7 @@ export default function App() {
                 <Route
                     path="/coordinacion/catalogo"
                     element={
-                        <RutaProtegida roles={['coordinador']}>
+                        <RutaProtegida roles={['coordinador', 'coordinador_general']}>
                             <GestionarCatalogo />
                         </RutaProtegida>
                     }
@@ -107,7 +137,7 @@ export default function App() {
                 <Route
                     path="/incidentes"
                     element={
-                        <RutaProtegida roles={['escolar', 'apoderado', 'coordinador']}>
+                        <RutaProtegida roles={['escolar', 'apoderado', 'coordinador', 'coordinador_general']}>
                             <Incidentes />
                         </RutaProtegida>
                     }

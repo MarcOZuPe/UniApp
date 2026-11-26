@@ -10,10 +10,12 @@ import {
   obtenerPanelCoordinacion,
 } from '../../../application/acceso/coordinacion.js';
 
+const estado = vi.hoisted(() => ({
+  usuario: { id: 'coord-1', rol: 'coordinador', nombre_uso: 'Coordinación Prueba' },
+}));
+
 vi.mock('../../hooks/useSesion.js', () => ({
-  useSesion: () => ({
-    usuario: { id: 'coord-1', rol: 'coordinador', nombre_uso: 'Coordinación Prueba' },
-  }),
+  useSesion: () => ({ usuario: estado.usuario }),
 }));
 
 vi.mock('../../../application/acceso/coordinacion.js', () => ({
@@ -76,6 +78,7 @@ function renderizar() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  estado.usuario = { id: 'coord-1', rol: 'coordinador', nombre_uso: 'Coordinación Prueba' };
   obtenerPanelCoordinacion.mockResolvedValue({ mensaje: 'Panel de coordinación' });
   obtenerMetricasCoordinacion.mockResolvedValue(metricas);
   listarAuditoriaCoordinacion.mockResolvedValue({ eventos });
@@ -98,5 +101,19 @@ describe('I14 - panel de coordinación', () => {
     expect(screen.getByText('Cupo actualizado')).toBeTruthy();
     expect(screen.getByText('180 → 240 minutos.')).toBeTruthy();
     expect(screen.queryByText(/clave_almacenamiento|huella/i)).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Gestionar coordinadores' })).toBeNull();
+  });
+
+  it('solo ofrece gestión de coordinadores al rol general', async () => {
+    estado.usuario = {
+      id: 'general-1',
+      rol: 'coordinador_general',
+      nombre_uso: 'Coordinación General',
+    };
+    renderizar();
+
+    expect(
+      await screen.findByRole('link', { name: 'Gestionar coordinadores' })
+    ).toBeTruthy();
   });
 });

@@ -247,7 +247,7 @@ func (s *Servicio) reservaVisible(ctx context.Context, reservaID, usuarioID stri
 	if err != nil {
 		return nil, err
 	}
-	if reserva.EscolarID == usuarioID || reserva.TutorID == usuarioID || rol == modeloAcceso.RolCoordinador {
+	if reserva.EscolarID == usuarioID || reserva.TutorID == usuarioID || rol.EsCoordinacion() {
 		return reserva, nil
 	}
 	return nil, ErrNoAutorizado

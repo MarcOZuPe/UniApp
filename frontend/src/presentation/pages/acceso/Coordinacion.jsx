@@ -17,6 +17,14 @@ const ETIQUETAS_ACCION = {
   'cupo.actualizado': 'Cupo actualizado',
 };
 
+const ETIQUETAS_ROL = {
+  escolar: 'escolar',
+  apoderado: 'apoderado',
+  tutor: 'tutor',
+  coordinador: 'coordinación',
+  coordinador_general: 'coordinación general',
+};
+
 export default function Coordinacion() {
   const { usuario } = useSesion();
   const { panel, metricas, auditoria, mensajeError } = usePanelCoordinacion();
@@ -28,6 +36,9 @@ export default function Coordinacion() {
       {mensajeError && <p className="error" role="alert">{mensajeError}</p>}
       {!panel && !mensajeError && <p role="status">Cargando panel…</p>}
       {panel && <PanelCoordinacion panel={panel} />}
+      {usuario?.rol === 'coordinador_general' && (
+        <p><Link to="/coordinacion/coordinadores">Gestionar coordinadores</Link></p>
+      )}
       <p><Link to="/incidentes">Revisar incidentes confidenciales</Link></p>
       {metricas && <MetricasAgregadas metricas={metricas} />}
       {auditoria && <Auditoria eventos={auditoria} />}
@@ -165,7 +176,7 @@ function Auditoria({ eventos }) {
                   <td>{ETIQUETAS_ACCION[evento.accion] ?? evento.accion}</td>
                   <td>
                     {evento.actor_nombre || 'Sistema'}
-                    <small>{evento.actor_rol}</small>
+                    <small>{ETIQUETAS_ROL[evento.actor_rol] ?? evento.actor_rol}</small>
                   </td>
                   <td>
                     {nombreEntidad(evento.entidad)}

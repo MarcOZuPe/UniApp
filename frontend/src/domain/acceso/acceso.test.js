@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ROLES, ROLES_REGISTRO, etiquetaRol, politicaDeRol, puedeAcceder, requiereCorreoInstitucional } from './roles.js';
-import { crearPolitica, validarRegistro, validarRestablecer } from './validadores.js';
+import { crearPolitica, validarCambioClave, validarRegistro, validarRestablecer } from './validadores.js';
 import { getInstance } from '../../application/acceso/almacenSesion.js';
 import { crearClienteHttp, ErrorApi } from '../../infrastructure/http/fetchClient.js';
 import { conSesionExpirada } from '../../adapters/http/decoradores.js';
@@ -9,6 +9,10 @@ describe('modelo: catálogo de roles (registro centralizado)', () => {
   it('deriva los roles públicos y expone sus metadatos', () => {
     expect(ROLES_REGISTRO).toEqual(['escolar', 'apoderado', 'tutor']);
     expect(ROLES_REGISTRO).not.toContain('coordinador');
+    expect(ROLES_REGISTRO).not.toContain('coordinador_general');
+    expect(ROLES_REGISTRO).not.toContain('administrador');
+    expect(ROLES.administrador.etiqueta).toBe('Administrador');
+    expect(ROLES.coordinador_general.etiqueta).toBe('Coordinación general');
     for (const rol of Object.keys(ROLES)) {
       expect(etiquetaRol(rol)).toBeTruthy();
       expect(['basica', 'estricta']).toContain(politicaDeRol(rol));
@@ -27,11 +31,12 @@ describe('modelo: validadores (Strategy + Factory)', () => {
     expect(crearPolitica('tutor')({ clave: 'larga-pero-simple' }).length).toBeGreaterThan(0);
   });
   it('tutor exige correo institucional', () => {
-    const datosBaseTutor = { nombre_uso: 'Tito', clave: 'Clave-Segura-2026!', confirmar: 'Clave-Segura-2026!', rol: 'tutor' };
+    const datosBaseTutor = { nombre_uso: 'Tito', clave: 'Clave-Segura-2026!', confirmar: 'Clave-Segura-2026!', rol: 'tutor', facultad_id: '1' };
     expect(validarRegistro({ ...datosBaseTutor, email: 't@gmail.com' }).email).toBeTruthy();
     expect(validarRegistro({ ...datosBaseTutor, email: 't@uni.edu.pe.evil.com' }).email).toBeTruthy();
     expect(validarRegistro({ ...datosBaseTutor, email: 't@uni.edu.pe' })).toEqual({});
     expect(validarRegistro({ ...datosBaseTutor, email: 't@uni.pe' })).toEqual({});
+    expect(validarRegistro({ ...datosBaseTutor, email: 't@uni.pe', facultad_id: '' }).facultad_id).toBeTruthy();
   });
   it('restablecer exige la política básica y confirma la clave', () => {
     expect(validarRestablecer({ clave: 'corta', confirmar: 'corta' }).clave).toBeTruthy();
@@ -42,9 +47,17 @@ describe('modelo: validadores (Strategy + Factory)', () => {
     const erroresRegistro = validarRegistro({ email: 'a@b.co', nombre_uso: 'Ana', clave: 'clave-larga-ok', confirmar: 'otra', rol: 'escolar' });
     expect(erroresRegistro.confirmar).toBeTruthy();
   });
+  it('valida cambio de clave según el rol sin tocar correo ni nombre', () => {
+    expect(validarCambioClave({ clave_actual: '', clave_nueva: 'Clave-Nueva-2026!', confirmar: 'Clave-Nueva-2026!' })).toHaveProperty('clave_actual');
+    expect(validarCambioClave({ clave_actual: 'Clave-Vieja-2026!', clave_nueva: 'corta', confirmar: 'corta' }, { rol: 'coordinador', email: 'c@example.com' })).toHaveProperty('clave_nueva');
+    expect(validarCambioClave({ clave_actual: 'Clave-Vieja-2026!', clave_nueva: 'Clave-Nueva-2026!', confirmar: 'otra' })).toHaveProperty('confirmar');
+    expect(validarCambioClave({ clave_actual: 'Clave-Vieja-2026!', clave_nueva: 'Clave-Nueva-2026!', confirmar: 'Clave-Nueva-2026!' }, { rol: 'escolar', email: 'e@example.com' })).toEqual({});
+  });
   it('un escolar no puede acceder a rutas de coordinación', () => {
     expect(puedeAcceder('escolar', ['coordinador'])).toBe(false);
     expect(puedeAcceder('coordinador', ['coordinador'])).toBe(true);
+    expect(puedeAcceder('coordinador_general', ['coordinador', 'coordinador_general'])).toBe(true);
+    expect(puedeAcceder('coordinador', ['coordinador_general'])).toBe(false);
     expect(puedeAcceder('escolar', undefined)).toBe(true);
   });
 });

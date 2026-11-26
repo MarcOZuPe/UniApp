@@ -50,13 +50,13 @@ func TestExpedientePendienteNoSePublicaHastaAprobacionVigente(t *testing.T) {
 	if _, err := servicio.PerfilPublico(context.Background(), "tutor-1"); !errors.Is(err, ErrNoPublicable) {
 		t.Fatalf("perfil pendiente no debe publicarse: %v", err)
 	}
-	aprobados, err := servicio.Aprobados(context.Background())
+	aprobados, err := servicio.Aprobados(context.Background(), "1")
 	if err != nil || len(aprobados) != 0 {
 		t.Fatalf("un expediente pendiente no debe aparecer entre los aprobados: %+v, error: %v", aprobados, err)
 	}
 
 	vencimiento := ahora.Add(24 * time.Hour)
-	aprobado, err := servicio.Revisar(context.Background(), "tutor-1", "coord-1", EstadoAprobado, "", vencimiento)
+	aprobado, err := servicio.Revisar(context.Background(), "tutor-1", "coord-1", "1", EstadoAprobado, "", vencimiento)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestExpedientePendienteNoSePublicaHastaAprobacionVigente(t *testing.T) {
 	if len(publico.Documentos) != 0 {
 		t.Fatal("el perfil público no debe exponer documentos")
 	}
-	aprobados, err = servicio.Aprobados(context.Background())
+	aprobados, err = servicio.Aprobados(context.Background(), "1")
 	if err != nil || len(aprobados) != 1 || aprobados[0].TutorID != "tutor-1" || len(aprobados[0].Documentos) != 1 {
 		t.Fatalf("coordinación debe poder consultar los expedientes aprobados: %+v, error: %v", aprobados, err)
 	}
@@ -87,7 +87,7 @@ func TestExpedientePendienteNoSePublicaHastaAprobacionVigente(t *testing.T) {
 	if err != nil || len(perfiles) != 0 {
 		t.Fatalf("el directorio debe ocultar perfiles vencidos: %+v, error: %v", perfiles, err)
 	}
-	aprobados, err = servicio.Aprobados(context.Background())
+	aprobados, err = servicio.Aprobados(context.Background(), "1")
 	if err != nil || len(aprobados) != 1 {
 		t.Fatalf("coordinación debe conservar el historial de aprobados vencidos: %+v, error: %v", aprobados, err)
 	}
@@ -121,13 +121,13 @@ func TestDocumentoPrivadoSoloParaPropietarioOCoordinacion(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := expediente.Documentos[0].ID
-	if _, _, err := servicio.DescargarDocumento(context.Background(), id, "tutor-2", false); !errors.Is(err, ErrSinPermiso) {
+	if _, _, err := servicio.DescargarDocumento(context.Background(), id, "tutor-2", "1", false); !errors.Is(err, ErrSinPermiso) {
 		t.Fatalf("otro tutor no debe descargar el documento: %v", err)
 	}
-	if _, _, err := servicio.DescargarDocumento(context.Background(), id, "coord-1", true); err != nil {
+	if _, _, err := servicio.DescargarDocumento(context.Background(), id, "coord-1", "1", true); err != nil {
 		t.Fatalf("coordinación debe poder descargar el documento: %v", err)
 	}
-	if _, _, err := servicio.DescargarDocumento(context.Background(), id, "tutor-1", false); err != nil {
+	if _, _, err := servicio.DescargarDocumento(context.Background(), id, "tutor-1", "1", false); err != nil {
 		t.Fatalf("el tutor dueño debe poder descargar el documento: %v", err)
 	}
 }
@@ -178,5 +178,32 @@ func datosValidos() DatosExpediente {
 		Documentos: []Archivo{{
 			Nombre: "constancia.pdf", Contenido: []byte("%PDF-1.4\ncontenido sintético"),
 		}},
+	}
+}
+
+func TestCoordinadorNoPuedeRevisarOtraFacultad(t *testing.T) {
+	almacen := nuevoAlmacenMemoria()
+	repositorio := memoria.NuevoRepositorioMemoria()
+	servicio := NuevoServicio(repositorio, almacen)
+	ahora := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+	servicio.ahora = func() time.Time { return ahora }
+
+	expediente, err := NuevoExpediente("tutor-2", datosValidos(), ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expediente.FacultadID = "2"
+	if err := repositorio.Guardar(context.Background(), expediente); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := servicio.Revisar(
+		context.Background(), "tutor-2", "coord-1", "1",
+		EstadoAprobado, "", ahora.Add(24*time.Hour),
+	); !errors.Is(err, ErrSinPermiso) {
+		t.Fatalf("no debe revisar un expediente de otra facultad: %v", err)
+	}
+	pendientes, err := servicio.Pendientes(context.Background(), "1")
+	if err != nil || len(pendientes) != 0 {
+		t.Fatalf("no debe listar pendientes de otra facultad: %+v, %v", pendientes, err)
 	}
 }

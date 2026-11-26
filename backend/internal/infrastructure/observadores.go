@@ -73,6 +73,30 @@ func (c *CorreoConfirmacion) Actualizar(evento modelo.Event) {
 	}
 }
 
+type CorreoCambioClave struct {
+	mailer modelo.Mailer
+}
+
+func NuevoCorreoCambioClave(mailer modelo.Mailer) *CorreoCambioClave {
+	return &CorreoCambioClave{mailer: mailer}
+}
+
+func (c *CorreoCambioClave) ID() string { return "correo-cambio-clave" }
+
+func (c *CorreoCambioClave) Actualizar(evento modelo.Event) {
+	contexto, cancelar := context.WithTimeout(context.Background(), tiempoLimiteEnvio)
+	defer cancelar()
+	err := c.mailer.Enviar(contexto, modelo.Mensaje{
+		Para:   fmt.Sprint(evento.Payload["email"]),
+		Asunto: "UniApp · contraseña actualizada",
+		Cuerpo: "Tu contraseña fue actualizada y se cerraron todas las sesiones abiertas.\n" +
+			"Si no realizaste este cambio, solicita la recuperación de tu cuenta y avisa a coordinación.",
+	})
+	if err != nil {
+		log.Printf("correo de cambio de contraseña no enviado: %v", err)
+	}
+}
+
 type CorreoVinculacion struct {
 	mailer modelo.Mailer
 	origen string

@@ -74,6 +74,36 @@ resumen saneado del detalle.
   sensibles e inmutabilidad frente a `UPDATE`, `DELETE` y `TRUNCATE`.
 - Frontend: render de métricas y auditoría saneada.
 
+## Coordinador general
+
+El rol `coordinador_general` conserva todos los permisos de coordinación:
+
+- `coordinacion:acceder`
+- `catalogo:gestionar`
+- `incidente:acceder`
+- `incidente:revisar`
+
+Además tiene `coordinadores:gestionar`. Solo este rol puede:
+
+- listar coordinadores activos;
+- crear cuentas de coordinación con clave inicial;
+- desactivar coordinadores y revocar sus sesiones.
+
+La eliminación es lógica (`usuarios.activo = FALSE`) para no romper referencias de
+auditoría o revisiones históricas. Un coordinador regular no puede crear ni eliminar
+coordinadores.
+
+API:
+
+| Método | Ruta | Uso |
+|---|---|---|
+| GET | `/api/coordinacion/coordinadores` | Listar coordinadores activos |
+| POST | `/api/coordinacion/coordinadores` | Crear coordinador |
+| DELETE | `/api/coordinacion/coordinadores/{id}` | Desactivar coordinador y revocar sesiones |
+
+Con `SEMBRAR_SINTETICO=true` se crea la cuenta
+`coord.general.prueba@example.test` con la misma clave sintética del entorno.
+
 ## Límites
 
 - La auditoría comienza con la migración `011`; no reconstruye decisiones históricas

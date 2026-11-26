@@ -31,6 +31,7 @@ func (ensamblador *Controlador) Rutas() http.Handler {
 func configurarCatalogoDeErrores(mapeador *MapeadorDeErrores) {
 	registrarErroresDeCuenta(mapeador)
 	registrarErroresDeVinculacion(mapeador)
+	registrarErroresDeCoordinadores(mapeador)
 }
 
 func (ensamblador *Controlador) montarControladoresDeCuenta(mux *http.ServeMux) {
@@ -38,6 +39,8 @@ func (ensamblador *Controlador) montarControladoresDeCuenta(mux *http.ServeMux) 
 	(&SesionControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
 	(&RecuperacionControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
 	(&ConfirmacionControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
+	(&PerfilControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
+	(&AdministracionControlador{controladorBase: ensamblador.controladorBase}).Montar(mux)
 }
 
 func (ensamblador *Controlador) montarControladoresDeVinculacion(mux *http.ServeMux) {

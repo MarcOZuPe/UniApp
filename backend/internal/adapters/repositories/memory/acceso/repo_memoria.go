@@ -15,6 +15,8 @@ type RepositorioMemoria struct {
 	vinculaciones       map[string]*Vinculacion
 	autorizaciones      map[string]*Autorizacion
 	ordenAutorizaciones []string
+	cambiosClave        map[string][]time.Time
+	logsSistema         []LogSistema
 }
 
 type tokenRecuperacionMemoria struct {
@@ -35,6 +37,7 @@ func NuevoRepositorioMemoria() *RepositorioMemoria {
 		tokensConfirmacion: map[string]*tokenConfirmacionMemoria{},
 		vinculaciones:      map[string]*Vinculacion{},
 		autorizaciones:     map[string]*Autorizacion{},
+		cambiosClave:       map[string][]time.Time{},
 	}
 }
 

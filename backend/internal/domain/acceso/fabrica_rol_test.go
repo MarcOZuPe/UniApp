@@ -3,7 +3,7 @@ package acceso
 import "testing"
 
 func TestFabricaParaRolCompleta(testingT *testing.T) {
-	roles := []Rol{RolEscolar, RolApoderado, RolTutor, RolCoordinador}
+	roles := []Rol{RolEscolar, RolApoderado, RolTutor, RolCoordinador, RolCoordinadorGeneral, RolAdministrador}
 	for _, rol := range roles {
 		fabrica, err := FabricaParaRol(rol)
 		if err != nil {

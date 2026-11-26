@@ -116,7 +116,8 @@ func (c *Controlador) presentarExpediente(w http.ResponseWriter, r *http.Request
 }
 
 func (c *Controlador) pendientes(w http.ResponseWriter, r *http.Request) {
-	expedientes, err := c.servicio.Pendientes(r.Context())
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	expedientes, err := c.servicio.Pendientes(r.Context(), usuario.FacultadID)
 	if err != nil {
 		c.responderError(w, err)
 		return
@@ -129,7 +130,8 @@ func (c *Controlador) pendientes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controlador) aprobados(w http.ResponseWriter, r *http.Request) {
-	expedientes, err := c.servicio.Aprobados(r.Context())
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	expedientes, err := c.servicio.Aprobados(r.Context(), usuario.FacultadID)
 	if err != nil {
 		c.responderError(w, err)
 		return
@@ -151,7 +153,10 @@ func (c *Controlador) revisar(w http.ResponseWriter, r *http.Request) {
 	if !decodificarJSON(w, r, &entrada) {
 		return
 	}
-	expediente, err := c.servicio.Revisar(r.Context(), r.PathValue("id"), usuario.ID, entrada.Estado, entrada.Motivo, entrada.VenceEn)
+	expediente, err := c.servicio.Revisar(
+		r.Context(), r.PathValue("id"), usuario.ID, usuario.FacultadID,
+		entrada.Estado, entrada.Motivo, entrada.VenceEn,
+	)
 	if err != nil {
 		c.responderError(w, err)
 		return
@@ -182,7 +187,7 @@ func (c *Controlador) perfilesPublicos(w http.ResponseWriter, r *http.Request) {
 func (c *Controlador) documento(w http.ResponseWriter, r *http.Request) {
 	usuario := ctrlAcceso.UsuarioDe(r.Context())
 	contenido, documento, err := c.servicio.DescargarDocumento(
-		r.Context(), r.PathValue("id"), usuario.ID,
+		r.Context(), r.PathValue("id"), usuario.ID, usuario.FacultadID,
 		usuario.Rol.TienePermiso(modeloAcceso.PermisoCoordinacionAcceder),
 	)
 	if err != nil {

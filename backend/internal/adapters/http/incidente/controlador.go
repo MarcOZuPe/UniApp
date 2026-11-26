@@ -73,7 +73,7 @@ func (c *Controlador) listar(w http.ResponseWriter, r *http.Request) {
 		c.errores.Escribir(w, modelo.ErrNoAutorizado)
 		return
 	}
-	incidentes, err := c.servicio.Listar(r.Context(), usuario.ID, usuario.Rol)
+	incidentes, err := c.servicio.Listar(r.Context(), usuario.ID, usuario.Rol, usuario.FacultadID)
 	if err != nil {
 		c.errores.Escribir(w, err)
 		return
@@ -89,7 +89,9 @@ func (c *Controlador) detalle(w http.ResponseWriter, r *http.Request) {
 		c.errores.Escribir(w, modelo.ErrNoAutorizado)
 		return
 	}
-	incidente, err := c.servicio.PorID(r.Context(), usuario.ID, usuario.Rol, r.PathValue("id"))
+	incidente, err := c.servicio.PorID(
+		r.Context(), usuario.ID, usuario.Rol, usuario.FacultadID, r.PathValue("id"),
+	)
 	if err != nil {
 		c.errores.Escribir(w, err)
 		return
@@ -190,7 +192,7 @@ func (c *Controlador) revisar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	incidente, err := c.servicio.Revisar(
-		r.Context(), usuario.ID, usuario.Rol, r.PathValue("id"),
+		r.Context(), usuario.ID, usuario.Rol, usuario.FacultadID, r.PathValue("id"),
 		modelo.DatosRevision{Resultado: solicitud.Resultado, Comentario: solicitud.Comentario},
 	)
 	if err != nil {
@@ -207,7 +209,7 @@ func (c *Controlador) descargarEvidencia(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	_, evidencia, contenido, err := c.servicio.AbrirEvidencia(
-		r.Context(), usuario.ID, usuario.Rol,
+		r.Context(), usuario.ID, usuario.Rol, usuario.FacultadID,
 		r.PathValue("id"), r.PathValue("evidenciaId"),
 	)
 	if err != nil {

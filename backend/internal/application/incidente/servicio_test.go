@@ -81,45 +81,45 @@ func TestRegistroYVisibilidadDeIncidentesPorRol(t *testing.T) {
 		t.Fatalf("incidente creado: %+v, archivos: %d", creado, len(almacen.archivos))
 	}
 
-	if _, err := servicio.Listar(ctx, "tutor-1", modeloAcceso.RolTutor); !errors.Is(err, ErrNoAutorizado) {
+	if _, err := servicio.Listar(ctx, "tutor-1", modeloAcceso.RolTutor, ""); !errors.Is(err, ErrNoAutorizado) {
 		t.Fatalf("el tutor no debe listar: %v", err)
 	}
-	if _, err := servicio.PorID(ctx, "tutor-1", modeloAcceso.RolTutor, creado.ID); !errors.Is(err, ErrNoAutorizado) {
+	if _, err := servicio.PorID(ctx, "tutor-1", modeloAcceso.RolTutor, "", creado.ID); !errors.Is(err, ErrNoAutorizado) {
 		t.Fatalf("el tutor no debe ver el detalle: %v", err)
 	}
-	if _, _, _, err := servicio.AbrirEvidencia(ctx, "tutor-1", modeloAcceso.RolTutor, creado.ID, creado.Evidencias[0].ID); !errors.Is(err, ErrNoAutorizado) {
+	if _, _, _, err := servicio.AbrirEvidencia(ctx, "tutor-1", modeloAcceso.RolTutor, "", creado.ID, creado.Evidencias[0].ID); !errors.Is(err, ErrNoAutorizado) {
 		t.Fatalf("el tutor no debe descargar evidencia: %v", err)
 	}
 
-	propios, err := servicio.Listar(ctx, "escolar-1", modeloAcceso.RolEscolar)
+	propios, err := servicio.Listar(ctx, "escolar-1", modeloAcceso.RolEscolar, "")
 	if err != nil || len(propios) != 1 {
 		t.Fatalf("listado del escolar: %+v, error: %v", propios, err)
 	}
-	delApoderado, err := servicio.Listar(ctx, "apoderado-1", modeloAcceso.RolApoderado)
+	delApoderado, err := servicio.Listar(ctx, "apoderado-1", modeloAcceso.RolApoderado, "")
 	if err != nil || len(delApoderado) != 1 {
 		t.Fatalf("listado del apoderado: %+v, error: %v", delApoderado, err)
 	}
-	ajenos, err := servicio.Listar(ctx, "escolar-2", modeloAcceso.RolEscolar)
+	ajenos, err := servicio.Listar(ctx, "escolar-2", modeloAcceso.RolEscolar, "")
 	if err != nil || len(ajenos) != 0 {
 		t.Fatalf("otro escolar no debe ver incidentes ajenos: %+v, error: %v", ajenos, err)
 	}
-	if _, err := servicio.PorID(ctx, "escolar-2", modeloAcceso.RolEscolar, creado.ID); !errors.Is(err, ErrNoAutorizado) {
+	if _, err := servicio.PorID(ctx, "escolar-2", modeloAcceso.RolEscolar, "", creado.ID); !errors.Is(err, ErrNoAutorizado) {
 		t.Fatalf("otro escolar no debe ver el detalle: %v", err)
 	}
 
-	if _, evidencia, contenido, err := servicio.AbrirEvidencia(ctx, "apoderado-1", modeloAcceso.RolApoderado, creado.ID, creado.Evidencias[0].ID); err != nil || evidencia.Nombre != "chat.pdf" || len(contenido) == 0 {
+	if _, evidencia, contenido, err := servicio.AbrirEvidencia(ctx, "apoderado-1", modeloAcceso.RolApoderado, "", creado.ID, creado.Evidencias[0].ID); err != nil || evidencia.Nombre != "chat.pdf" || len(contenido) == 0 {
 		t.Fatalf("descarga del apoderado: %+v, error: %v", evidencia, err)
 	}
-	if _, _, _, err := servicio.AbrirEvidencia(ctx, "coord-1", modeloAcceso.RolCoordinador, creado.ID, creado.Evidencias[1].ID); err != nil {
+	if _, _, _, err := servicio.AbrirEvidencia(ctx, "coord-1", modeloAcceso.RolCoordinador, "1", creado.ID, creado.Evidencias[1].ID); err != nil {
 		t.Fatalf("descarga de coordinación: %v", err)
 	}
 
-	if _, err := servicio.Revisar(ctx, "escolar-1", modeloAcceso.RolEscolar, creado.ID, DatosRevision{
+	if _, err := servicio.Revisar(ctx, "escolar-1", modeloAcceso.RolEscolar, "", creado.ID, DatosRevision{
 		Resultado: ResultadoProcede, Comentario: "Intento de revisión",
 	}); !errors.Is(err, ErrNoAutorizado) {
 		t.Fatalf("el escolar no debe revisar: %v", err)
 	}
-	revisado, err := servicio.Revisar(ctx, "coord-1", modeloAcceso.RolCoordinador, creado.ID, DatosRevision{
+	revisado, err := servicio.Revisar(ctx, "coord-1", modeloAcceso.RolCoordinador, "1", creado.ID, DatosRevision{
 		Resultado: ResultadoProcede, Comentario: "La evidencia sustenta el reporte.",
 	})
 	if err != nil {
@@ -128,7 +128,7 @@ func TestRegistroYVisibilidadDeIncidentesPorRol(t *testing.T) {
 	if revisado.Estado != EstadoRevisado || revisado.Resultado != ResultadoProcede || revisado.RevisadoPor != "coord-1" || revisado.RevisadoEn == nil {
 		t.Fatalf("revisión: %+v", revisado)
 	}
-	if _, err := servicio.Revisar(ctx, "coord-1", modeloAcceso.RolCoordinador, creado.ID, DatosRevision{
+	if _, err := servicio.Revisar(ctx, "coord-1", modeloAcceso.RolCoordinador, "1", creado.ID, DatosRevision{
 		Resultado: ResultadoNoProcede, Comentario: "Segunda revisión.",
 	}); !errors.Is(err, ErrYaRevisado) {
 		t.Fatalf("segunda revisión: %v", err)
@@ -172,5 +172,25 @@ func TestNoSePuedeReportarSobreTutoriaAjenaOFutura(t *testing.T) {
 	datos.ReservaID = "reserva-futura"
 	if _, err := servicio.Registrar(ctx, "escolar-1", modeloAcceso.RolEscolar, datos); !errors.Is(err, ErrTutoriaNoEncontrada) {
 		t.Fatalf("tutoría futura: %v", err)
+	}
+}
+
+func TestCoordinadorNoAccedeAIncidentesDeOtraFacultad(t *testing.T) {
+	servicio, _, _, _ := entornoIncidente(t)
+	ctx := context.Background()
+	creado, err := servicio.Registrar(ctx, "escolar-1", modeloAcceso.RolEscolar, datosIncidenteValido())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lista, err := servicio.Listar(ctx, "coord-2", modeloAcceso.RolCoordinador, "2"); err != nil || len(lista) != 0 {
+		t.Fatalf("no debe listar incidentes de otra facultad: %+v, %v", lista, err)
+	}
+	if _, err := servicio.PorID(ctx, "coord-2", modeloAcceso.RolCoordinador, "2", creado.ID); !errors.Is(err, ErrNoAutorizado) {
+		t.Fatalf("no debe ver el detalle de otra facultad: %v", err)
+	}
+	if _, err := servicio.Revisar(ctx, "coord-2", modeloAcceso.RolCoordinador, "2", creado.ID, DatosRevision{
+		Resultado: ResultadoProcede, Comentario: "Intento ajeno.",
+	}); !errors.Is(err, ErrNoAutorizado) {
+		t.Fatalf("no debe revisar incidentes de otra facultad: %v", err)
 	}
 }

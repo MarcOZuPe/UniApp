@@ -16,36 +16,52 @@ type RepositorioPostgres struct {
 	DB *sql.DB
 }
 
-func (r RepositorioPostgres) Metricas(ctx context.Context, ahora time.Time) (*modelo.Metricas, error) {
+func (r RepositorioPostgres) Metricas(
+	ctx context.Context,
+	ahora time.Time,
+	facultadID string,
+) (*modelo.Metricas, error) {
 	var metricas modelo.Metricas
 	err := r.DB.QueryRowContext(ctx, `
 		SELECT
-			(SELECT count(*) FROM reservas),
-			(SELECT count(*) FROM reservas WHERE estado = 'confirmada' AND inicio > $1),
-			(SELECT count(*) FROM reservas WHERE fin <= $1),
+			(SELECT count(*) FROM reservas r
+			 JOIN usuarios tu ON tu.id::text = r.tutor_id
+			 WHERE tu.facultad_id = $2::smallint),
+			(SELECT count(*) FROM reservas r
+			 JOIN usuarios tu ON tu.id::text = r.tutor_id
+			 WHERE tu.facultad_id = $2::smallint AND r.estado = 'confirmada' AND r.inicio > $1),
+			(SELECT count(*) FROM reservas r
+			 JOIN usuarios tu ON tu.id::text = r.tutor_id
+			 WHERE tu.facultad_id = $2::smallint AND r.fin <= $1),
 			(SELECT count(*)
 			 FROM sesion_sesiones s
 			 JOIN reservas r ON r.id::text = s.reserva_id
-			 WHERE s.fin <= $1),
+			 JOIN usuarios tu ON tu.id::text = r.tutor_id
+			 WHERE tu.facultad_id = $2::smallint AND s.fin <= $1),
 			(SELECT count(DISTINCT a.sesion_id)
 			 FROM sesion_asistencias a
 			 JOIN sesion_sesiones s ON s.id = a.sesion_id
 			 JOIN reservas r ON r.id::text = s.reserva_id
-			 WHERE a.rol = 'escolar' AND s.fin <= $1),
+			 JOIN usuarios tu ON tu.id::text = r.tutor_id
+			 WHERE tu.facultad_id = $2::smallint AND a.rol = 'escolar' AND s.fin <= $1),
 			(SELECT count(DISTINCT a.sesion_id)
 			 FROM sesion_asistencias a
 			 JOIN sesion_sesiones s ON s.id = a.sesion_id
 			 JOIN reservas r ON r.id::text = s.reserva_id
-			 WHERE a.rol = 'tutor' AND s.fin <= $1),
+			 JOIN usuarios tu ON tu.id::text = r.tutor_id
+			 WHERE tu.facultad_id = $2::smallint AND a.rol = 'tutor' AND s.fin <= $1),
 			(SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (s.fin - s.inicio)) / 3600.0), 0)
 			 FROM sesion_sesiones s
 			 JOIN reservas r ON r.id::text = s.reserva_id
-			 WHERE s.fin <= $1),
-			(SELECT count(*) FROM tutor_expedientes WHERE estado = 'pendiente'),
-			(SELECT count(*) FROM incidentes WHERE estado = 'pendiente'),
+			 JOIN usuarios tu ON tu.id::text = r.tutor_id
+			 WHERE tu.facultad_id = $2::smallint AND s.fin <= $1),
+			(SELECT count(*) FROM tutor_expedientes e
+			 JOIN usuarios tu ON tu.id = e.tutor_id
+			 WHERE tu.facultad_id = $2::smallint AND e.estado = 'pendiente'),
+			(SELECT count(*) FROM incidentes WHERE facultad_id = $2::smallint AND estado = 'pendiente'),
 			(SELECT count(*) FROM catalogo_cursos WHERE estado = 'pendiente'),
 			(SELECT count(*) FROM catalogo_solicitudes_colegio WHERE estado = 'pendiente')
-	`, ahora.UTC()).Scan(
+	`, ahora.UTC(), facultadID).Scan(
 		&metricas.Reservas.Totales,
 		&metricas.Reservas.Futuras,
 		&metricas.Reservas.Finalizadas,
@@ -83,9 +99,10 @@ func (r RepositorioPostgres) Auditoria(
 		       COALESCE(u.nombre_uso, ''), a.actor_rol, a.accion, a.entidad,
 		       a.entidad_id, a.detalle
 		FROM auditoria_eventos a
-		LEFT JOIN usuarios u ON u.id = a.actor_id
+		JOIN usuarios u ON u.id = a.actor_id
+		WHERE u.facultad_id = $2::smallint
 		ORDER BY a.ocurrido_en DESC, a.id DESC
-		LIMIT $1`, filtro.Limite)
+		LIMIT $1`, filtro.Limite, filtro.FacultadID)
 	if err != nil {
 		return nil, fmt.Errorf("consultar auditoría: %w", err)
 	}

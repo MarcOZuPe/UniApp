@@ -9,7 +9,7 @@ import (
 )
 
 type Repositorio interface {
-	Metricas(ctx context.Context, ahora time.Time) (*modelo.Metricas, error)
+	Metricas(ctx context.Context, ahora time.Time, facultadID string) (*modelo.Metricas, error)
 	Auditoria(ctx context.Context, filtro modelo.FiltroAuditoria) ([]modelo.EventoAuditoria, error)
 }
 
@@ -27,21 +27,27 @@ func NuevoServicio(repositorio Repositorio) *Servicio {
 
 func (s *Servicio) FijarReloj(f func() time.Time) { s.ahora = f }
 
-func (s *Servicio) Metricas(ctx context.Context, rol modeloAcceso.Rol) (*modelo.Metricas, error) {
-	if rol != modeloAcceso.RolCoordinador {
+func (s *Servicio) Metricas(
+	ctx context.Context,
+	rol modeloAcceso.Rol,
+	facultadID string,
+) (*modelo.Metricas, error) {
+	if !rol.EsCoordinacion() || facultadID == "" {
 		return nil, modelo.ErrNoAutorizado
 	}
-	return s.repositorio.Metricas(ctx, s.ahora().UTC())
+	return s.repositorio.Metricas(ctx, s.ahora().UTC(), facultadID)
 }
 
 func (s *Servicio) Auditoria(
 	ctx context.Context,
 	rol modeloAcceso.Rol,
+	facultadID string,
 	filtro modelo.FiltroAuditoria,
 ) ([]modelo.EventoAuditoria, error) {
-	if rol != modeloAcceso.RolCoordinador {
+	if !rol.EsCoordinacion() || facultadID == "" {
 		return nil, modelo.ErrNoAutorizado
 	}
+	filtro.FacultadID = facultadID
 	if filtro.Limite <= 0 {
 		filtro.Limite = modelo.LimiteAuditoriaPorDefecto
 	}
