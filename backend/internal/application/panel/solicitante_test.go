@@ -27,6 +27,14 @@ func TestSolicitanteSoloAutorizaCoordinacionConFacultad(t *testing.T) {
 	}
 }
 
+// B-21: una facultad con solo espacios no identifica ninguna facultad.
+func TestB21FacultadEnBlancoNoDebeAutorizar(t *testing.T) {
+	solicitante := Solicitante{Rol: modeloAcceso.RolCoordinador, FacultadID: "   "}
+	if solicitante.Autorizado() {
+		t.Fatal("B-21: una facultad en blanco no debe autorizar el panel")
+	}
+}
+
 func TestFiltroAuditoriaNormalizaElLimite(t *testing.T) {
 	casos := []struct {
 		nombre   string

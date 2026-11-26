@@ -9,11 +9,13 @@ import (
 )
 
 type repositorioPrueba struct {
-	escolares []EscolarVinculado
-	tutorias  map[string][]Tutoria
+	escolares         []EscolarVinculado
+	tutorias          map[string][]Tutoria
+	consultasTutorias int
 }
 
 func (r *repositorioPrueba) TutoriasDeEscolar(_ context.Context, escolarID string, _ time.Time) ([]Tutoria, error) {
+	r.consultasTutorias++
 	return r.tutorias[escolarID], nil
 }
 
@@ -117,6 +119,78 @@ func TestAlcanceApoderadoFiltraSusEscolaresVinculados(t *testing.T) {
 	}
 }
 
+func TestAlcanceApoderadoSinEscolaresNoAplicaFiltro(t *testing.T) {
+	alcance, err := nuevoAlcance(
+		Solicitante{ID: "apoderado-1", Rol: modeloAcceso.RolApoderado},
+		&repositorioPrueba{},
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, aplicable, err := alcance.Filtrar(context.Background()); err != nil || aplicable {
+		t.Fatalf("sin escolares no debería consultarse la lista: aplicable=%v err=%v", aplicable, err)
+	}
+}
+
+func TestAlcanceApoderadoAgregaTutoriasDeSusEscolares(t *testing.T) {
+	repositorio := &repositorioPrueba{
+		escolares: []EscolarVinculado{{ID: "escolar-1"}, {ID: "escolar-2"}},
+		tutorias: map[string][]Tutoria{
+			"escolar-1": {{ReservaID: "r-1"}},
+			"escolar-2": {{ReservaID: "r-2"}, {ReservaID: "r-3"}},
+		},
+	}
+	alcance, err := nuevoAlcance(
+		Solicitante{ID: "apoderado-1", Rol: modeloAcceso.RolApoderado},
+		repositorio,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tutorias, err := alcance.Tutorias(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tutorias) != 3 {
+		t.Fatalf("se esperaban 3 tutorías, se obtuvieron %d", len(tutorias))
+	}
+}
+
+// F-17: el apoderado con varios escolares no debe disparar una consulta de
+// tutorías por cada fila. Debe resolverse con una sola consulta por lote.
+func TestF17AlcanceApoderadoNoDebeConsultarTutoriasPorFila(t *testing.T) {
+	repositorio := &repositorioPrueba{
+		escolares: []EscolarVinculado{
+			{ID: "escolar-1"},
+			{ID: "escolar-2"},
+			{ID: "escolar-3"},
+		},
+		tutorias: map[string][]Tutoria{
+			"escolar-1": {{ReservaID: "r-1"}},
+			"escolar-2": {{ReservaID: "r-2"}},
+			"escolar-3": {{ReservaID: "r-3"}},
+		},
+	}
+	alcance, err := nuevoAlcance(
+		Solicitante{ID: "apoderado-1", Rol: modeloAcceso.RolApoderado},
+		repositorio,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := alcance.Tutorias(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if repositorio.consultasTutorias != 1 {
+		t.Fatalf("F-17: se consultaron las tutorías %d veces para 3 escolares; debe ser una consulta por lote",
+			repositorio.consultasTutorias)
+	}
+}
+
 func TestAlcanceCoordinacionSeLimitaASuFacultad(t *testing.T) {
 	sinFacultad, err := nuevoAlcance(
 		Solicitante{ID: "coord-1", Rol: modeloAcceso.RolCoordinador},
@@ -141,5 +215,14 @@ func TestAlcanceCoordinacionSeLimitaASuFacultad(t *testing.T) {
 	filtro, aplicable, err := conFacultad.Filtrar(context.Background())
 	if err != nil || !aplicable || filtro.FacultadID != "fac-1" {
 		t.Fatalf("el filtro debería usar la facultad del coordinador: %+v aplicable=%v err=%v", filtro, aplicable, err)
+	}
+
+	visible, err := conFacultad.Visible(context.Background(), &Incidente{FacultadID: "fac-1"})
+	if err != nil || !visible {
+		t.Fatalf("el coordinador debería ver incidentes de su facultad: visible=%v err=%v", visible, err)
+	}
+	visible, err = conFacultad.Visible(context.Background(), &Incidente{FacultadID: "fac-2"})
+	if err != nil || visible {
+		t.Fatalf("el coordinador no debería ver incidentes de otra facultad: visible=%v err=%v", visible, err)
 	}
 }

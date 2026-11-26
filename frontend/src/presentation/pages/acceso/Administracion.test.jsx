@@ -52,7 +52,40 @@ describe('panel de administración', () => {
 
     expect(await screen.findByText('Coordinación General')).toBeTruthy();
     expect(screen.getByText(/Ingeniería/, { selector: 'small' })).toBeTruthy();
+    expect(listarGenerales).toHaveBeenCalledTimes(1);
+    expect(listarFacultades).toHaveBeenCalledTimes(1);
+    expect(listarLogsAdministracion).toHaveBeenCalledTimes(1);
     expect(listarLogsAdministracion).toHaveBeenCalledWith(100);
+  });
+
+  it('muestra el error del backend y los errores por campo', async () => {
+    crearGeneral.mockRejectedValue({
+      message: 'Revisa los datos.',
+      campos: { email: 'correo no válido' },
+    });
+    render(
+      <MemoryRouter>
+        <Administracion />
+      </MemoryRouter>
+    );
+    await screen.findByText('Coordinación General');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear coordinador general' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Revisa los datos.');
+    expect(screen.getByText('correo no válido')).toBeTruthy();
+  });
+
+  it('F-20: un fallo parcial no debe ocultar los datos que sí cargaron', async () => {
+    listarFacultades.mockRejectedValue(new Error('facultades caídas'));
+    render(
+      <MemoryRouter>
+        <Administracion />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Coordinación General')).toBeTruthy();
+    expect((await screen.findByRole('alert')).textContent).toContain('facultades caídas');
   });
 
   it('envía los datos del formulario y recarga la lista', async () => {

@@ -85,9 +85,7 @@ func (servicio *AdministracionService) EliminarGeneral(
 	if err := servicio.RepositorioUsuarios.DesactivarUsuario(ctx, usuario.ID); err != nil {
 		return err
 	}
-	if err := servicio.RepositorioSesiones.EliminarSesionesDeUsuario(ctx, usuario.ID); err != nil {
-		return err
-	}
+	// El middleware comprueba Activo en cada petición; no hay sesión que borrar.
 	servicio.registrarLog(ctx, EventoAdministracion{
 		Origen: origen, Nombre: "coordinador_general.eliminado",
 		CoordinadorID: usuario.ID, FacultadID: usuario.FacultadID,

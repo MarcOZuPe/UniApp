@@ -1,13 +1,14 @@
 package acceso
 
 type Dependencias struct {
-	Repositorio Repositorio
-	Fabrica     *Fabrica
-	Hasher      PasswordHasher
-	Bus         Sujeto
-	Tokens      GeneradorTokens
-	Lockout     LockoutManager
-	Reloj       Reloj
+	Repositorio  Repositorio
+	Fabrica      *Fabrica
+	Hasher       PasswordHasher
+	Bus          Sujeto
+	Tokens       GeneradorTokens
+	TokensSesion TokensSesion
+	Lockout      LockoutManager
+	Reloj        Reloj
 }
 
 type Servicio struct {
@@ -29,6 +30,10 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 	if tokens == nil {
 		tokens = tokensAleatorios{}
 	}
+	tokensSesion := dependencias.TokensSesion
+	if tokensSesion == nil {
+		tokensSesion = tokensSesionDePrueba()
+	}
 	senuelo, _ := dependencias.Hasher.Hash("clave-falsa-para-igualar-tiempos")
 	reloj := dependencias.Reloj
 	if reloj == nil {
@@ -39,7 +44,6 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 		RepositorioFacultades:     dependencias.Repositorio,
 		RepositorioPerfil:         dependencias.Repositorio,
 		RepositorioLogs:           dependencias.Repositorio,
-		RepositorioSesiones:       dependencias.Repositorio,
 		RepositorioTokens:         dependencias.Repositorio,
 		RepositorioVinculaciones:  dependencias.Repositorio,
 		RepositorioAutorizaciones: dependencias.Repositorio,
@@ -48,6 +52,7 @@ func NuevoServicio(dependencias Dependencias) *Servicio {
 		Hasher:                    dependencias.Hasher,
 		Bus:                       dependencias.Bus,
 		Tokens:                    tokens,
+		TokensSesion:              tokensSesion,
 		Reloj:                     reloj,
 		HashSenuelo:               senuelo,
 	}

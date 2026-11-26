@@ -30,6 +30,13 @@ describe('agrupación de incidentes por tutor', () => {
     expect(grupos[0].clave).toBe('Tutor Sin ID');
     expect(grupos[0].incidentes).toHaveLength(2);
   });
+
+  it('B-22: no debe lanzar cuando falta el nombre del tutor', () => {
+    expect(() => agruparPorTutor([
+      { tutor_id: 't-1', estado: 'pendiente' },
+      { tutor_id: 't-2', estado: 'pendiente' },
+    ])).not.toThrow();
+  });
 });
 
 describe('textos de conteo', () => {

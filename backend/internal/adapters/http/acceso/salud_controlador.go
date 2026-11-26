@@ -12,6 +12,6 @@ func (controlador *SaludControlador) Montar(multiplexor *http.ServeMux) {
 	multiplexor.HandleFunc("GET /api/salud", controlador.salud)
 }
 
-func (controlador *SaludControlador) salud(response http.ResponseWriter, _ *http.Request) {
-	vista.EscribirJSON(response, http.StatusOK, map[string]string{"estado": "ok"})
+func (controlador *SaludControlador) salud(response http.ResponseWriter, request *http.Request) {
+	vista.EscribirJSONCacheable(response, request, http.StatusOK, map[string]string{"estado": "ok"}, 5)
 }

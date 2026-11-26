@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const claveSesionPorDefecto = "uniapp-dev-session-secret-no-usar-en-produccion"
+
 type SMTP struct{ Host, Puerto, Usuario, Clave, Remitente string }
 
 type Config struct {
@@ -21,6 +23,7 @@ type Config struct {
 	DominiosTutor        string
 	SembrarSintetico     bool
 	ClaveSemilla         string
+	ClaveSesion          string
 	DirectorioDocumentos string
 	DirectorioAdjuntos   string
 	DirectorioIncidentes string
@@ -115,6 +118,14 @@ func Cargar() (Config, error) {
 	if err != nil {
 		return configuracion, err
 	}
+	claveSesion, err := variableSecreta("SESSION_SECRET")
+	if err != nil {
+		return configuracion, err
+	}
+	if strings.TrimSpace(claveSesion) == "" {
+		claveSesion = claveSesionPorDefecto
+	}
+	configuracion.ClaveSesion = claveSesion
 	configuracion.SMTP = SMTP{
 		Host: os.Getenv("SMTP_HOST"), Puerto: variableEntorno("SMTP_PORT", "587"),
 		Usuario: os.Getenv("SMTP_USER"), Clave: claveSMTP,
@@ -122,6 +133,9 @@ func Cargar() (Config, error) {
 	}
 	if configuracion.DatabaseURL == "" {
 		return configuracion, fmt.Errorf("DATABASE_URL es obligatoria")
+	}
+	if configuracion.EnProduccion() && (configuracion.ClaveSesion == claveSesionPorDefecto || len(configuracion.ClaveSesion) < 32) {
+		return configuracion, fmt.Errorf("SESSION_SECRET es obligatoria en producción y debe tener al menos 32 caracteres")
 	}
 	if configuracion.SembrarSintetico && configuracion.ClaveSemilla == "" {
 		return configuracion, fmt.Errorf("SEED_PASSWORD es obligatoria con SEED_SYNTHETIC=true")

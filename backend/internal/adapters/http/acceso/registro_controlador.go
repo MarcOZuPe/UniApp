@@ -28,9 +28,9 @@ func (controlador *RegistroControlador) facultades(response http.ResponseWriter,
 		controlador.responderError(response, err)
 		return
 	}
-	vista.EscribirJSON(response, http.StatusOK, map[string]any{
+	vista.EscribirJSONCacheable(response, request, http.StatusOK, map[string]any{
 		"facultades": vista.PresentarFacultades(facultades),
-	})
+	}, 3600)
 }
 
 func (controlador *RegistroControlador) registro(response http.ResponseWriter, request *http.Request) {

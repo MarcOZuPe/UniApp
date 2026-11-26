@@ -210,11 +210,12 @@ func construirServicio(
 	fabrica := modelo.NuevaFabrica(hasher, configuracion.DominiosTutor)
 
 	servicio := modelo.NuevoServicio(modelo.Dependencias{
-		Repositorio: accesoRepo.RepositorioPostgres{DB: baseDatos},
-		Fabrica:     fabrica,
-		Hasher:      hasher,
-		Bus:         bus,
-		Lockout:     lockout.NuevaMemoria(),
+		Repositorio:  accesoRepo.RepositorioPostgres{DB: baseDatos},
+		Fabrica:      fabrica,
+		Hasher:       hasher,
+		Bus:          bus,
+		TokensSesion: modelo.NuevoFirmadorSesion(configuracion.ClaveSesion),
+		Lockout:      lockout.NuevaMemoria(),
 	})
 
 	if liberados, err := servicio.Confirmacion.LimpiarRegistrosVencidos(ctx); err != nil {
