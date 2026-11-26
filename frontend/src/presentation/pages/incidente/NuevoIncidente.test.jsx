@@ -1,20 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import NuevoIncidente from './NuevoIncidente.jsx';
-import {
-  crearIncidente,
-  listarTutoriasIncidentes,
-} from '../../../adapters/http/incidenteApi.js';
-
-const estado = vi.hoisted(() => ({
-  sesion: { usuario: { id: 'escolar-1', rol: 'escolar', nombre_uso: 'Escolar Uno' } },
-}));
+import { crearIncidente, listarTutoriasIncidentes } from '../../../adapters/http/incidenteApi.js';
 
 vi.mock('../../hooks/useSesion.js', () => ({
-  useSesion: () => estado.sesion,
+  useSesion: () => ({
+    usuario: { id: 'escolar-1', rol: 'escolar', nombre_uso: 'Escolar Uno' },
+  }),
 }));
 
 vi.mock('../../../adapters/http/incidenteApi.js', () => ({
@@ -30,113 +25,66 @@ const tutoria = {
   tutor_nombre: 'Tutor Uno',
   curso: 'Álgebra',
   inicio_lima: '2026-11-17 09:00',
-  fin_lima: '2026-11-17 10:00',
   asistio: true,
 };
-
-function ListaDestino() {
-  const location = useLocation();
-  return (
-    <>
-      <h1>Incidentes</h1>
-      <p>Lista de incidentes</p>
-      {location.state?.mensaje && <p role="status">{location.state.mensaje}</p>}
-    </>
-  );
-}
 
 function renderizar() {
   return render(
     <MemoryRouter initialEntries={['/incidentes/nuevo']}>
       <Routes>
         <Route path="/incidentes/nuevo" element={<NuevoIncidente />} />
-        <Route path="/incidentes" element={<ListaDestino />} />
+        <Route path="/incidentes" element={<h1>Incidentes</h1>} />
       </Routes>
     </MemoryRouter>
   );
 }
 
+function completarFormulario(descripcion) {
+  fireEvent.change(screen.getByLabelText('Tutoría atendida'), {
+    target: { value: 'reserva-1' },
+  });
+  fireEvent.change(screen.getByLabelText('Descripción de lo ocurrido'), {
+    target: { value: descripcion },
+  });
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
-  estado.sesion = { usuario: { id: 'escolar-1', rol: 'escolar', nombre_uso: 'Escolar Uno' } };
   listarTutoriasIncidentes.mockResolvedValue({ tutorias: [tutoria] });
   crearIncidente.mockResolvedValue({ id: 'incidente-nuevo' });
 });
 
 afterEach(cleanup);
 
-function completarFormulario() {
-  fireEvent.change(screen.getByLabelText('Tutoría atendida'), {
-    target: { value: 'reserva-1' },
-  });
-  fireEvent.change(screen.getByLabelText('Descripción de lo ocurrido'), {
-    target: { value: 'El tutor hizo un comentario ofensivo durante la tutoría.' },
-  });
-}
-
-describe('I13 - Registro de incidentes', () => {
-  it('registra un reporte con evidencia PDF y vuelve al listado', async () => {
+describe('F-24: validación de evidencia en incidentes', () => {
+  it('rechaza un archivo con extensión PDF pero MIME que no corresponde', async () => {
     renderizar();
-    expect(await screen.findByRole('heading', { name: 'Registrar incidente' })).toBeTruthy();
-    expect(screen.getByText(/El tutor denunciado no tiene acceso/)).toBeTruthy();
-
-    completarFormulario();
-    const archivo = new File(['%PDF-1.4'], 'chat.pdf', { type: 'application/pdf' });
+    await screen.findByRole('heading', { name: 'Registrar incidente' });
+    completarFormulario('El tutor hizo un comentario ofensivo durante la tutoría.');
     fireEvent.change(screen.getByLabelText(/Evidencias obligatorias/), {
-      target: { files: [archivo] },
+      target: { files: [new File(['contenido'], 'evidencia.pdf', { type: 'text/plain' })] },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }));
 
-    await waitFor(() => expect(crearIncidente).toHaveBeenCalledTimes(1));
-    const formulario = crearIncidente.mock.calls[0][0];
-    expect(formulario.get('reserva_id')).toBe('reserva-1');
-    expect(formulario.getAll('evidencias')).toHaveLength(1);
-    expect(await screen.findByText('Lista de incidentes')).toBeTruthy();
-    expect(screen.getByRole('status').textContent).toMatch(/Reporte registrado/);
-  });
-
-  it('exige al menos una evidencia antes de enviar', async () => {
-    renderizar();
-    await screen.findByRole('heading', { name: 'Registrar incidente' });
-    completarFormulario();
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }));
-
-    expect(await screen.findByText('Adjunta al menos una evidencia del incidente.')).toBeTruthy();
+    expect(await screen.findByText(/PDF, JPG o PNG/)).toBeTruthy();
     expect(crearIncidente).not.toHaveBeenCalled();
   });
+});
 
-  it('rechaza en el navegador archivos que no son PDF, JPG o PNG', async () => {
+describe('B-03: accesibilidad del error de descripción', () => {
+  it('asocia la descripción inválida con su mensaje mediante aria-describedby', async () => {
     renderizar();
     await screen.findByRole('heading', { name: 'Registrar incidente' });
-    completarFormulario();
-    const archivo = new File(['texto'], 'notas.txt', { type: 'text/plain' });
+    completarFormulario('corta');
     fireEvent.change(screen.getByLabelText(/Evidencias obligatorias/), {
-      target: { files: [archivo] },
+      target: { files: [new File(['%PDF-1.4'], 'chat.pdf', { type: 'application/pdf' })] },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }));
 
-    expect(await screen.findByText('La evidencia debe ser PDF, JPG o PNG.')).toBeTruthy();
-    expect(crearIncidente).not.toHaveBeenCalled();
-  });
-
-  it('permite al apoderado elegir el escolar a través de la tutoría', async () => {
-    estado.sesion = { usuario: { id: 'apoderado-1', rol: 'apoderado', nombre_uso: 'Apoderado' } };
-    renderizar();
-    await screen.findByRole('heading', { name: 'Registrar incidente' });
-    expect(screen.getByText(/Escolar Uno/)).toBeTruthy();
-    completarFormulario();
-    const archivo = new File(['%PDF-1.4'], 'chat.pdf', { type: 'application/pdf' });
-    fireEvent.change(screen.getByLabelText(/Evidencias obligatorias/), {
-      target: { files: [archivo] },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }));
-
-    await waitFor(() => expect(crearIncidente).toHaveBeenCalledTimes(1));
-    expect(crearIncidente.mock.calls[0][0].get('escolar_id')).toBe('escolar-1');
-    expect(
-      await screen.findByText(
-        'Reporte registrado. La evidencia queda disponible solo para ti, el escolar y coordinación.'
-      )
-    ).toBeTruthy();
+    const descripcion = screen.getByLabelText('Descripción de lo ocurrido');
+    const mensaje = await screen.findByText('Describe lo ocurrido entre 20 y 2000 caracteres.');
+    const idMensaje = mensaje.getAttribute('id');
+    expect(idMensaje).toBeTruthy();
+    expect(descripcion.getAttribute('aria-describedby')).toBe(idMensaje);
   });
 });

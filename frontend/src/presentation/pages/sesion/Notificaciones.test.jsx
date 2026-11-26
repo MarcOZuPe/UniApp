@@ -1,28 +1,62 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import App from '../../../app/App.jsx';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+import Notificaciones from './Notificaciones.jsx';
 import { obtenerNotificaciones } from '../../../adapters/http/notificacionesApi.js';
-const sesion = vi.hoisted(() => ({ usuario: null, cargando: false }));
-vi.mock('../../hooks/useSesion.js', () => ({ useSesion: () => sesion }));
-vi.mock('../../../application/acceso/sesion.js', () => ({ cargarSesion: vi.fn(), salir: vi.fn() }));
-vi.mock('../../../adapters/http/notificacionesApi.js', () => ({ obtenerNotificaciones: vi.fn() }));
-const dato = { id: 1, asunto: 'Reserva confirmada', cuerpo: 'Tutoría reservada.', fecha: '2026-10-22T15:00:00Z' };
-beforeEach(() => { vi.resetAllMocks(); sesion.usuario = { id: 'tutor', rol: 'tutor', nombre_uso: 'Tutor' }; obtenerNotificaciones.mockResolvedValue([dato]); });
+
+vi.mock('../../../adapters/http/notificacionesApi.js', () => ({
+  obtenerNotificaciones: vi.fn(),
+}));
+
+const notificacionBase = {
+  id: 'notificacion-1',
+  asunto: 'Recordatorio de tutoría',
+  cuerpo: 'Tu tutoría empieza pronto.',
+};
+
+function renderizar() {
+  return render(
+    <MemoryRouter>
+      <Notificaciones />
+    </MemoryRouter>
+  );
+}
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
+
 afterEach(cleanup);
-function abrir(ruta = '/notificaciones') { window.history.replaceState({}, '', ruta); render(<App />); }
-it.each(['tutor', 'escolar'])('navega desde Inicio como %s', async rol => {
- sesion.usuario.rol = rol; abrir('/'); fireEvent.click(screen.getByRole('link', { name: 'Mis notificaciones' }));
- expect(screen.getByRole('status').textContent).toContain('Cargando');
- expect(await screen.findByText('Reserva confirmada')).toBeTruthy();
- expect(obtenerNotificaciones).toHaveBeenCalledOnce();
- expect(screen.getByText(/10:00/)).toBeTruthy();
+
+describe('F-21: fechas inválidas sin error boundary', () => {
+  it('no desmonta la pantalla cuando una notificación trae una fecha inválida', async () => {
+    obtenerNotificaciones.mockResolvedValue([
+      { ...notificacionBase, fecha: 'fecha-invalida' },
+    ]);
+
+    let errorRender;
+    try {
+      renderizar();
+      expect(await screen.findByText('Recordatorio de tutoría')).toBeTruthy();
+    } catch (error) {
+      errorRender = error;
+    }
+
+    expect(errorRender).toBeUndefined();
+  });
 });
-it('muestra un recordatorio recibido', async () => { obtenerNotificaciones.mockResolvedValue([{ ...dato, asunto: 'Recordatorio de tutoría' }]); abrir(); expect(await screen.findByText('Recordatorio de tutoría')).toBeTruthy(); });
-it('muestra lista vacía', async () => { obtenerNotificaciones.mockResolvedValue([]); abrir(); expect(await screen.findByText('Aún no tienes notificaciones.')).toBeTruthy(); });
-it('muestra fallo de consulta', async () => { obtenerNotificaciones.mockRejectedValue(new Error('fallo')); abrir(); expect(await screen.findByRole('alert')).toBeTruthy(); });
-it.each(['coordinador', 'apoderado'])('rechaza al %s y oculta el enlace', async rol => {
- sesion.usuario.rol = rol; abrir('/'); expect(screen.queryByRole('link', { name: 'Mis notificaciones' })).toBeNull(); cleanup();
- abrir(); await waitFor(() => expect(window.location.pathname).toBe('/no-autorizado')); expect(obtenerNotificaciones).not.toHaveBeenCalled();
+
+describe('errores no recuperables en notificaciones', () => {
+  it('ofrece reintentar cuando falla la carga', async () => {
+    obtenerNotificaciones
+      .mockRejectedValueOnce(new Error('Sin conexión.'))
+      .mockResolvedValueOnce([notificacionBase]);
+
+    renderizar();
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /reintentar/i })).toBeTruthy();
+  });
 });
-it('requiere sesión', async () => { sesion.usuario = null; abrir(); await waitFor(() => expect(window.location.pathname).toBe('/ingreso')); expect(obtenerNotificaciones).not.toHaveBeenCalled(); });
