@@ -105,6 +105,7 @@ var (
 
 var (
 	DominiosDe = dominio.DominiosDe
+	EstadoParaAutorizacion = dominio.EstadoParaAutorizacion
 	FabricaParaRol = dominio.FabricaParaRol
 	NuevoValidadorClave = dominio.NuevoValidadorClave
 	ObtenerPerfil = dominio.ObtenerPerfil

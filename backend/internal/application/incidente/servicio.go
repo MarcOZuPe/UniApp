@@ -29,40 +29,21 @@ func (s *Servicio) FijarReloj(f func() time.Time) { s.ahora = f }
 
 func (s *Servicio) Ahora() time.Time { return s.ahora().UTC() }
 
-// Tutorias devuelve las sesiones ya finalizadas del escolar. Para el apoderado se
-// incluyen las de todos sus escolares vinculados y el nombre de cada escolar.
-func (s *Servicio) Tutorias(ctx context.Context, usuarioID string, rol modeloAcceso.Rol) ([]Tutoria, error) {
-	switch rol {
-	case modeloAcceso.RolEscolar:
-		return s.repositorio.TutoriasDeEscolar(ctx, usuarioID, s.Ahora())
-	case modeloAcceso.RolApoderado:
-		escolares, err := s.repositorio.EscolaresDeApoderado(ctx, usuarioID)
-		if err != nil {
-			return nil, err
-		}
-		tutorias := make([]Tutoria, 0)
-		for _, escolar := range escolares {
-			delEscolar, err := s.repositorio.TutoriasDeEscolar(ctx, escolar.ID, s.Ahora())
-			if err != nil {
-				return nil, err
-			}
-			tutorias = append(tutorias, delEscolar...)
-		}
-		return tutorias, nil
-	case modeloAcceso.RolCoordinador, modeloAcceso.RolCoordinadorGeneral:
-		return []Tutoria{}, nil
-	default:
-		return nil, ErrNoAutorizado
+func (s *Servicio) Tutorias(ctx context.Context, solicitante Solicitante) ([]Tutoria, error) {
+	alcance, err := s.alcance(solicitante)
+	if err != nil {
+		return nil, err
 	}
+	return alcance.Tutorias(ctx)
 }
 
-func (s *Servicio) Registrar(ctx context.Context, usuarioID string, rol modeloAcceso.Rol, datos DatosIncidente) (*Incidente, error) {
-	if strings.TrimSpace(usuarioID) == "" {
+func (s *Servicio) Registrar(ctx context.Context, solicitante Solicitante, datos DatosIncidente) (*Incidente, error) {
+	if !solicitante.identificado() {
 		return nil, ErrNoAutorizado
 	}
-	switch rol {
+	switch solicitante.Rol {
 	case modeloAcceso.RolEscolar:
-		datos.EscolarID = usuarioID
+		datos.EscolarID = solicitante.ID
 	case modeloAcceso.RolApoderado:
 		datos.EscolarID = strings.TrimSpace(datos.EscolarID)
 		if datos.EscolarID == "" {
@@ -70,7 +51,7 @@ func (s *Servicio) Registrar(ctx context.Context, usuarioID string, rol modeloAc
 				"escolar_id": "Elige al escolar afectado.",
 			}}
 		}
-		vinculado, err := s.repositorio.EsApoderadoDe(ctx, usuarioID, datos.EscolarID)
+		vinculado, err := s.repositorio.EsApoderadoDe(ctx, solicitante.ID, datos.EscolarID)
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +61,7 @@ func (s *Servicio) Registrar(ctx context.Context, usuarioID string, rol modeloAc
 	default:
 		return nil, ErrNoAutorizado
 	}
-	datos.ReportadoPor = usuarioID
+	datos.ReportadoPor = solicitante.ID
 
 	tutoria, err := s.repositorio.TutoriaDeEscolar(ctx, datos.EscolarID, strings.TrimSpace(datos.ReservaID), s.Ahora())
 	if err != nil {
@@ -117,49 +98,31 @@ func (s *Servicio) Registrar(ctx context.Context, usuarioID string, rol modeloAc
 	return creado, nil
 }
 
-func (s *Servicio) Listar(
-	ctx context.Context,
-	usuarioID string,
-	rol modeloAcceso.Rol,
-	facultadID string,
-) ([]Incidente, error) {
-	switch rol {
-	case modeloAcceso.RolCoordinador, modeloAcceso.RolCoordinadorGeneral:
-		if facultadID == "" {
-			return []Incidente{}, nil
-		}
-		return s.repositorio.Listar(ctx, Filtro{FacultadID: facultadID})
-	case modeloAcceso.RolEscolar:
-		return s.repositorio.Listar(ctx, Filtro{EscolarID: usuarioID})
-	case modeloAcceso.RolApoderado:
-		escolares, err := s.repositorio.EscolaresDeApoderado(ctx, usuarioID)
-		if err != nil {
-			return nil, err
-		}
-		ids := make([]string, 0, len(escolares))
-		for _, escolar := range escolares {
-			ids = append(ids, escolar.ID)
-		}
-		if len(ids) == 0 {
-			return []Incidente{}, nil
-		}
-		return s.repositorio.Listar(ctx, Filtro{EscolaresID: ids})
-	default:
-		return nil, ErrNoAutorizado
+func (s *Servicio) Listar(ctx context.Context, solicitante Solicitante) ([]Incidente, error) {
+	alcance, err := s.alcance(solicitante)
+	if err != nil {
+		return nil, err
 	}
+	filtro, aplicable, err := alcance.Filtrar(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !aplicable {
+		return []Incidente{}, nil
+	}
+	return s.repositorio.Listar(ctx, filtro)
 }
 
-func (s *Servicio) PorID(
-	ctx context.Context,
-	usuarioID string,
-	rol modeloAcceso.Rol,
-	facultadID, incidenteID string,
-) (*Incidente, error) {
+func (s *Servicio) PorID(ctx context.Context, solicitante Solicitante, incidenteID string) (*Incidente, error) {
+	alcance, err := s.alcance(solicitante)
+	if err != nil {
+		return nil, err
+	}
 	incidente, err := s.repositorio.PorID(ctx, incidenteID)
 	if err != nil {
 		return nil, err
 	}
-	visible, err := s.puedeVer(ctx, incidente, usuarioID, rol, facultadID)
+	visible, err := alcance.Visible(ctx, incidente)
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +134,10 @@ func (s *Servicio) PorID(
 
 func (s *Servicio) AbrirEvidencia(
 	ctx context.Context,
-	usuarioID string,
-	rol modeloAcceso.Rol,
-	facultadID, incidenteID, evidenciaID string,
+	solicitante Solicitante,
+	incidenteID, evidenciaID string,
 ) (*Incidente, Evidencia, []byte, error) {
-	incidente, err := s.PorID(ctx, usuarioID, rol, facultadID, incidenteID)
+	incidente, err := s.PorID(ctx, solicitante, incidenteID)
 	if err != nil {
 		return nil, Evidencia{}, nil, err
 	}
@@ -195,44 +157,31 @@ func (s *Servicio) AbrirEvidencia(
 
 func (s *Servicio) Revisar(
 	ctx context.Context,
-	revisorID string,
-	rol modeloAcceso.Rol,
-	facultadID, incidenteID string,
+	solicitante Solicitante,
+	incidenteID string,
 	datos DatosRevision,
 ) (*Incidente, error) {
-	if !rol.EsCoordinacion() {
+	if !solicitante.Rol.EsCoordinacion() {
 		return nil, ErrNoAutorizado
 	}
-	incidente, err := s.PorID(ctx, revisorID, rol, facultadID, incidenteID)
+	incidente, err := s.PorID(ctx, solicitante, incidenteID)
 	if err != nil {
 		return nil, err
 	}
-	if err := incidente.Revisar(revisorID, datos, s.Ahora()); err != nil {
+	if err := incidente.Revisar(solicitante.ID, datos, s.Ahora()); err != nil {
 		return nil, err
 	}
 	return s.repositorio.Revisar(
-		ctx, incidente.ID, revisorID, incidente.Resultado,
+		ctx, incidente.ID, solicitante.ID, incidente.Resultado,
 		incidente.ComentarioRevision, *incidente.RevisadoEn,
 	)
 }
 
-func (s *Servicio) puedeVer(
-	ctx context.Context,
-	incidente *Incidente,
-	usuarioID string,
-	rol modeloAcceso.Rol,
-	facultadID string,
-) (bool, error) {
-	switch rol {
-	case modeloAcceso.RolCoordinador, modeloAcceso.RolCoordinadorGeneral:
-		return facultadID != "" && incidente.FacultadID == facultadID, nil
-	case modeloAcceso.RolEscolar:
-		return incidente.EscolarID == usuarioID, nil
-	case modeloAcceso.RolApoderado:
-		return s.repositorio.EsApoderadoDe(ctx, usuarioID, incidente.EscolarID)
-	default:
-		return false, nil
+func (s *Servicio) alcance(solicitante Solicitante) (alcance, error) {
+	if !solicitante.identificado() {
+		return nil, ErrNoAutorizado
 	}
+	return nuevoAlcance(solicitante, s.repositorio, s.Ahora())
 }
 
 func (s *Servicio) eliminarEvidencias(ctx context.Context, claves []string) error {

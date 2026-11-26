@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	modeloAcceso "uniapp/internal/application/acceso"
 	modelo "uniapp/internal/domain/panel"
 )
 
@@ -29,30 +28,22 @@ func (s *Servicio) FijarReloj(f func() time.Time) { s.ahora = f }
 
 func (s *Servicio) Metricas(
 	ctx context.Context,
-	rol modeloAcceso.Rol,
-	facultadID string,
+	solicitante Solicitante,
 ) (*modelo.Metricas, error) {
-	if !rol.EsCoordinacion() || facultadID == "" {
+	if !solicitante.Autorizado() {
 		return nil, modelo.ErrNoAutorizado
 	}
-	return s.repositorio.Metricas(ctx, s.ahora().UTC(), facultadID)
+	return s.repositorio.Metricas(ctx, s.ahora().UTC(), solicitante.FacultadID)
 }
 
 func (s *Servicio) Auditoria(
 	ctx context.Context,
-	rol modeloAcceso.Rol,
-	facultadID string,
+	solicitante Solicitante,
 	filtro modelo.FiltroAuditoria,
 ) ([]modelo.EventoAuditoria, error) {
-	if !rol.EsCoordinacion() || facultadID == "" {
+	if !solicitante.Autorizado() {
 		return nil, modelo.ErrNoAutorizado
 	}
-	filtro.FacultadID = facultadID
-	if filtro.Limite <= 0 {
-		filtro.Limite = modelo.LimiteAuditoriaPorDefecto
-	}
-	if filtro.Limite > modelo.LimiteAuditoriaMaximo {
-		filtro.Limite = modelo.LimiteAuditoriaMaximo
-	}
-	return s.repositorio.Auditoria(ctx, filtro)
+	filtro.FacultadID = solicitante.FacultadID
+	return s.repositorio.Auditoria(ctx, filtro.Normalizado())
 }

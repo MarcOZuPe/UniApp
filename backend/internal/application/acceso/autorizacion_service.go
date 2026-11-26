@@ -24,7 +24,7 @@ func (servicio *AutorizacionService) CambiarAutorizacion(ctx context.Context, so
 		return nil, err
 	}
 
-	estadoDestino := servicio.determinarEstadoDestino(solicitud.Autorizado)
+	estadoDestino := EstadoParaAutorizacion(solicitud.Autorizado)
 	cambio := servicio.compilarCambioAutorizacion(solicitud.Apoderado, vinculacionActiva, estadoDestino)
 
 	return servicio.RepositorioAutorizaciones.CambiarAutorizacion(ctx, cambio)
@@ -90,13 +90,6 @@ func (servicio *AutorizacionService) extraerIdentificadorEscolar(escolarID strin
 		return "", ErrValidacion{Campos: map[string]string{"escolar_id": "el escolar es obligatorio"}}
 	}
 	return identificador, nil
-}
-
-func (servicio *AutorizacionService) determinarEstadoDestino(autorizado bool) EstadoAutorizacion {
-	if autorizado {
-		return AutorizacionOtorgada
-	}
-	return AutorizacionRevocada
 }
 
 func (servicio *AutorizacionService) compilarCambioAutorizacion(apoderado *Usuario, vinculacion *Vinculacion, estado EstadoAutorizacion) CambioAutorizacion {

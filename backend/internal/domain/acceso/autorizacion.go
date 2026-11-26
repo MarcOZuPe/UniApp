@@ -26,6 +26,13 @@ func (autorizacion Autorizacion) Vigente() bool {
 	return autorizacion.Estado == AutorizacionOtorgada
 }
 
+func EstadoParaAutorizacion(autorizado bool) EstadoAutorizacion {
+	if autorizado {
+		return AutorizacionOtorgada
+	}
+	return AutorizacionRevocada
+}
+
 type CambioAutorizacion struct {
 	VinculacionID string
 	EscolarID     string

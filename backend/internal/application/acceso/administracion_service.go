@@ -18,6 +18,18 @@ type DatosNuevoGeneral struct {
 	FacultadID string
 }
 
+type OrigenSolicitud struct {
+	Actor *Usuario
+	IP    string
+}
+
+type EventoAdministracion struct {
+	Origen        OrigenSolicitud
+	Nombre        string
+	CoordinadorID string
+	FacultadID    string
+}
+
 func (servicio *AdministracionService) ListarGenerales(
 	ctx context.Context,
 	actor *Usuario,
@@ -30,11 +42,10 @@ func (servicio *AdministracionService) ListarGenerales(
 
 func (servicio *AdministracionService) CrearGeneral(
 	ctx context.Context,
-	actor *Usuario,
+	origen OrigenSolicitud,
 	datos DatosNuevoGeneral,
-	ip string,
 ) (*Usuario, error) {
-	if !esAdministrador(actor) {
+	if !esAdministrador(origen.Actor) {
 		return nil, ErrNoAutorizado
 	}
 	facultad, err := servicio.RepositorioFacultades.FacultadPorID(ctx, datos.FacultadID)
@@ -52,16 +63,19 @@ func (servicio *AdministracionService) CrearGeneral(
 	if err != nil {
 		return nil, err
 	}
-	servicio.registrarLog(ctx, actor, ip, "coordinador_general.creado", creado.ID, facultad.ID)
+	servicio.registrarLog(ctx, EventoAdministracion{
+		Origen: origen, Nombre: "coordinador_general.creado",
+		CoordinadorID: creado.ID, FacultadID: facultad.ID,
+	})
 	return creado, nil
 }
 
 func (servicio *AdministracionService) EliminarGeneral(
 	ctx context.Context,
-	actor *Usuario,
-	generalID, ip string,
+	origen OrigenSolicitud,
+	generalID string,
 ) error {
-	if !esAdministrador(actor) {
+	if !esAdministrador(origen.Actor) {
 		return ErrNoAutorizado
 	}
 	usuario, err := servicio.RepositorioUsuarios.UsuarioPorID(ctx, generalID)
@@ -74,7 +88,10 @@ func (servicio *AdministracionService) EliminarGeneral(
 	if err := servicio.RepositorioSesiones.EliminarSesionesDeUsuario(ctx, usuario.ID); err != nil {
 		return err
 	}
-	servicio.registrarLog(ctx, actor, ip, "coordinador_general.eliminado", usuario.ID, usuario.FacultadID)
+	servicio.registrarLog(ctx, EventoAdministracion{
+		Origen: origen, Nombre: "coordinador_general.eliminado",
+		CoordinadorID: usuario.ID, FacultadID: usuario.FacultadID,
+	})
 	return nil
 }
 
@@ -95,20 +112,17 @@ func (servicio *AdministracionService) Logs(
 	return servicio.RepositorioLogs.LogsSistema(ctx, FiltroLogsSistema{Limite: limite})
 }
 
-func (servicio *AdministracionService) registrarLog(
-	ctx context.Context,
-	actor *Usuario,
-	ip, evento, coordinadorID, facultadID string,
-) {
+func (servicio *AdministracionService) registrarLog(ctx context.Context, evento EventoAdministracion) {
+	actor := evento.Origen.Actor
 	_ = servicio.RepositorioLogs.RegistrarLogSistema(ctx, LogSistema{
 		Categoria: CategoriaAdministracion,
-		Evento:    evento,
+		Evento:    evento.Nombre,
 		ActorID:   actor.ID,
 		ActorRol:  string(actor.Rol),
-		IP:        ip,
+		IP:        evento.Origen.IP,
 		Detalle: map[string]any{
-			"coordinador_general_id": coordinadorID,
-			"facultad_id":            facultadID,
+			"coordinador_general_id": evento.CoordinadorID,
+			"facultad_id":            evento.FacultadID,
 		},
 	})
 }
