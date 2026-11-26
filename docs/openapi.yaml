@@ -183,6 +183,60 @@ components:
         estado: { type: string, enum: [autorizado, no_autorizado] }
         autorizado: { type: boolean }
         creada_en: { type: string, format: date-time, description: "Fecha y hora del cambio" }
+    MetricasPanel:
+      type: object
+      required: [reservas, asistencia, horas, gestion, actualizado_en]
+      properties:
+        reservas:
+          type: object
+          required: [totales, futuras, finalizadas]
+          properties:
+            totales: { type: integer }
+            futuras: { type: integer }
+            finalizadas: { type: integer }
+        asistencia:
+          type: object
+          required: [sesiones_finalizadas, con_asistencia_escolar, con_asistencia_tutor, tasa_escolar_porcentaje, tasa_tutor_porcentaje]
+          properties:
+            sesiones_finalizadas: { type: integer }
+            con_asistencia_escolar: { type: integer }
+            con_asistencia_tutor: { type: integer }
+            tasa_escolar_porcentaje: { type: number, format: double }
+            tasa_tutor_porcentaje: { type: number, format: double }
+        horas:
+          type: object
+          required: [internas]
+          properties:
+            internas: { type: number, format: double, description: "Horas de sesiones finalizadas." }
+        gestion:
+          type: object
+          required: [expedientes_pendientes, incidentes_pendientes, cursos_pendientes, solicitudes_colegio_pendientes]
+          properties:
+            expedientes_pendientes: { type: integer }
+            incidentes_pendientes: { type: integer }
+            cursos_pendientes: { type: integer }
+            solicitudes_colegio_pendientes: { type: integer }
+        actualizado_en: { type: string, format: date-time }
+    EventoAuditoria:
+      type: object
+      required: [id, ocurrido_en, actor_rol, accion, entidad, entidad_id, detalle]
+      properties:
+        id: { type: integer, format: int64 }
+        ocurrido_en: { type: string, format: date-time }
+        actor_id: { type: string, format: uuid }
+        actor_nombre: { type: string }
+        actor_rol: { type: string, enum: [escolar, apoderado, tutor, coordinador] }
+        accion:
+          type: string
+          enum: [incidente.revisado, expediente.revisado, curso.revisado, autorizacion.cambiada, cupo.actualizado]
+        entidad:
+          type: string
+          enum: [incidente, tutor_expediente, catalogo_curso, autorizacion, cupo_semanal]
+        entidad_id: { type: string }
+        detalle:
+          type: object
+          additionalProperties: true
+          description: "Datos de negocio saneados; nunca credenciales, tokens ni evidencias."
     Error:
       type: object
       properties:
@@ -804,6 +858,47 @@ paths:
       security: [{ sesion: [] }]
       summary: Zona de coordinación (permiso coordinacion:acceder)
       responses: { '200': { description: OK }, '401': { description: Sin sesión }, '403': { description: Rol sin permiso (p. ej. escolar) } }
+  /api/coordinacion/metricas:
+    get:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Métricas agregadas del piloto para coordinación
+      description: >
+        Agrega reservas, asistencia declarada y horas internas de sesiones finalizadas.
+        También informa pendientes de expedientes, incidentes, cursos y solicitudes de colegio.
+      responses:
+        '200':
+          description: Métricas agregadas
+          content: { application/json: { schema: { $ref: '#/components/schemas/MetricasPanel' } } }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinacion:acceder }
+  /api/coordinacion/auditoria:
+    get:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Auditoría inmutable de decisiones y cambios de reglas
+      description: >
+        Devuelve los últimos eventos de auditoría. No existe endpoint de borrado ni
+        modificación y la base rechaza UPDATE, DELETE y TRUNCATE. El detalle excluye
+        credenciales, tokens, correos y contenido de evidencias.
+      parameters:
+        - in: query
+          name: limite
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Eventos de auditoría
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventos:
+                    type: array
+                    items: { $ref: '#/components/schemas/EventoAuditoria' }
+        '400': { description: Límite inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinacion:acceder }
   /api/tutor/salud:
     get: { tags: [B-tutor], summary: Estado del flujo B, responses: { '200': { description: OK } } }
   /api/tutor/mi-expediente:

@@ -11,7 +11,7 @@ import (
 
 const prefijo = "uniapp/internal/"
 
-var flujos = []string{"acceso", "catalogo", "incidente", "oferta", "reserva", "sesion", "tutor"}
+var flujos = []string{"acceso", "catalogo", "incidente", "oferta", "panel", "reserva", "sesion", "tutor"}
 
 // capaYFlujo identifica la capa Clean y la feature de una ruta relativa a internal/.
 func capaYFlujo(rel string) (capa, flujo string, ok bool) {
