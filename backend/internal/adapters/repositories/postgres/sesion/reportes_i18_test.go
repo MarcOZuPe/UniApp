@@ -9,7 +9,7 @@ import (
 )
 
 func TestI18PostgresSesionesEntreYConstancia(t *testing.T) {
-	db := baseAisladaMinutos(t) // base nueva con todas las migraciones, incluida 014
+	db := baseAisladaMinutos(t) // base nueva con todas las migraciones, incluida 020
 	ctx := context.Background()
 	sesiones := RepositorioPostgres{DB: db}
 	reportes := RepositorioReportesPostgres{DB: db}

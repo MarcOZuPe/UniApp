@@ -63,7 +63,7 @@ paginación con 120 filas.
 | Dominio | `backend/internal/domain/sesion/reporte.go` (+ `reporte_i18_test.go`) |
 | Caso de uso | `backend/internal/application/sesion/reporte.go` (+ test) |
 | Repositorios | `adapters/repositories/{memory,postgres}/sesion/reportes.go` (+ test de Postgres) |
-| Migración | `backend/migrations/014_sesion_reportes.{up,down}.sql` (tabla, *trigger* e índice por inicio) |
+| Migración | `backend/migrations/020_sesion_reportes.{up,down}.sql` (tabla, *trigger* e índice por inicio) |
 | CSV y PDF | `adapters/presentation/sesion/reporte.go`, `pdf.go` (+ tests) |
 | HTTP | `adapters/http/sesion/reporte.go` (+ test): `GET /api/reportes/minutos`, `GET /api/reportes/registro` |
 | Cableado | `backend/cmd/api/reporte.go` y una línea en `main.go` |
