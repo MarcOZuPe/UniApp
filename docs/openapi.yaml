@@ -11,7 +11,9 @@ tags:
   - { name: B-catalogo, description: "Flujo B · catálogo de cursos y perfil público (I07)" }
   - { name: C-oferta, description: "Flujo C · Mateo · esqueleto (I03)" }
   - { name: D-reserva, description: "Flujo D · Jhon · reserva transaccional y adjuntos (I04, I09), documentado con ejemplos y errores" }
-  - { name: E-sesion, description: "Flujo E · Marco · esqueleto (I05)" }
+  - { name: "E · Sprint 3 · I17 Minutos verificados", description: "Flujo E · Marco · Sprint 3. El tutor propone los minutos dictados, coordinación los verifica, ajusta o resuelve disputas, y todo queda auditado. Solo suman los minutos verificados." }
+  - { name: "E · Sprint 3 · I18 Reporte de minutos", description: "Flujo E · Marco · Sprint 3. Reporte del periodo en CSV o PDF (un recurso, dos representaciones), escolares seudonimizados y constancia SHA-256 de cada descarga. Sin validez oficial." }
+  - { name: "E · Sprints 1-2 · Sesión, asistencia y agenda", description: "Flujo E · Marco · Sprints 1 y 2: sesión y asistencia (I05), agenda y notificaciones (I10), ausencias y resultado (I11)." }
 components:
   securitySchemes:
     sesion: { type: apiKey, in: cookie, name: uniapp_sesion }
@@ -1788,10 +1790,10 @@ paths:
               examples:
                 caso: { $ref: '#/components/examples/ErrorAdjuntoCuarentena' }
   /api/sesion/salud:
-    get: { tags: [E-sesion], summary: Estado del flujo E (sesiones), responses: { '200': { description: OK } } }
+    get: { tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"], summary: Estado del flujo E (sesiones), responses: { '200': { description: OK } } }
   /api/sesion/{id}:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"]
       summary: Consultar una sesion
       description: >
         Permite consultar una sesion asociada a una reserva.
@@ -1817,7 +1819,7 @@ paths:
 
   /api/sesion/{id}/asistencias:
     post:
-      tags: [E-sesion]
+      tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"]
       summary: Declarar asistencia propia
       description: >
         Registra la declaracion del participante autenticado.
@@ -1845,7 +1847,7 @@ paths:
 
   /api/sesion/por-reserva/{reservaID}:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"]
       summary: Consultar la sesion de una reserva
       description: >
         Devuelve el identificador de la sesion asociada a una reserva para
@@ -1873,7 +1875,7 @@ paths:
 
   /api/sesion/{id}/ausencias:
     post:
-      tags: [E-sesion]
+      tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"]
       summary: Reportar ausencia propia (I11)
       description: >
         Registra la ausencia del participante autenticado. No admite cuerpo,
@@ -1904,7 +1906,7 @@ paths:
 
   /api/sesion/{id}/resultado:
     post:
-      tags: [E-sesion]
+      tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"]
       summary: Registrar el resultado de la sesion (I11)
       description: >
         Solo el tutor asignado registra un unico resultado. El autor y la
@@ -1942,7 +1944,7 @@ paths:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string } }
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Consultar los minutos de la sesion (I17)
       description: Lo ven el tutor, el escolar y coordinacion. Si la reserva fue cancelada, el registro se muestra anulado (suma 0).
       security: [{ sesion: [] }]
@@ -1952,7 +1954,7 @@ paths:
         '403': { description: No participa en la sesion ni es coordinacion }
         '404': { description: 'La sesion no tiene minutos propuestos (minutos_no_encontrados)' }
     post:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Proponer los minutos realmente dictados (I17)
       description: >
         Solo el tutor asignado, despues del fin de la sesion y dentro del plazo de resultado,
@@ -1972,7 +1974,7 @@ paths:
         '422': { description: 'Fuera de 1-60 (minutos_invalidos), sin asistencia de ambos (asistencia_incompleta), antes del fin (sesion_no_finalizada) o fuera de plazo (fuera_de_plazo)' }
   /api/sesion/{id}/minutos/disputa:
     post:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Disputar los minutos, que quedan congelados en 0 (I17)
       description: >
         El escolar disputa minutos propuestos o verificados; el tutor solo un verificado menor
@@ -1991,7 +1993,7 @@ paths:
         '422': { description: 'Motivo vacio o mayor a 500 (motivo_invalido) o fuera de plazo (fuera_de_plazo)' }
   /api/minutos/pendientes:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Bandeja de coordinacion con minutos propuestos y en disputa (I17)
       security: [{ sesion: [] }]
       responses:
@@ -2006,7 +2008,7 @@ paths:
         '403': { description: 'Rol sin permiso coordinacion:acceder (sin_permiso)' }
   /api/minutos/{id}/aprobacion:
     post:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Verificar los minutos propuestos tal como estan (I17)
       description: Accion explicita de coordinacion. Un participante de la sesion nunca verifica sus propios minutos. Sin cuerpo.
       security: [{ sesion: [] }]
@@ -2019,7 +2021,7 @@ paths:
         '409': { description: 'Estado no admite aprobar (transicion_invalida) o reserva cancelada (sesion_cancelada)' }
   /api/minutos/{id}/ajustes:
     post:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Ajustar minutos propuestos o verificados con motivo auditado (I17)
       security: [{ sesion: [] }]
       parameters:
@@ -2034,7 +2036,7 @@ paths:
         '422': { description: 'Minutos fuera de 0-60 o motivo invalido' }
   /api/minutos/{id}/resolucion:
     post:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Resolver una disputa fijando los minutos finales (I17)
       description: La resolucion es final.
       security: [{ sesion: [] }]
@@ -2050,7 +2052,7 @@ paths:
         '422': { description: 'Minutos fuera de 0-60 o motivo invalido' }
   /api/minutos/{id}/auditoria:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Historia inmutable de los minutos de una sesion (I17)
       security: [{ sesion: [] }]
       parameters:
@@ -2068,7 +2070,7 @@ paths:
         '403': { description: 'Sin permiso coordinacion:acceder' }
   /api/minutos/total:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I17 Minutos verificados"]
       summary: Total de minutos verificados de un tutor (I17, insumo de I18)
       description: El tutor consulta el suyo sin parametro. Coordinacion indica tutor_id. Solo suman los verificados.
       security: [{ sesion: [] }]
@@ -2089,7 +2091,7 @@ paths:
         '403': { description: 'Otro rol, o un tutor pidiendo el total de otro' }
   /api/reportes/minutos:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I18 Reporte de minutos"]
       summary: Descargar el reporte de minutos en CSV o PDF (I18)
       description: |
         Solo coordinacion (coordinacion:acceder). Las fechas son dias de Lima y "hasta" se incluye; el periodo
@@ -2121,7 +2123,7 @@ paths:
         '500': { description: 'No se pudo generar el reporte o guardar su constancia (error_interno); no se entrega el archivo' }
   /api/reportes/registro:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprint 3 · I18 Reporte de minutos"]
       summary: Constancias de los ultimos 50 reportes descargados (I18)
       security: [{ sesion: [] }]
       responses:
@@ -2243,7 +2245,7 @@ paths:
         '422': { description: Cupo inválido }
   /api/agenda:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"]
       security: [{ sesion: [] }]
       summary: Consultar la agenda del usuario autenticado
       description: Devuelve las reservas del escolar o del tutor autenticado.
@@ -2262,7 +2264,7 @@ paths:
         '403': { description: Rol sin acceso }
   /api/notificaciones:
     get:
-      tags: [E-sesion]
+      tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"]
       security: [{ sesion: [] }]
       summary: Consultar las notificaciones del usuario autenticado
       responses:
