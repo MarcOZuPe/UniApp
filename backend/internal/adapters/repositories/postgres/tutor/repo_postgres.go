@@ -13,7 +13,8 @@ type RepositorioPostgres struct {
 }
 
 const columnasExpediente = `tutor_id, presentacion, cursos, experiencia, estado, presentado_en,
-	vence_en, revisado_por, revisado_en, motivo_rechazo`
+	vence_en, revisado_por, revisado_en, motivo_rechazo,
+	COALESCE((SELECT u.facultad_id::text FROM usuarios u WHERE u.id = tutor_expedientes.tutor_id), '')`
 
 func (r RepositorioPostgres) Guardar(ctx context.Context, expediente *Expediente) error {
 	tx, err := r.DB.BeginTx(ctx, nil)
@@ -68,17 +69,24 @@ func (r RepositorioPostgres) PorTutor(ctx context.Context, tutorID string) (*Exp
 	return expediente, nil
 }
 
-func (r RepositorioPostgres) Pendientes(ctx context.Context) ([]Expediente, error) {
-	return r.listarPorEstado(ctx, EstadoPendiente, "presentado_en")
+func (r RepositorioPostgres) Pendientes(ctx context.Context, facultadID string) ([]Expediente, error) {
+	return r.listarPorEstado(ctx, EstadoPendiente, "presentado_en", facultadID)
 }
 
-func (r RepositorioPostgres) Aprobados(ctx context.Context) ([]Expediente, error) {
-	return r.listarPorEstado(ctx, EstadoAprobado, "revisado_en DESC NULLS LAST, tutor_id")
+func (r RepositorioPostgres) Aprobados(ctx context.Context, facultadID string) ([]Expediente, error) {
+	return r.listarPorEstado(ctx, EstadoAprobado, "revisado_en DESC NULLS LAST, tutor_id", facultadID)
 }
 
-func (r RepositorioPostgres) listarPorEstado(ctx context.Context, estado Estado, orden string) ([]Expediente, error) {
+func (r RepositorioPostgres) listarPorEstado(
+	ctx context.Context,
+	estado Estado,
+	orden string,
+	facultadID string,
+) ([]Expediente, error) {
 	filas, err := r.DB.QueryContext(ctx, `SELECT `+columnasExpediente+`
-		FROM tutor_expedientes WHERE estado=$1 ORDER BY `+orden, string(estado))
+		FROM tutor_expedientes WHERE estado=$1
+		AND ($2 = '' OR COALESCE((SELECT u.facultad_id::text FROM usuarios u WHERE u.id = tutor_expedientes.tutor_id), '') = $2)
+		ORDER BY `+orden, string(estado), facultadID)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +185,7 @@ func (r RepositorioPostgres) escanear(fila escanerExpediente) (*Expediente, erro
 	var revisadoPor sql.NullString
 	err := fila.Scan(&expediente.TutorID, &expediente.Presentacion, &expediente.Cursos,
 		&expediente.Experiencia, &estado, &expediente.PresentadoEn, &expediente.VenceEn,
-		&revisadoPor, &expediente.RevisadoEn, &expediente.Motivo)
+		&revisadoPor, &expediente.RevisadoEn, &expediente.Motivo, &expediente.FacultadID)
 	if err != nil {
 		return nil, err
 	}

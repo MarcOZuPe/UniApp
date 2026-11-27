@@ -1,0 +1,31 @@
+.pagina-perfil {
+  max-width: 42rem;
+}
+
+.pagina-perfil section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borde);
+}
+
+.perfil-datos {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: .5rem 1rem;
+  margin: 0;
+}
+
+.perfil-datos dt {
+  color: var(--muted);
+}
+
+.perfil-datos dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.perfil-nota {
+  margin-top: 1rem;
+  color: var(--muted);
+  font-size: .9rem;
+}

@@ -15,6 +15,37 @@ func registrarErroresDeCuenta(errorMapper *MapeadorDeErrores) {
 	registrarErrorDeCredenciales(errorMapper)
 	registrarErrorDeDemasiadosIntentos(errorMapper)
 	registrarErrorDeTokenInvalido(errorMapper)
+	registrarErrorDeClaveActual(errorMapper)
+	registrarErrorDeLimiteCambiosClave(errorMapper)
+}
+
+func registrarErrorDeLimiteCambiosClave(errorMapper *MapeadorDeErrores) {
+	errorMapper.Registrar(
+		func(err error) bool {
+			return errors.Is(err, modelo.ErrDemasiadosCambiosClave)
+		},
+		func(error) vista.RespuestaError {
+			return vista.RespuestaError{
+				Estado: http.StatusTooManyRequests, Codigo: "demasiados_cambios_clave",
+				Mensaje: "Se ha excedido el número máximo de cambios de contraseña. Intenta más tarde.",
+			}
+		},
+	)
+}
+
+func registrarErrorDeClaveActual(errorMapper *MapeadorDeErrores) {
+	errorMapper.Registrar(
+		func(err error) bool {
+			return errors.Is(err, modelo.ErrClaveActualIncorrecta)
+		},
+		func(error) vista.RespuestaError {
+			return vista.RespuestaError{
+				Estado: http.StatusUnprocessableEntity, Codigo: "clave_actual_incorrecta",
+				Mensaje: "La contraseña actual no es correcta.",
+				Campos:  map[string]string{"clave_actual": "La contraseña actual no es correcta."},
+			}
+		},
+	)
 }
 
 func registrarErrorDeValidacion(errorMapper *MapeadorDeErrores) {

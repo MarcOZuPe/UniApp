@@ -102,7 +102,8 @@ func (servicio *RecuperacionService) consumirYAplicar(ctx context.Context, solic
 	if err := servicio.RepositorioUsuarios.ActualizarClave(ctx, solicitud.usuario.ID, nuevoHash); err != nil {
 		return err
 	}
-	_ = servicio.RepositorioSesiones.EliminarSesionesDeUsuario(ctx, solicitud.usuario.ID)
+	// La huella de la clave forma parte del token firmado: al cambiar la clave
+	// todos los tokens anteriores quedan inválidos sin guardar estado de sesión.
 	servicio.Bus.Notificar(eventoDeUsuario(ClaveRestablecida, solicitud.usuario))
 	return nil
 }

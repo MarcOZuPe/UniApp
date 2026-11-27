@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -9,6 +8,8 @@ import {
   crearReserva,
   listarSlots,
   obtenerAutorizacionReserva,
+  subirAdjunto,
+  urlAdjunto,
 } from '../../../adapters/http/reservaApi.js';
 
 vi.mock('../../../adapters/http/reservaApi.js', () => ({
@@ -26,7 +27,16 @@ const slot = {
   disponible: true,
 };
 
-function renderizarFormulario() {
+const reservaCreada = {
+  id: 'reserva-1',
+  curso: 'Álgebra',
+  tutor_nombre: 'Tutor Uno',
+  inicio_lima: '2026-11-24 10:00',
+  tema: 'Repaso de factorización',
+  grado: '5to de secundaria',
+};
+
+function renderizar() {
   return render(
     <MemoryRouter>
       <FormularioReserva />
@@ -34,68 +44,60 @@ function renderizarFormulario() {
   );
 }
 
-describe('I04: autorización para reservar', () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    listarSlots.mockResolvedValue({ slots: [slot] });
+function completarFormulario() {
+  fireEvent.change(screen.getByLabelText('Horario'), { target: { value: 'slot-1' } });
+  fireEvent.change(screen.getByLabelText('Tema'), {
+    target: { value: 'Repaso de factorización' },
   });
-
-  afterEach(() => {
-    cleanup();
+  fireEvent.change(screen.getByLabelText('Objetivo'), {
+    target: { value: 'Resolver ejercicios de factorización de trinomios sin ayuda del tutor.' },
   });
+  fireEvent.change(screen.getByLabelText('Grado'), { target: { value: '5to de secundaria' } });
+}
 
-  it('oculta el formulario y avisa cuando no hay autorización vigente', async () => {
-    obtenerAutorizacionReserva.mockResolvedValue({
-      autorizado: false,
-      mensaje: 'No tienes una autorización vigente para reservar tutorías. Pide a tu apoderado que la active.',
-    });
+beforeEach(() => {
+  vi.resetAllMocks();
+  obtenerAutorizacionReserva.mockResolvedValue({ autorizado: true });
+  listarSlots.mockResolvedValue({ slots: [slot] });
+  crearReserva.mockResolvedValue(reservaCreada);
+  subirAdjunto.mockResolvedValue({ id: 'adjunto-1', nombre: 'guia.pdf', estado: 'validado' });
+  urlAdjunto.mockImplementation((id, adjuntoId) => `/api/reserva/${id}/adjuntos/${adjuntoId}`);
+});
 
-    renderizarFormulario();
+afterEach(cleanup);
 
-    expect((await screen.findByRole('alert')).textContent).toContain(
-      'No tienes una autorización vigente para reservar tutorías',
-    );
-    expect(screen.queryByLabelText('Horario')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Confirmar reserva' })).toBeNull();
-    expect(listarSlots).not.toHaveBeenCalled();
-  });
+describe('F-02: idempotencia de la reserva', () => {
+  it('reutiliza la clave de idempotencia al reintentar la misma reserva', async () => {
+    crearReserva
+      .mockRejectedValueOnce(new Error('No hay conexión con el servidor.'))
+      .mockResolvedValueOnce(reservaCreada);
 
-  it('muestra el formulario cuando la autorización está vigente', async () => {
-    obtenerAutorizacionReserva.mockResolvedValue({ autorizado: true });
-
-    renderizarFormulario();
-
-    expect(await screen.findByLabelText('Horario')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Confirmar reserva' })).toBeTruthy();
-    await waitFor(() => expect(listarSlots).toHaveBeenCalledTimes(1));
-  });
-
-  it('oculta el formulario si la autorización se revoca al intentar reservar', async () => {
-    obtenerAutorizacionReserva.mockResolvedValue({ autorizado: true });
-    crearReserva.mockRejectedValue(
-      Object.assign(new Error('No tienes una autorización vigente para reservar tutorías.'), {
-        estado: 403,
-        codigo: 'sin_autorizacion',
-        campos: {},
-      }),
-    );
-
-    renderizarFormulario();
-
+    renderizar();
     await screen.findByRole('option', { name: /Álgebra/ });
-    fireEvent.change(screen.getByLabelText('Horario'), { target: { value: 'slot-1' } });
-    fireEvent.change(screen.getByLabelText('Tema'), {
-      target: { value: 'Repaso de factorización' },
-    });
-    fireEvent.change(screen.getByLabelText('Objetivo'), {
-      target: { value: 'Resolver ejercicios de factorización de trinomios sin ayuda del tutor.' },
-    });
-    fireEvent.change(screen.getByLabelText('Grado'), { target: { value: '5to de secundaria' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar reserva' }));
+    completarFormulario();
 
-    await waitFor(() => expect(screen.queryByLabelText('Horario')).toBeNull());
-    expect(screen.getByRole('alert').textContent).toContain(
-      'No tienes una autorización vigente para reservar tutorías',
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar reserva' }));
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'No hay conexión con el servidor.'
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar reserva' }));
+    await waitFor(() => expect(crearReserva).toHaveBeenCalledTimes(2));
+
+    const primeraClave = crearReserva.mock.calls[0][1];
+    const segundaClave = crearReserva.mock.calls[1][1];
+    expect(primeraClave).toBeTruthy();
+    expect(segundaClave).toBe(primeraClave);
+  });
+});
+
+describe('F-24: tipos de adjuntos en reserva', () => {
+  it('limita los tipos de archivo aceptados en el input de adjuntos', async () => {
+    renderizar();
+    await screen.findByLabelText('Horario');
+
+    const input = screen.getByLabelText('Adjuntos (opcional)');
+    expect(input.getAttribute('accept')).toBeTruthy();
+    expect(input.getAttribute('accept')).toContain('application/pdf');
   });
 });

@@ -13,6 +13,9 @@ type (
 	EstadoVinculacion           = dominio.EstadoVinculacion
 	Event                       = dominio.Event
 	FabricaRol                  = dominio.FabricaRol
+	Facultad                    = dominio.Facultad
+	FiltroLogsSistema           = dominio.FiltroLogsSistema
+	LogSistema                  = dominio.LogSistema
 	Mailer                      = dominio.Mailer
 	Mensaje                     = dominio.Mensaje
 	Observador                  = dominio.Observador
@@ -24,6 +27,9 @@ type (
 	PoliticaEstricta            = dominio.PoliticaEstricta
 	Repositorio                 = dominio.Repositorio
 	RepositorioAutorizaciones   = dominio.RepositorioAutorizaciones
+	RepositorioFacultades       = dominio.RepositorioFacultades
+	RepositorioLogs             = dominio.RepositorioLogs
+	RepositorioPerfil           = dominio.RepositorioPerfil
 	RepositorioSesiones         = dominio.RepositorioSesiones
 	RepositorioTokens           = dominio.RepositorioTokens
 	RepositorioUsuarios         = dominio.RepositorioUsuarios
@@ -42,6 +48,10 @@ type (
 const (
 	AutorizacionOtorgada            = dominio.AutorizacionOtorgada
 	AutorizacionRevocada            = dominio.AutorizacionRevocada
+	CategoriaAdministracion         = dominio.CategoriaAdministracion
+	CategoriaSeguridad              = dominio.CategoriaSeguridad
+	CategoriaSistema                = dominio.CategoriaSistema
+	ClaveCambiada                   = dominio.ClaveCambiada
 	ClaveRestablecida               = dominio.ClaveRestablecida
 	ConfirmacionSolicitada          = dominio.ConfirmacionSolicitada
 	CorreoConfirmado                = dominio.CorreoConfirmado
@@ -49,15 +59,22 @@ const (
 	EstadoVinculacionPendiente      = dominio.EstadoVinculacionPendiente
 	IngresoExitoso                  = dominio.IngresoExitoso
 	IngresoFallido                  = dominio.IngresoFallido
+	PermisoAdministracionAcceder    = dominio.PermisoAdministracionAcceder
 	PermisoAutorizacionOtorgar      = dominio.PermisoAutorizacionOtorgar
 	PermisoCatalogoGestionar        = dominio.PermisoCatalogoGestionar
 	PermisoCatalogoSolicitarColegio = dominio.PermisoCatalogoSolicitarColegio
 	PermisoCoordinacionAcceder      = dominio.PermisoCoordinacionAcceder
+	PermisoCoordinadoresGestionar   = dominio.PermisoCoordinadoresGestionar
 	PermisoExpedientePresentar      = dominio.PermisoExpedientePresentar
+	PermisoIncidenteAcceder         = dominio.PermisoIncidenteAcceder
+	PermisoIncidenteRegistrar       = dominio.PermisoIncidenteRegistrar
+	PermisoIncidenteRevisar         = dominio.PermisoIncidenteRevisar
 	PermisoReservaCrear             = dominio.PermisoReservaCrear
 	RecuperacionSolicitada          = dominio.RecuperacionSolicitada
+	RolAdministrador                = dominio.RolAdministrador
 	RolApoderado                    = dominio.RolApoderado
 	RolCoordinador                  = dominio.RolCoordinador
+	RolCoordinadorGeneral           = dominio.RolCoordinadorGeneral
 	RolEscolar                      = dominio.RolEscolar
 	RolTutor                        = dominio.RolTutor
 	UsuarioRegistrado               = dominio.UsuarioRegistrado
@@ -66,20 +83,24 @@ const (
 )
 
 var (
-	ErrCredenciales        = dominio.ErrCredenciales
-	ErrDemasiadosIntentos  = dominio.ErrDemasiadosIntentos
-	ErrEmailEnUso          = dominio.ErrEmailEnUso
-	ErrEscolarNoEncontrado = dominio.ErrEscolarNoEncontrado
-	ErrEscolarNoValido     = dominio.ErrEscolarNoValido
-	ErrNoEncontrado        = dominio.ErrNoEncontrado
-	ErrNoEsApoderado       = dominio.ErrNoEsApoderado
-	ErrNoEsEscolar         = dominio.ErrNoEsEscolar
-	ErrRolNoPermitido      = dominio.ErrRolNoPermitido
-	ErrSinApoderado        = dominio.ErrSinApoderado
-	ErrSolicitudPendiente  = dominio.ErrSolicitudPendiente
-	ErrTokenInvalido       = dominio.ErrTokenInvalido
-	ErrVinculacionAjena    = dominio.ErrVinculacionAjena
-	ErrYaVinculado         = dominio.ErrYaVinculado
+	ErrClaveActualIncorrecta   = dominio.ErrClaveActualIncorrecta
+	ErrCoordinadorNoEncontrado = dominio.ErrCoordinadorNoEncontrado
+	ErrCredenciales            = dominio.ErrCredenciales
+	ErrDemasiadosCambiosClave  = dominio.ErrDemasiadosCambiosClave
+	ErrDemasiadosIntentos      = dominio.ErrDemasiadosIntentos
+	ErrEmailEnUso              = dominio.ErrEmailEnUso
+	ErrEscolarNoEncontrado     = dominio.ErrEscolarNoEncontrado
+	ErrEscolarNoValido         = dominio.ErrEscolarNoValido
+	ErrNoAutorizado            = dominio.ErrNoAutorizado
+	ErrNoEncontrado            = dominio.ErrNoEncontrado
+	ErrNoEsApoderado           = dominio.ErrNoEsApoderado
+	ErrNoEsEscolar             = dominio.ErrNoEsEscolar
+	ErrRolNoPermitido          = dominio.ErrRolNoPermitido
+	ErrSinApoderado            = dominio.ErrSinApoderado
+	ErrSolicitudPendiente      = dominio.ErrSolicitudPendiente
+	ErrTokenInvalido           = dominio.ErrTokenInvalido
+	ErrVinculacionAjena        = dominio.ErrVinculacionAjena
+	ErrYaVinculado             = dominio.ErrYaVinculado
 )
 
 var (

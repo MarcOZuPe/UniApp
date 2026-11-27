@@ -19,6 +19,9 @@ export function validarRegistro(formularioRegistro, dominiosTutor = DOMINIOS_INS
   }
 
   validarNombreUso(erroresPorCampo, formularioRegistro.nombre_uso);
+  if (formularioRegistro.rol === 'tutor' && !String(formularioRegistro.facultad_id ?? '').trim()) {
+    erroresPorCampo.facultad_id = 'Elige tu facultad.';
+  }
   validarClave(erroresPorCampo, {
     clave: formularioRegistro.clave || '',
     email,
@@ -47,6 +50,24 @@ export function validarRestablecer(formularioRestablecimiento) {
   const erroresPorCampo = {};
   validarClaveBasica(erroresPorCampo, formularioRestablecimiento.clave || '');
   validarConfirmacionClave(erroresPorCampo, formularioRestablecimiento);
+  return erroresPorCampo;
+}
+
+export function validarCambioClave(formulario, { rol, email } = {}) {
+  const erroresPorCampo = {};
+  if (!String(formulario.clave_actual ?? '').trim()) {
+    erroresPorCampo.clave_actual = 'Ingresa tu contraseña actual';
+  }
+  const claveNueva = formulario.clave_nueva || '';
+  const observaciones = crearPolitica(rol)({ clave: claveNueva, email: email || '' });
+  if (observaciones.length) {
+    erroresPorCampo.clave_nueva = 'La contraseña ' + observaciones.join('; ');
+  } else if (claveNueva === formulario.clave_actual) {
+    erroresPorCampo.clave_nueva = 'La nueva contraseña debe ser diferente.';
+  }
+  if (claveNueva !== formulario.confirmar) {
+    erroresPorCampo.confirmar = 'Las contraseñas no coinciden';
+  }
   return erroresPorCampo;
 }
 

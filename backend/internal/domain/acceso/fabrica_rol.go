@@ -5,22 +5,23 @@ type FabricaRol interface {
 	Permisos() []Permiso
 }
 
+var fabricasPorRol = map[Rol]FabricaRol{
+	RolEscolar:            fabricaRolEscolar{},
+	RolApoderado:          fabricaRolApoderado{},
+	RolTutor:              fabricaRolTutor{},
+	RolCoordinador:        fabricaRolCoordinador{},
+	RolCoordinadorGeneral: fabricaRolCoordinadorGeneral{},
+	RolAdministrador:      fabricaRolAdministrador{},
+}
+
 func FabricaParaRol(rol Rol) (FabricaRol, error) {
-	switch rol {
-	case RolEscolar:
-		return fabricaRolEscolar{}, nil
-	case RolApoderado:
-		return fabricaRolApoderado{}, nil
-	case RolTutor:
-		return fabricaRolTutor{}, nil
-	case RolCoordinador:
-		return fabricaRolCoordinador{}, nil
-	default:
-		return nil, ErrValidacion{
-			Campos: map[string]string{
-				"rol": "rol desconocido",
-			},
-		}
+	if fabrica, existe := fabricasPorRol[rol]; existe {
+		return fabrica, nil
+	}
+	return nil, ErrValidacion{
+		Campos: map[string]string{
+			"rol": "rol desconocido",
+		},
 	}
 }
 
@@ -71,10 +72,34 @@ func (fabricaRolCoordinador) CrearPerfil(string) PerfilRol {
 }
 
 func (fabricaRolCoordinador) Permisos() []Permiso {
+	return permisosDeCoordinacion()
+}
+
+type fabricaRolCoordinadorGeneral struct{}
+
+func (fabricaRolCoordinadorGeneral) CrearPerfil(string) PerfilRol {
+	return nuevoPerfilCoordinadorGeneral()
+}
+
+func (fabricaRolCoordinadorGeneral) Permisos() []Permiso {
+	return append(permisosDeCoordinacion(), PermisoCoordinadoresGestionar)
+}
+
+func permisosDeCoordinacion() []Permiso {
 	return []Permiso{
 		PermisoCoordinacionAcceder,
 		PermisoCatalogoGestionar,
 		PermisoIncidenteAcceder,
 		PermisoIncidenteRevisar,
 	}
+}
+
+type fabricaRolAdministrador struct{}
+
+func (fabricaRolAdministrador) CrearPerfil(string) PerfilRol {
+	return nuevoPerfilAdministrador()
+}
+
+func (fabricaRolAdministrador) Permisos() []Permiso {
+	return []Permiso{PermisoAdministracionAcceder}
 }

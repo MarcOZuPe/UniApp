@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+
+# Imagen aislada para ejecutar los tests de errores.
+# Incluye Go (backend) y Node (frontend) para no tocar los contenedores de la app.
+FROM golang:1.22-alpine
+
+RUN apk add --no-cache nodejs npm
+
+WORKDIR /src
+
+# Dependencias de Go primero, para aprovechar la caché de capas.
+COPY backend/go.mod backend/go.sum ./backend/
+WORKDIR /src/backend
+RUN go mod download
+
+# Dependencias de Node primero, para aprovechar la caché de capas.
+WORKDIR /src/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+# Código y script de ejecución.
+WORKDIR /src
+COPY backend/ ./backend/
+COPY frontend/ ./frontend/
+COPY scripts/probar-tests.sh /usr/local/bin/probar-tests
+COPY scripts/resumir-backend.mjs /usr/local/bin/resumir-backend
+COPY scripts/reporter-tests-frontend.mjs /usr/local/bin/reporter-tests-frontend.mjs
+RUN chmod +x /usr/local/bin/probar-tests
+
+CMD ["/usr/local/bin/probar-tests"]

@@ -1,10 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  cambiarAutorizacion,
-  historialAutorizaciones,
-  listarVinculaciones,
-} from '../../../adapters/http/apoderadoApi.js';
+
+import { usePanelEscolares } from '../../hooks/usePanelEscolares.js';
 
 export default function PanelEscolares() {
   const {
@@ -13,6 +9,7 @@ export default function PanelEscolares() {
     historialesPorEscolar,
     escolarCargandoHistorial,
     mensajeEstado,
+    mensajeEsError,
     cargandoVinculaciones,
     escolarCambiandoAutorizacion,
     seleccionarEscolar,
@@ -35,7 +32,9 @@ export default function PanelEscolares() {
         tutorías y consultar el historial de cambios.
       </p>
 
-      {mensajeEstado && <p role="alert">{mensajeEstado}</p>}
+      {mensajeEstado && (
+        <p role={mensajeEsError ? 'alert' : 'status'}>{mensajeEstado}</p>
+      )}
       {cargandoVinculaciones && <p role="status">Cargando…</p>}
 
       {!cargandoVinculaciones && vinculaciones.length === 0 && (
@@ -78,104 +77,6 @@ export default function PanelEscolares() {
       </p>
     </main>
   );
-}
-
-function usePanelEscolares() {
-  const [vinculaciones, setVinculaciones] = useState([]);
-  const [escolarSeleccionadoID, setEscolarSeleccionadoID] = useState('');
-  const [historialesPorEscolar, setHistorialesPorEscolar] = useState({});
-  const [escolarCargandoHistorial, setEscolarCargandoHistorial] = useState('');
-  const [mensajeEstado, setMensajeEstado] = useState('');
-  const [cargandoVinculaciones, setCargandoVinculaciones] = useState(true);
-  const [escolarCambiandoAutorizacion, setEscolarCambiandoAutorizacion] = useState('');
-
-  async function cargarHistorial(escolarID) {
-    setEscolarCargandoHistorial(escolarID);
-    try {
-      const respuestaHistorial = await historialAutorizaciones(escolarID);
-      setHistorialesPorEscolar((historialesActuales) => ({
-        ...historialesActuales,
-        [escolarID]: respuestaHistorial.autorizaciones || [],
-      }));
-    } catch {
-      setHistorialesPorEscolar((historialesActuales) => ({
-        ...historialesActuales,
-        [escolarID]: null,
-      }));
-    } finally {
-      setEscolarCargandoHistorial('');
-    }
-  }
-
-  async function cargarVinculaciones() {
-    try {
-      const respuestaVinculaciones = await listarVinculaciones();
-      const vinculacionesRecibidas = respuestaVinculaciones.vinculaciones || [];
-      setVinculaciones(vinculacionesRecibidas);
-      setEscolarSeleccionadoID((seleccionActual) =>
-        vinculacionesRecibidas.some(
-          (vinculacion) => vinculacion.escolar.id === seleccionActual
-        )
-          ? seleccionActual
-          : ''
-      );
-    } catch (errorConsulta) {
-      setMensajeEstado(errorConsulta.message);
-    } finally {
-      setCargandoVinculaciones(false);
-    }
-  }
-
-  useEffect(() => {
-    cargarVinculaciones();
-  }, []);
-
-  function seleccionarEscolar(evento) {
-    const escolarID = evento.target.value;
-    setEscolarSeleccionadoID(escolarID);
-    setMensajeEstado('');
-
-    const vinculacion = vinculaciones.find(
-      (vinculacionCandidata) => vinculacionCandidata.escolar.id === escolarID
-    );
-    if (
-      vinculacion?.estado === 'aceptada' &&
-      historialesPorEscolar[escolarID] === undefined
-    ) {
-      cargarHistorial(escolarID);
-    }
-  }
-
-  async function alternarAutorizacion(vinculacion) {
-    const autorizacionVigente = vinculacion.autorizacion?.autorizado === true;
-    setEscolarCambiandoAutorizacion(vinculacion.escolar.id);
-    setMensajeEstado('');
-    try {
-      const respuestaCambio = await cambiarAutorizacion(
-        vinculacion.escolar.id,
-        !autorizacionVigente
-      );
-      setMensajeEstado(respuestaCambio.mensaje);
-      await cargarVinculaciones();
-      await cargarHistorial(vinculacion.escolar.id);
-    } catch (errorCambio) {
-      setMensajeEstado(errorCambio.message);
-    } finally {
-      setEscolarCambiandoAutorizacion('');
-    }
-  }
-
-  return {
-    vinculaciones,
-    escolarSeleccionadoID,
-    historialesPorEscolar,
-    escolarCargandoHistorial,
-    mensajeEstado,
-    cargandoVinculaciones,
-    escolarCambiandoAutorizacion,
-    seleccionarEscolar,
-    alternarAutorizacion,
-  };
 }
 
 function SelectorEscolar({ vinculaciones, escolarSeleccionadoID, alSeleccionar }) {

@@ -44,6 +44,35 @@ func (repositorio *RepositorioMemoria) UsuarioPorID(_ context.Context, usuarioID
 	return nil, ErrNoEncontrado
 }
 
+func (repositorio *RepositorioMemoria) UsuariosActivosPorRol(
+	_ context.Context,
+	rol Rol,
+	facultadID string,
+) ([]*Usuario, error) {
+	repositorio.mu.Lock()
+	defer repositorio.mu.Unlock()
+	usuarios := make([]*Usuario, 0)
+	for _, usuario := range repositorio.usuarios {
+		if usuario.Rol != rol || !usuario.Activo || (facultadID != "" && usuario.FacultadID != facultadID) {
+			continue
+		}
+		copia := *usuario
+		usuarios = append(usuarios, &copia)
+	}
+	return usuarios, nil
+}
+
+func (repositorio *RepositorioMemoria) DesactivarUsuario(_ context.Context, usuarioID string) error {
+	repositorio.mu.Lock()
+	defer repositorio.mu.Unlock()
+	usuario, existe := repositorio.usuarios[usuarioID]
+	if !existe {
+		return ErrNoEncontrado
+	}
+	usuario.Activo = false
+	return nil
+}
+
 func (repositorio *RepositorioMemoria) ActualizarClave(_ context.Context, usuarioID, claveHash string) error {
 	repositorio.mu.Lock()
 	defer repositorio.mu.Unlock()

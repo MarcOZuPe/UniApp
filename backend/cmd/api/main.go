@@ -17,6 +17,7 @@ import (
 	ctrlCatalogo "uniapp/internal/adapters/http/catalogo"
 	ctrlIncidente "uniapp/internal/adapters/http/incidente"
 	ctrlOferta "uniapp/internal/adapters/http/oferta"
+	ctrlPanel "uniapp/internal/adapters/http/panel"
 	ctrlReserva "uniapp/internal/adapters/http/reserva"
 	ctrlSesion "uniapp/internal/adapters/http/sesion"
 	ctrlTutor "uniapp/internal/adapters/http/tutor"
@@ -24,12 +25,14 @@ import (
 	catalogoRepo "uniapp/internal/adapters/repositories/postgres/catalogo"
 	incidenteRepo "uniapp/internal/adapters/repositories/postgres/incidente"
 	ofertaRepo "uniapp/internal/adapters/repositories/postgres/oferta"
+	panelRepo "uniapp/internal/adapters/repositories/postgres/panel"
 	reservaRepo "uniapp/internal/adapters/repositories/postgres/reserva"
 	sesionRepo "uniapp/internal/adapters/repositories/postgres/sesion"
 	tutorRepo "uniapp/internal/adapters/repositories/postgres/tutor"
 	modelo "uniapp/internal/application/acceso"
 	modeloCatalogo "uniapp/internal/application/catalogo"
 	modeloIncidente "uniapp/internal/application/incidente"
+	modeloPanel "uniapp/internal/application/panel"
 	modeloReserva "uniapp/internal/application/reserva"
 	modeloTutor "uniapp/internal/application/tutor"
 	infra "uniapp/internal/infrastructure"
@@ -100,10 +103,10 @@ func main() {
 		storage.AlmacenDocumentosFS{Directorio: configuracion.DirectorioDocumentos},
 	)
 	if configuracion.SembrarSintetico {
-		if err := sembrarExpedienteTutor(ctx, baseDatos, configuracion, servicioTutor); err != nil {
-			registro.Fatalf("semilla de expediente de tutor: %v", err)
+		if err := sembrarExpedientesTutores(ctx, baseDatos, configuracion, servicioTutor); err != nil {
+			registro.Fatalf("semilla de expedientes de tutores: %v", err)
 		}
-		registro.Println("expediente sintético I02 listo")
+		registro.Println("expedientes sintéticos I02 listos")
 	}
 
 	tutores := ctrlTutor.Nuevo(servicioTutor, controlador.Autenticar()).Rutas()
@@ -133,6 +136,11 @@ func main() {
 	}
 	incidentes := ctrlIncidente.Nuevo(servicioIncidente, controlador.Autenticar()).Rutas()
 
+	servicioPanel := modeloPanel.NuevoServicio(
+		panelRepo.RepositorioPostgres{DB: baseDatos},
+	)
+	paneles := ctrlPanel.Nuevo(servicioPanel, controlador.Autenticar()).Rutas()
+
 	// Reservas I09: mantiene la autorización del flujo A.
 	// I10 agrega la anticipación de recordatorios.
 	reservas := construirServicioReserva(baseDatos, configuracion, servicio.Autorizacion)
@@ -157,7 +165,7 @@ func main() {
 		baseDatos,
 	)
 	manejador = construirManejadorConIncidentes(manejador, incidentes, registro, configuracion)
-	// Minutos verificados I17.
+	manejador = construirManejadorConPanel(manejador, paneles, registro, configuracion)
 	manejador = construirManejadorConMinutos(manejador, controlador.Autenticar(), registro, configuracion, baseDatos)
 	// Reporte de minutos I18.
 	manejador = construirManejadorConReporte(manejador, controlador.Autenticar(), registro, configuracion, baseDatos)
@@ -204,11 +212,12 @@ func construirServicio(
 	fabrica := modelo.NuevaFabrica(hasher, configuracion.DominiosTutor)
 
 	servicio := modelo.NuevoServicio(modelo.Dependencias{
-		Repositorio: accesoRepo.RepositorioPostgres{DB: baseDatos},
-		Fabrica:     fabrica,
-		Hasher:      hasher,
-		Bus:         bus,
-		Lockout:     lockout.NuevaMemoria(),
+		Repositorio:  accesoRepo.RepositorioPostgres{DB: baseDatos},
+		Fabrica:      fabrica,
+		Hasher:       hasher,
+		Bus:          bus,
+		TokensSesion: modelo.NuevoFirmadorSesion(configuracion.ClaveSesion),
+		Lockout:      lockout.NuevaMemoria(),
 	})
 
 	if liberados, err := servicio.Confirmacion.LimpiarRegistrosVencidos(ctx); err != nil {
@@ -280,18 +289,23 @@ func construirServicioReserva(
 	})
 }
 
-func sembrarExpedienteTutor(
+func sembrarExpedientesTutores(
 	ctx context.Context,
 	baseDatos *sql.DB,
 	configuracion config.Config,
 	servicio *modeloTutor.Servicio,
 ) error {
-	email := "tutor.prueba@" + primerDominio(configuracion.DominiosTutor)
-	tutor, err := (accesoRepo.RepositorioPostgres{DB: baseDatos}).UsuarioPorEmail(ctx, email)
-	if err != nil {
-		return fmt.Errorf("buscar tutor sintético: %w", err)
+	repositorio := accesoRepo.RepositorioPostgres{DB: baseDatos}
+	for _, email := range modelo.CorreosTutoresSinteticos(primerDominio(configuracion.DominiosTutor)) {
+		tutor, err := repositorio.UsuarioPorEmail(ctx, email)
+		if err != nil {
+			return fmt.Errorf("buscar tutor sintético %s: %w", email, err)
+		}
+		if err := modeloTutor.SembrarExpedienteSintetico(ctx, servicio, tutor.ID); err != nil {
+			return fmt.Errorf("sembrar expediente de %s: %w", email, err)
+		}
 	}
-	return modeloTutor.SembrarExpedienteSintetico(ctx, servicio, tutor.ID)
+	return nil
 }
 
 func sembrarCatalogoSintetico(ctx context.Context, baseDatos *sql.DB, servicio *modeloCatalogo.Servicio) error {
@@ -355,6 +369,7 @@ func construirBus(
 		modelo.IngresoExitoso,
 		modelo.IngresoFallido,
 		modelo.ClaveRestablecida,
+		modelo.ClaveCambiada,
 		modelo.RecuperacionSolicitada,
 		modelo.ConfirmacionSolicitada,
 		modelo.CorreoConfirmado,
@@ -377,6 +392,10 @@ func construirBus(
 	bus.Registrar(
 		modelo.VinculacionSolicitada,
 		infra.NuevoCorreoVinculacion(mailer, configuracion.OrigenFrontend),
+	)
+	bus.Registrar(
+		modelo.ClaveCambiada,
+		infra.NuevoCorreoCambioClave(mailer),
 	)
 
 	return bus
@@ -529,6 +548,25 @@ func construirManejadorConIncidentes(
 	)
 	raiz.Handle("/api/incidentes", rutas)
 	raiz.Handle("/api/incidentes/", rutas)
+	raiz.Handle("/", anterior)
+	return raiz
+}
+
+func construirManejadorConPanel(
+	anterior, paneles http.Handler,
+	registro *log.Logger,
+	configuracion config.Config,
+) http.Handler {
+	raiz := http.NewServeMux()
+	rutas := ctrl.Encadenar(
+		paneles,
+		ctrl.Recuperar(registro),
+		ctrl.Registro(registro),
+		ctrl.CabecerasSeguras(),
+		ctrl.OrigenPermitido(configuracion.OrigenesFrontend...),
+	)
+	raiz.Handle("/api/coordinacion/metricas", rutas)
+	raiz.Handle("/api/coordinacion/auditoria", rutas)
 	raiz.Handle("/", anterior)
 	return raiz
 }

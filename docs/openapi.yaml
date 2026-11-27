@@ -154,7 +154,9 @@ components:
         id: { type: string, format: uuid }
         email: { type: string }
         nombre_uso: { type: string }
-        rol: { type: string, enum: [escolar, apoderado, tutor, coordinador] }
+        rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general, administrador] }
+        facultad_id: { type: string, nullable: true, description: "Obligatoria para tutor, coordinador y coordinador general; vacía para escolar/apoderado." }
+        facultad_nombre: { type: string, nullable: true }
         correo_confirmado: { type: boolean, description: "false hasta que se usa el enlace de confirmación" }
     UsuarioResumen:
       type: object
@@ -183,6 +185,72 @@ components:
         estado: { type: string, enum: [autorizado, no_autorizado] }
         autorizado: { type: boolean }
         creada_en: { type: string, format: date-time, description: "Fecha y hora del cambio" }
+    MetricasPanel:
+      type: object
+      required: [reservas, asistencia, horas, gestion, actualizado_en]
+      properties:
+        reservas:
+          type: object
+          required: [totales, futuras, finalizadas]
+          properties:
+            totales: { type: integer }
+            futuras: { type: integer }
+            finalizadas: { type: integer }
+        asistencia:
+          type: object
+          required: [sesiones_finalizadas, con_asistencia_escolar, con_asistencia_tutor, tasa_escolar_porcentaje, tasa_tutor_porcentaje]
+          properties:
+            sesiones_finalizadas: { type: integer }
+            con_asistencia_escolar: { type: integer }
+            con_asistencia_tutor: { type: integer }
+            tasa_escolar_porcentaje: { type: number, format: double }
+            tasa_tutor_porcentaje: { type: number, format: double }
+        horas:
+          type: object
+          required: [internas]
+          properties:
+            internas: { type: number, format: double, description: "Horas de sesiones finalizadas." }
+        gestion:
+          type: object
+          required: [expedientes_pendientes, incidentes_pendientes, cursos_pendientes, solicitudes_colegio_pendientes]
+          properties:
+            expedientes_pendientes: { type: integer }
+            incidentes_pendientes: { type: integer }
+            cursos_pendientes: { type: integer }
+            solicitudes_colegio_pendientes: { type: integer }
+        actualizado_en: { type: string, format: date-time }
+    EventoAuditoria:
+      type: object
+      required: [id, ocurrido_en, actor_rol, accion, entidad, entidad_id, detalle]
+      properties:
+        id: { type: integer, format: int64 }
+        ocurrido_en: { type: string, format: date-time }
+        actor_id: { type: string, format: uuid }
+        actor_nombre: { type: string }
+        actor_rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general, administrador] }
+        accion:
+          type: string
+          enum: [incidente.revisado, expediente.revisado, curso.revisado, autorizacion.cambiada, cupo.actualizado]
+        entidad:
+          type: string
+          enum: [incidente, tutor_expediente, catalogo_curso, autorizacion, cupo_semanal]
+        entidad_id: { type: string }
+        detalle:
+          type: object
+          additionalProperties: true
+          description: "Datos de negocio saneados; nunca credenciales, tokens ni evidencias."
+    LogSistema:
+      type: object
+      required: [id, creado_en, categoria, evento, actor_rol, ip, detalle]
+      properties:
+        id: { type: integer, format: int64 }
+        creado_en: { type: string, format: date-time }
+        categoria: { type: string, enum: [seguridad, administracion, sistema] }
+        evento: { type: string }
+        actor_id: { type: string, format: uuid }
+        actor_rol: { type: string, enum: [escolar, apoderado, tutor, coordinador, coordinador_general, administrador] }
+        ip: { type: string, description: "Dirección IP desde la que ocurrió el evento." }
+        detalle: { type: object, additionalProperties: true }
     Error:
       type: object
       properties:
@@ -497,13 +565,42 @@ components:
         distrito: { type: string }
         solicitado_en: { type: string, format: date-time }
 paths:
+  /api/facultades:
+    get:
+      summary: Facultades disponibles para tutores
+      description: Catálogo público. Los escolares y apoderados no pertenecen a una facultad.
+      responses:
+        '200':
+          description: Facultades
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  facultades:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        nombre: { type: string }
   /api/auth/registro:
     post:
       summary: Registro público (escolar, apoderado, tutor). Coordinación no se autoasigna.
       description: La cuenta nace sin confirmar y se envía un enlace de un solo uso (30 min) al correo. Si no se confirma en ese plazo, la cuenta se borra y el correo queda libre. Un correo admite un solo registro.
       requestBody:
         required: true
-        content: { application/json: { schema: { type: object, required: [email, nombre_uso, clave, rol], properties: { email: {type: string}, nombre_uso: {type: string}, clave: {type: string}, rol: {type: string, enum: [escolar, apoderado, tutor]} } } } }
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, nombre_uso, clave, rol]
+              properties:
+                email: { type: string }
+                nombre_uso: { type: string }
+                clave: { type: string }
+                rol: { type: string, enum: [escolar, apoderado, tutor] }
+                facultad_id: { type: string, description: "Obligatorio para tutor; inmutable después de crear la cuenta." }
       responses:
         '201': { description: Creado sin confirmar; se envió un enlace al correo, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }
         '400': { description: Solicitud inválida }
@@ -524,6 +621,30 @@ paths:
     post: { security: [{ sesion: [] }], summary: Cierra sesión, responses: { '204': { description: OK }, '401': { description: Sin sesión } } }
   /api/auth/yo:
     get: { security: [{ sesion: [] }], summary: Usuario de la sesión, responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } } }, '401': { description: Sin sesión } } }
+  /api/perfil/clave:
+    put:
+      security: [{ sesion: [] }]
+      summary: Cambiar la contraseña propia
+      description: >
+        Exige la contraseña actual y aplica la política del rol. El correo y el nombre
+        de identificación no son editables desde el perfil. Al cambiar la contraseña se
+        revocan todas las sesiones y se envía un aviso al correo del titular.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clave_actual, clave_nueva]
+              properties:
+                clave_actual: { type: string, minLength: 1 }
+                clave_nueva: { type: string, minLength: 10 }
+      responses:
+        '204': { description: Contraseña actualizada }
+        '400': { description: JSON inválido }
+        '401': { description: Sin sesión }
+        '422': { description: Contraseña actual incorrecta o nueva contraseña inválida }
+        '429': { description: Se excedió el máximo de cambios de contraseña; mensaje general }
   /api/auth/recuperar:
     post:
       summary: Solicita enlace (respuesta idéntica exista o no el correo)
@@ -817,6 +938,179 @@ paths:
       security: [{ sesion: [] }]
       summary: Zona de coordinación (permiso coordinacion:acceder)
       responses: { '200': { description: OK }, '401': { description: Sin sesión }, '403': { description: Rol sin permiso (p. ej. escolar) } }
+  /api/coordinacion/metricas:
+    get:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Métricas agregadas del piloto para coordinación
+      description: >
+        Agrega reservas, asistencia declarada y horas internas de sesiones finalizadas.
+        También informa pendientes de expedientes, incidentes, cursos y solicitudes de colegio.
+      responses:
+        '200':
+          description: Métricas agregadas
+          content: { application/json: { schema: { $ref: '#/components/schemas/MetricasPanel' } } }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinacion:acceder }
+  /api/coordinacion/auditoria:
+    get:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Auditoría inmutable de decisiones y cambios de reglas
+      description: >
+        Devuelve los últimos eventos de auditoría. No existe endpoint de borrado ni
+        modificación y la base rechaza UPDATE, DELETE y TRUNCATE. El detalle excluye
+        credenciales, tokens, correos y contenido de evidencias.
+      parameters:
+        - in: query
+          name: limite
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Eventos de auditoría
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventos:
+                    type: array
+                    items: { $ref: '#/components/schemas/EventoAuditoria' }
+        '400': { description: Límite inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinacion:acceder }
+  /api/coordinacion/coordinadores:
+    get:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Listar coordinadores activos (solo coordinador general)
+      responses:
+        '200':
+          description: Coordinadores activos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  coordinadores:
+                    type: array
+                    items: { $ref: '#/components/schemas/Usuario' }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinadores:gestionar }
+    post:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Crear un coordinador (solo coordinador general)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, nombre_uso, clave]
+              properties:
+                email: { type: string, format: email }
+                nombre_uso: { type: string, minLength: 2, maxLength: 60 }
+                clave: { type: string, minLength: 12 }
+      responses:
+        '201':
+          description: Coordinador creado
+          content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } }
+        '400': { description: JSON inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinadores:gestionar }
+        '409': { description: Correo ya registrado }
+        '422': { description: Validación de correo, nombre o clave }
+  /api/coordinacion/coordinadores/{id}:
+    delete:
+      tags: [I14-panel]
+      security: [{ sesion: [] }]
+      summary: Desactivar un coordinador y revocar sus sesiones (solo coordinador general)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Coordinador desactivado }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso coordinadores:gestionar }
+        '404': { description: Coordinador inexistente, inactivo o no regular }
+  /api/administracion/coordinadores-generales:
+    get:
+      tags: [I19-administracion]
+      security: [{ sesion: [] }]
+      summary: Listar coordinadores generales (solo administrador)
+      responses:
+        '200':
+          description: Coordinadores generales activos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  coordinadores_generales:
+                    type: array
+                    items: { $ref: '#/components/schemas/Usuario' }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso administracion:acceder }
+    post:
+      tags: [I19-administracion]
+      security: [{ sesion: [] }]
+      summary: Crear un coordinador general (solo administrador)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, nombre_uso, clave, facultad_id]
+              properties:
+                email: { type: string, format: email }
+                nombre_uso: { type: string, minLength: 2, maxLength: 60 }
+                clave: { type: string, minLength: 12 }
+                facultad_id: { type: string }
+      responses:
+        '201':
+          description: Coordinador general creado
+          content: { application/json: { schema: { $ref: '#/components/schemas/Usuario' } } }
+        '400': { description: JSON inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso administracion:acceder }
+        '409': { description: Correo ya registrado }
+        '422': { description: Validación de datos o facultad inexistente }
+  /api/administracion/coordinadores-generales/{id}:
+    delete:
+      tags: [I19-administracion]
+      security: [{ sesion: [] }]
+      summary: Desactivar un coordinador general y revocar sus sesiones
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Coordinador general desactivado }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso administracion:acceder }
+        '404': { description: Coordinador general inexistente o inactivo }
+  /api/administracion/logs:
+    get:
+      tags: [I19-administracion]
+      security: [{ sesion: [] }]
+      summary: Bitácora de seguridad y administración (solo administrador)
+      parameters:
+        - in: query
+          name: limite
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Logs del sistema
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items: { $ref: '#/components/schemas/LogSistema' }
+        '400': { description: Límite inválido }
+        '401': { description: Sin sesión }
+        '403': { description: Rol sin permiso administracion:acceder }
   /api/tutor/salud:
     get: { tags: [B-tutor], summary: Estado del flujo B, responses: { '200': { description: OK } } }
   /api/tutor/mi-expediente:

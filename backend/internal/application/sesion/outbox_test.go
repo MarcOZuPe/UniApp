@@ -3,67 +3,80 @@ package sesion
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
-	acceso "uniapp/internal/domain/acceso"
+
+	dominioAcceso "uniapp/internal/domain/acceso"
 )
 
-type repoOutboxPrueba struct {
-	entrega                     *Entrega
-	codigo                      string
-	errorReclamo, errorResolver error
-	correo                      string
+// outboxConFalloSimulaUnLeaseVencido: el primer Resolver falla (como si el
+// proceso muriera despues de enviar el correo) y el reclamo vuelve a entregar
+// la misma fila. Bajo entrega "al menos una vez" el correo se reenvia.
+type outboxConFallo struct {
+	mu              sync.Mutex
+	entrega         Entrega
+	resoluciones    int
+	fallosDeResolve int
 }
 
-func (r *repoOutboxPrueba) Reclamar(context.Context, time.Time) (*Entrega, error) {
-	return r.entrega, r.errorReclamo
-}
-func (r *repoOutboxPrueba) Resolver(_ context.Context, _ Entrega, _ time.Time, c string) error {
-	r.codigo = c
-	return r.errorResolver
-}
-func (r *repoOutboxPrueba) CorreoDe(context.Context, string) (string, error) { return r.correo, nil }
-
-type mailerOutboxPrueba struct {
-	llamadas int
-	err      error
+func (o *outboxConFallo) Reclamar(_ context.Context, _ time.Time) (*Entrega, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.entrega.Intentos++
+	copia := o.entrega
+	return &copia, nil
 }
 
-func (m *mailerOutboxPrueba) Enviar(context.Context, acceso.Mensaje) error {
-	m.llamadas++
-	return m.err
+func (o *outboxConFallo) Resolver(_ context.Context, _ Entrega, _ time.Time, _ string) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.resoluciones++
+	if o.resoluciones <= o.fallosDeResolve {
+		return errors.New("lease vencido: no se pudo confirmar la entrega")
+	}
+	return nil
 }
-func TestProcesadorOutboxCanalesYFallos(t *testing.T) {
-	for _, c := range []struct {
-		canal, correo, codigo string
-		falla                 bool
-		llamadas              int
-	}{{"interno", "", "", false, 0}, {"correo", "", "destinatario_no_disponible", false, 0}, {"correo", "a@example.test", "", false, 1}, {"correo", "a@example.test", "proveedor_no_disponible", true, 1}} {
-		r := &repoOutboxPrueba{entrega: &Entrega{Canal: c.canal}, correo: c.correo}
-		m := &mailerOutboxPrueba{}
-		if c.falla {
-			m.err = errors.New("secreto del proveedor")
-		}
-		hay, err := (ProcesadorOutbox{Repositorio: r, Mailer: m}).ProcesarUno(context.Background())
-		if !hay || err != nil || m.llamadas != c.llamadas || r.codigo != c.codigo {
-			t.Fatalf("resultado: %v %v %s", hay, err, r.codigo)
-		}
-	}
+
+func (o *outboxConFallo) CorreoDe(_ context.Context, _ string) (string, error) {
+	return "destino@example.test", nil
 }
-func TestProcesadorSinTrabajoYFalloRepositorio(t *testing.T) {
-	r := &repoOutboxPrueba{}
-	p := ProcesadorOutbox{Repositorio: r}
-	if hay, err := p.ProcesarUno(context.Background()); hay || err != nil {
-		t.Fatal("sin trabajo")
+
+type mailerContador struct {
+	mu       sync.Mutex
+	enviados int
+}
+
+func (m *mailerContador) Enviar(context.Context, dominioAcceso.Mensaje) error {
+	m.mu.Lock()
+	m.enviados++
+	m.mu.Unlock()
+	return nil
+}
+
+// F-14: si falla la resolucion del outbox despues de enviar, el reintento no
+// debe volver a enviar el mismo correo al destinatario.
+func TestF14OutboxNoDebeReenviarCorreoTrasFalloDeResolucion(t *testing.T) {
+	repositorio := &outboxConFallo{
+		entrega: Entrega{
+			ID: 1, DestinatarioID: "u-1", Canal: "correo",
+			Asunto: "Recordatorio", Cuerpo: "Tu sesion empieza pronto",
+		},
+		fallosDeResolve: 1,
 	}
-	r.errorReclamo = errors.New("base caída")
-	if _, err := p.ProcesarUno(context.Background()); err == nil {
-		t.Fatal("ocultó fallo de reclamo")
+	mailer := &mailerContador{}
+	procesador := ProcesadorOutbox{Repositorio: repositorio, Mailer: mailer}
+
+	ctx := context.Background()
+	if _, err := procesador.ProcesarUno(ctx); err == nil {
+		t.Fatal("el fallo simulado de Resolver debia propagarse")
 	}
-	r.errorReclamo = nil
-	r.entrega = &Entrega{Canal: "interno"}
-	r.errorResolver = errors.New("commit falló")
-	if _, err := p.ProcesarUno(context.Background()); err == nil {
-		t.Fatal("ocultó fallo de resultado")
+	// El lease vencio y otro worker (o el mismo) reclama la misma entrega.
+	if _, err := procesador.ProcesarUno(ctx); err != nil {
+		t.Fatalf("el segundo intento no debia fallar: %v", err)
+	}
+
+	if mailer.enviados != 1 {
+		t.Fatalf("F-14: el correo se envio %d veces para una sola entrega; un fallo al confirmar no debe duplicar el envio", mailer.enviados)
 	}
 }

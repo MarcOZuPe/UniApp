@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Campo from '../../components/Campo.jsx';
 import { useFormulario } from '../../hooks/useFormulario.js';
 import { ingresar } from '../../../application/acceso/sesion.js';
@@ -13,6 +13,8 @@ export default function Ingreso() {
   const [mensajeError, setMensajeError] = useState('');
   const [enviandoIngreso, setEnviandoIngreso] = useState(false);
   const navegar = useNavigate();
+  const ubicacion = useLocation();
+  const mensajeRedireccion = ubicacion.state?.mensaje || '';
   const [parametros] = useSearchParams();
   const destinoSolicitado = parametros.get('next');
   const destinoIngreso = obtenerDestinoSeguro(destinoSolicitado);
@@ -41,6 +43,7 @@ export default function Ingreso() {
   return (
     <main>
       <h1>Ingresar</h1>
+      {mensajeRedireccion && <p role="status">{mensajeRedireccion}</p>}
       {destinoSolicitado && <p>Inicia sesión para continuar.</p>}
       <form onSubmit={enviarIngreso} noValidate>
         <Campo etiqueta="Correo" type="email" autoComplete="username" value={formulario.email} onChange={actualizarCampo('email')} error={erroresFormulario.email} />

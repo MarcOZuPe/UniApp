@@ -1,0 +1,11 @@
+name: uniapp-tests
+
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.tests
+    init: true
+    environment:
+      CI: "true"
+    command: ["/usr/local/bin/probar-tests"]

@@ -52,12 +52,12 @@ func (c *Controlador) proteger(manejador http.HandlerFunc, permiso modeloAcceso.
 }
 
 func (c *Controlador) tutorias(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
-	if usuario == nil {
+	solicitante, ok := solicitanteDe(r)
+	if !ok {
 		c.errores.Escribir(w, modelo.ErrNoAutorizado)
 		return
 	}
-	tutorias, err := c.servicio.Tutorias(r.Context(), usuario.ID, usuario.Rol)
+	tutorias, err := c.servicio.Tutorias(r.Context(), solicitante)
 	if err != nil {
 		c.errores.Escribir(w, err)
 		return
@@ -68,12 +68,12 @@ func (c *Controlador) tutorias(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controlador) listar(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
-	if usuario == nil {
+	solicitante, ok := solicitanteDe(r)
+	if !ok {
 		c.errores.Escribir(w, modelo.ErrNoAutorizado)
 		return
 	}
-	incidentes, err := c.servicio.Listar(r.Context(), usuario.ID, usuario.Rol)
+	incidentes, err := c.servicio.Listar(r.Context(), solicitante)
 	if err != nil {
 		c.errores.Escribir(w, err)
 		return
@@ -84,12 +84,12 @@ func (c *Controlador) listar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controlador) detalle(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
-	if usuario == nil {
+	solicitante, ok := solicitanteDe(r)
+	if !ok {
 		c.errores.Escribir(w, modelo.ErrNoAutorizado)
 		return
 	}
-	incidente, err := c.servicio.PorID(r.Context(), usuario.ID, usuario.Rol, r.PathValue("id"))
+	incidente, err := c.servicio.PorID(r.Context(), solicitante, r.PathValue("id"))
 	if err != nil {
 		c.errores.Escribir(w, err)
 		return
@@ -98,8 +98,8 @@ func (c *Controlador) detalle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controlador) registrar(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
-	if usuario == nil {
+	solicitante, ok := solicitanteDe(r)
+	if !ok {
 		c.errores.Escribir(w, modelo.ErrNoAutorizado)
 		return
 	}
@@ -125,30 +125,16 @@ func (c *Controlador) registrar(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	archivos := r.MultipartForm.File["evidencias"]
-	evidencias := make([]modelo.Archivo, 0, len(archivos))
-	for _, cabecera := range archivos {
-		archivo, err := cabecera.Open()
-		if err != nil {
-			vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-				Estado: http.StatusBadRequest, Codigo: "evidencia_ilegible",
-				Mensaje: "No se pudo leer una de las evidencias.",
-			})
-			return
-		}
-		contenido, err := io.ReadAll(archivo)
-		_ = archivo.Close()
-		if err != nil {
-			vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
-				Estado: http.StatusBadRequest, Codigo: "evidencia_ilegible",
-				Mensaje: "No se pudo leer una de las evidencias.",
-			})
-			return
-		}
-		evidencias = append(evidencias, modelo.Archivo{Nombre: cabecera.Filename, Contenido: contenido})
+	evidencias, err := leerEvidencias(r)
+	if err != nil {
+		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+			Estado: http.StatusBadRequest, Codigo: "evidencia_ilegible",
+			Mensaje: "No se pudo leer una de las evidencias.",
+		})
+		return
 	}
 
-	incidente, err := c.servicio.Registrar(r.Context(), usuario.ID, usuario.Rol, modelo.DatosIncidente{
+	incidente, err := c.servicio.Registrar(r.Context(), solicitante, modelo.DatosIncidente{
 		EscolarID:   r.FormValue("escolar_id"),
 		ReservaID:   r.FormValue("reserva_id"),
 		Tipo:        modelo.Tipo(r.FormValue("tipo")),
@@ -163,8 +149,8 @@ func (c *Controlador) registrar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controlador) revisar(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
-	if usuario == nil {
+	solicitante, ok := solicitanteDe(r)
+	if !ok {
 		c.errores.Escribir(w, modelo.ErrNoAutorizado)
 		return
 	}
@@ -190,7 +176,7 @@ func (c *Controlador) revisar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	incidente, err := c.servicio.Revisar(
-		r.Context(), usuario.ID, usuario.Rol, r.PathValue("id"),
+		r.Context(), solicitante, r.PathValue("id"),
 		modelo.DatosRevision{Resultado: solicitud.Resultado, Comentario: solicitud.Comentario},
 	)
 	if err != nil {
@@ -201,14 +187,13 @@ func (c *Controlador) revisar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controlador) descargarEvidencia(w http.ResponseWriter, r *http.Request) {
-	usuario := ctrlAcceso.UsuarioDe(r.Context())
-	if usuario == nil {
+	solicitante, ok := solicitanteDe(r)
+	if !ok {
 		c.errores.Escribir(w, modelo.ErrNoAutorizado)
 		return
 	}
 	_, evidencia, contenido, err := c.servicio.AbrirEvidencia(
-		r.Context(), usuario.ID, usuario.Rol,
-		r.PathValue("id"), r.PathValue("evidenciaId"),
+		r.Context(), solicitante, r.PathValue("id"), r.PathValue("evidenciaId"),
 	)
 	if err != nil {
 		c.errores.Escribir(w, err)
@@ -222,6 +207,36 @@ func (c *Controlador) descargarEvidencia(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(contenido)
+}
+
+func solicitanteDe(r *http.Request) (modelo.Solicitante, bool) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		return modelo.Solicitante{}, false
+	}
+	return modelo.Solicitante{
+		ID:         usuario.ID,
+		Rol:        usuario.Rol,
+		FacultadID: usuario.FacultadID,
+	}, true
+}
+
+func leerEvidencias(r *http.Request) ([]modelo.Archivo, error) {
+	archivos := r.MultipartForm.File["evidencias"]
+	evidencias := make([]modelo.Archivo, 0, len(archivos))
+	for _, cabecera := range archivos {
+		archivo, err := cabecera.Open()
+		if err != nil {
+			return nil, err
+		}
+		contenido, err := io.ReadAll(archivo)
+		_ = archivo.Close()
+		if err != nil {
+			return nil, err
+		}
+		evidencias = append(evidencias, modelo.Archivo{Nombre: cabecera.Filename, Contenido: contenido})
+	}
+	return evidencias, nil
 }
 
 func asegurarFinDeJSON(decodificador *json.Decoder) error {
