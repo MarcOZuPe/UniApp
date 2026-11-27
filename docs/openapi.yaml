@@ -376,6 +376,15 @@ components:
         adjuntos:
           type: array
           items: { $ref: '#/components/schemas/AdjuntoReserva' }
+    HistorialReserva:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        estado_anterior: { type: string, enum: [confirmada, cancelada] }
+        estado_nuevo: { type: string, enum: [confirmada, cancelada] }
+        motivo: { type: string }
+        actor_id: { type: string, format: uuid }
+        creado_en: { type: string, description: "hora de Lima" }
     SesionI05:
       type: object
       required: [id, reserva_id, tutor_id, escolar_id, inicio, fin, asistencias, ausencias, resultado, plazos]
@@ -1789,6 +1798,55 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
               examples:
                 caso: { $ref: '#/components/examples/ErrorAdjuntoCuarentena' }
+  /api/reserva/{id}/cancelar:
+    post:
+      tags: [D-reserva]
+      summary: Cancelar una reserva y registrar el historial (I16)
+      description: >
+        Solo los participantes pueden cancelar y siempre antes de que empiece la sesión.
+        El cambio queda registrado con actor, fecha y motivo.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: Reserva cancelada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservaD' }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva no es de un participante }
+        '404': { description: La reserva no existe }
+        '409': { description: "reserva_no_cancelable si ya estaba cancelada; cancelacion_tardia si la sesión ya empezó" }
+  /api/reserva/{id}/historial:
+    get:
+      tags: [D-reserva]
+      summary: Historial de estados de la reserva (I16)
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Eventos del historial, del más antiguo al más reciente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  historial:
+                    type: array
+                    items: { $ref: '#/components/schemas/HistorialReserva' }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva no es de un participante }
+        '404': { description: La reserva no existe }
   /api/sesion/salud:
     get: { tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"], summary: Estado del flujo E (sesiones), responses: { '200': { description: OK } } }
   /api/sesion/{id}:

@@ -15,6 +15,7 @@ type (
 	ErrValidacion          = dominio.ErrValidacion
 	Estado                 = dominio.Estado
 	EstadoAdjunto          = dominio.EstadoAdjunto
+	EventoHistorial        = dominio.EventoHistorial
 	Limites                = dominio.Limites
 	OfertaSintetica        = dominio.OfertaSintetica
 	PuertoOferta           = dominio.PuertoOferta
@@ -30,6 +31,7 @@ const (
 	AdjuntoValidado      = dominio.AdjuntoValidado
 	AnticipacionMinima   = dominio.AnticipacionMinima
 	DuracionSesion       = dominio.DuracionSesion
+	EstadoCancelada      = dominio.EstadoCancelada
 	EstadoConfirmada     = dominio.EstadoConfirmada
 	GradoMaximo          = dominio.GradoMaximo
 	HorizonteMaximo      = dominio.HorizonteMaximo
@@ -64,6 +66,8 @@ var (
 	ErrSinAutorizacion       = dominio.ErrSinAutorizacion
 	ErrSlotInexistente       = dominio.ErrSlotInexistente
 	ErrSlotOcupado           = dominio.ErrSlotOcupado
+	ErrReservaNoCancelable   = dominio.ErrReservaNoCancelable
+	ErrCancelacionTardia     = dominio.ErrCancelacionTardia
 	ErrSlotVencido           = dominio.ErrSlotVencido
 	ErrSolapamiento          = dominio.ErrSolapamiento
 	LimitesPorDefecto        = dominio.LimitesPorDefecto

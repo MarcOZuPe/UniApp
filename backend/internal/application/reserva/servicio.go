@@ -154,6 +154,27 @@ func (s *Servicio) ReservasDe(ctx context.Context, escolarID string) ([]Reserva,
 	return s.repositorio.PorEscolar(ctx, escolarID)
 }
 
+// Cancelar deja la reserva en estado cancelada y guarda el evento en el historial.
+// Solo los participantes pueden cancelar y siempre antes de que empiece la sesión.
+func (s *Servicio) Cancelar(ctx context.Context, usuarioID string, rol modeloAcceso.Rol, reservaID, motivo string) (*Reserva, error) {
+	reserva, err := s.reservaVisible(ctx, reservaID, usuarioID, rol)
+	if err != nil {
+		return nil, err
+	}
+	if err := reserva.Cancelar(motivo, s.ahora()); err != nil {
+		return nil, err
+	}
+	return s.repositorio.CancelarTransaccional(ctx, reserva.ID, usuarioID, motivo, s.ahora())
+}
+
+// Historial devuelve los cambios de estado de la reserva para los participantes.
+func (s *Servicio) Historial(ctx context.Context, usuarioID string, rol modeloAcceso.Rol, reservaID string) ([]EventoHistorial, error) {
+	if _, err := s.reservaVisible(ctx, reservaID, usuarioID, rol); err != nil {
+		return nil, err
+	}
+	return s.repositorio.HistorialDe(ctx, reservaID)
+}
+
 func (s *Servicio) Adjuntar(ctx context.Context, usuarioID string, reservaID, nombre string, contenido []byte) (*Adjunto, error) {
 	reserva, err := s.repositorio.PorID(ctx, reservaID)
 	if err != nil {

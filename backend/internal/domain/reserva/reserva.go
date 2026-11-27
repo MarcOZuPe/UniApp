@@ -35,7 +35,10 @@ var ZonaLima = time.FixedZone("America/Lima", -5*60*60)
 
 type Estado string
 
-const EstadoConfirmada Estado = "confirmada"
+const (
+	EstadoConfirmada Estado = "confirmada"
+	EstadoCancelada  Estado = "cancelada"
+)
 
 // Limites son los topes de equidad que el repositorio aplica dentro de la transacción.
 // Se pasan como dato para que la regla siga viviendo en el modelo.
@@ -95,7 +98,42 @@ type Reserva struct {
 	Estado            Estado
 	ClaveIdempotencia string
 	CreadaEn          time.Time
+	CanceladaEn       *time.Time
+	MotivoCancelacion string
 	Adjuntos          []Adjunto
+}
+
+// EventoHistorial es un cambio de estado de la reserva, con quién lo hizo y por qué.
+type EventoHistorial struct {
+	ID             string
+	ReservaID      string
+	EstadoAnterior Estado
+	EstadoNuevo    Estado
+	Motivo         string
+	ActorID        string
+	CreadoEn       time.Time
+}
+
+// Cancelar cambia el estado a cancelada. Solo se puede cancelar una reserva confirmada y
+// siempre antes de que empiece la sesión; el historial lo guarda el repositorio en la
+// misma transacción.
+func (r *Reserva) Cancelar(motivo string, ahora time.Time) error {
+	ahora = ahora.UTC()
+	if r.Estado != EstadoConfirmada {
+		return ErrReservaNoCancelable
+	}
+	if !r.Inicio.After(ahora) {
+		return ErrCancelacionTardia
+	}
+	motivo = strings.TrimSpace(motivo)
+	if utf8.RuneCountInString(motivo) > 200 {
+		return ErrValidacion{Campos: map[string]string{"motivo": "el motivo no puede superar 200 caracteres"}}
+	}
+	cancelada := ahora
+	r.Estado = EstadoCancelada
+	r.CanceladaEn = &cancelada
+	r.MotivoCancelacion = motivo
+	return nil
 }
 
 // DatosReserva es lo que envía el formulario. El escolar nunca se recibe del cliente:
@@ -129,6 +167,8 @@ var (
 	ErrAdjuntoRechazado      = errors.New("el adjunto fue rechazado por el análisis")
 	ErrAdjuntoInvalido       = errors.New("adjunto inválido")
 	ErrAlmacen               = errors.New("no se pudo guardar el adjunto")
+	ErrReservaNoCancelable   = errors.New("la reserva ya no se puede cancelar")
+	ErrCancelacionTardia     = errors.New("la sesión ya empezó: no se puede cancelar")
 )
 
 // ErrValidacion agrupa los errores por campo para que la vista los muestre sin repetir

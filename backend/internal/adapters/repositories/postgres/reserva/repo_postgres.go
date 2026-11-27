@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 )
 
-const columnasReserva = "id, escolar_id, tutor_id, tutor_nombre, slot_id, curso, grado, inicio, fin, tema, objetivo, estado, clave_idempotencia, creada_en"
+const columnasReserva = "id, escolar_id, tutor_id, tutor_nombre, slot_id, curso, grado, inicio, fin, tema, objetivo, estado, clave_idempotencia, creada_en, cancelada_en, motivo_cancelacion"
 
 const columnasAdjunto = "id, nombre, tipo, tamano_bytes, estado, motivo, huella, clave_almacenamiento, creado_en"
 
@@ -268,16 +268,81 @@ func escanearReserva(fila filaEscaner) (*Reserva, error) {
 	var reserva Reserva
 	var estado string
 	var clave sql.NullString
+	var cancelada sql.NullTime
+	var motivo string
 	if err := fila.Scan(
 		&reserva.ID, &reserva.EscolarID, &reserva.TutorID, &reserva.TutorNombre, &reserva.SlotID,
 		&reserva.Curso, &reserva.Grado, &reserva.Inicio, &reserva.Fin, &reserva.Tema, &reserva.Objetivo,
-		&estado, &clave, &reserva.CreadaEn,
+		&estado, &clave, &reserva.CreadaEn, &cancelada, &motivo,
 	); err != nil {
 		return nil, err
 	}
 	reserva.Estado = Estado(estado)
 	reserva.ClaveIdempotencia = clave.String
+	reserva.MotivoCancelacion = motivo
+	if cancelada.Valid {
+		instante := cancelada.Time
+		reserva.CanceladaEn = &instante
+	}
 	return &reserva, nil
+}
+
+func (r RepositorioPostgres) CancelarTransaccional(ctx context.Context, reservaID, actorID, motivo string, ahora time.Time) (*Reserva, error) {
+	tx, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var estado string
+	var inicio time.Time
+	if err := tx.QueryRowContext(ctx,
+		`SELECT estado, inicio FROM reservas WHERE id = $1 FOR UPDATE`, reservaID).Scan(&estado, &inicio); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrReservaNoEncontrada
+		}
+		return nil, err
+	}
+	actual := &Reserva{ID: reservaID, Estado: Estado(estado), Inicio: inicio, MotivoCancelacion: motivo}
+	if err := actual.Cancelar(motivo, ahora); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE reservas SET estado = 'cancelada', cancelada_en = $2, motivo_cancelacion = $3 WHERE id = $1`,
+		reservaID, ahora.UTC(), actual.MotivoCancelacion); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO reserva_historial (reserva_id, estado_anterior, estado_nuevo, motivo, actor_id)
+		 VALUES ($1, $2, 'cancelada', $3, $4)`, reservaID, estado, actual.MotivoCancelacion, actorID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return r.PorID(ctx, reservaID)
+}
+
+func (r RepositorioPostgres) HistorialDe(ctx context.Context, reservaID string) ([]EventoHistorial, error) {
+	filas, err := r.DB.QueryContext(ctx,
+		`SELECT id, reserva_id, estado_anterior, estado_nuevo, motivo, actor_id, creado_en
+		 FROM reserva_historial WHERE reserva_id = $1 ORDER BY creado_en`, reservaID)
+	if err != nil {
+		return nil, err
+	}
+	defer filas.Close()
+	eventos := make([]EventoHistorial, 0)
+	for filas.Next() {
+		var evento EventoHistorial
+		var anterior, nuevo string
+		if err := filas.Scan(&evento.ID, &evento.ReservaID, &anterior, &nuevo, &evento.Motivo, &evento.ActorID, &evento.CreadoEn); err != nil {
+			return nil, err
+		}
+		evento.EstadoAnterior = Estado(anterior)
+		evento.EstadoNuevo = Estado(nuevo)
+		eventos = append(eventos, evento)
+	}
+	return eventos, filas.Err()
 }
 
 func escanearAdjunto(fila filaEscaner) (*Adjunto, error) {
