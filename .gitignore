@@ -12,6 +12,8 @@ __pycache__/
 
 # Artefactos de build y binarios
 dist/
+coverage/
+coverage.out
 *.exe
 /backend/uniapp-api
 /backend/data/tutor-documents/

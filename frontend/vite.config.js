@@ -8,5 +8,15 @@ export default defineConfig({
     port: 5173,
     proxy: { '/api': process.env.UNIAPP_API_TARGET || 'http://localhost:8080' },
   },
-  test: { environment: 'node' },
+  test: {
+    environment: 'node',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+      reportsDirectory: 'coverage',
+      reportOnFailure: true,
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/**/*.test.{js,jsx}', 'src/app/main.jsx'],
+    },
+  },
 });
