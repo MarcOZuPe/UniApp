@@ -104,6 +104,10 @@ func registrarErroresDeReserva(mapeador *ctrlAcceso.MapeadorDeErrores) {
 		respuestaConEstado(http.StatusConflict, "reserva_no_cancelable"),
 	)
 	mapeador.Registrar(
+		func(err error) bool { return errors.Is(err, modelo.ErrMismoHorario) },
+		respuestaConEstado(http.StatusConflict, "mismo_horario"),
+	)
+	mapeador.Registrar(
 		func(err error) bool { return errors.Is(err, modelo.ErrCancelacionTardia) },
 		respuestaConEstado(http.StatusConflict, "cancelacion_tardia"),
 	)

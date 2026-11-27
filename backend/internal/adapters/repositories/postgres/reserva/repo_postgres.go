@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -315,6 +316,54 @@ func (r RepositorioPostgres) CancelarTransaccional(ctx context.Context, reservaI
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO reserva_historial (reserva_id, estado_anterior, estado_nuevo, motivo, actor_id)
 		 VALUES ($1, $2, 'cancelada', $3, $4)`, reservaID, estado, actual.MotivoCancelacion, actorID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return r.PorID(ctx, reservaID)
+}
+
+func (r RepositorioPostgres) ReprogramarTransaccional(ctx context.Context, reservaID string, slot Slot, actorID, motivo string, ahora time.Time) (*Reserva, error) {
+	tx, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var estado string
+	var slotActual string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT estado, slot_id FROM reservas WHERE id = $1 FOR UPDATE`, reservaID).Scan(&estado, &slotActual); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrReservaNoEncontrada
+		}
+		return nil, err
+	}
+	var ocupado bool
+	if err := tx.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM reservas WHERE slot_id = $1 AND estado = 'confirmada' AND id <> $2)`,
+		slot.ID, reservaID).Scan(&ocupado); err != nil {
+		return nil, err
+	}
+	if ocupado {
+		return nil, ErrSlotOcupado
+	}
+	actual := &Reserva{ID: reservaID, Estado: Estado(estado), SlotID: slotActual}
+	if err := actual.Reprogramar(slot, ahora); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE reservas SET slot_id = $2, tutor_id = $3, tutor_nombre = $4, curso = $5,
+		        inicio = $6, fin = $7 WHERE id = $1`,
+		reservaID, actual.SlotID, actual.TutorID, actual.TutorNombre, actual.Curso,
+		actual.Inicio, actual.Fin); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO reserva_historial (reserva_id, estado_anterior, estado_nuevo, motivo, actor_id)
+		 VALUES ($1, 'confirmada', 'confirmada', $2, $3)`,
+		reservaID, fmt.Sprintf("reprogramada de %s a %s: %s", slotActual, slot.ID, motivo), actorID); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {

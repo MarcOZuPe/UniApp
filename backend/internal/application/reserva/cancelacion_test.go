@@ -94,3 +94,39 @@ func TestI16NoSeCancelaUnaSesionEmpezada(t *testing.T) {
 		t.Fatalf("se esperaba ErrCancelacionTardia, se obtuvo %v", err)
 	}
 }
+
+// I16: reprogramar mueve la reserva a otro horario y deja el evento en el historial.
+func TestI16ReprogramarReserva(t *testing.T) {
+	servicio, _ := servicioParaCancelar(t)
+	ctx := context.Background()
+
+	reserva, _, err := servicio.Reservar(ctx, "escolar-i16-r", datosReservaValidos("slot-i04-01"))
+	if err != nil {
+		t.Fatalf("crear reserva: %v", err)
+	}
+	nueva, err := servicio.Reprogramar(ctx, "escolar-i16-r", modeloAcceso.RolEscolar, reserva.ID, "slot-i04-02", "cambio de horario")
+	if err != nil {
+		t.Fatalf("reprogramar: %v", err)
+	}
+	if nueva.ID != reserva.ID {
+		t.Fatalf("la reprogramación no debe cambiar el identificador: %s != %s", nueva.ID, reserva.ID)
+	}
+	if nueva.SlotID != "slot-i04-02" {
+		t.Fatalf("slot = %q, se esperaba slot-i04-02", nueva.SlotID)
+	}
+	if nueva.Estado != EstadoConfirmada {
+		t.Fatalf("estado = %q, se esperaba confirmada", nueva.Estado)
+	}
+
+	historial, err := servicio.Historial(ctx, "escolar-i16-r", modeloAcceso.RolEscolar, reserva.ID)
+	if err != nil {
+		t.Fatalf("historial: %v", err)
+	}
+	if len(historial) != 1 || historial[0].EstadoNuevo != EstadoConfirmada {
+		t.Fatalf("historial inesperado: %+v", historial)
+	}
+
+	if _, err := servicio.Reprogramar(ctx, "escolar-i16-r", modeloAcceso.RolEscolar, reserva.ID, "slot-i04-02", ""); !errors.Is(err, ErrMismoHorario) {
+		t.Fatalf("reprogramar al mismo slot: se esperaba ErrMismoHorario, se obtuvo %v", err)
+	}
+}

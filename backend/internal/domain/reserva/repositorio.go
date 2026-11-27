@@ -27,4 +27,8 @@ type Repositorio interface {
 	// transacción. Devuelve la reserva actualizada.
 	CancelarTransaccional(ctx context.Context, reservaID, actorID, motivo string, ahora time.Time) (*Reserva, error)
 	HistorialDe(ctx context.Context, reservaID string) ([]EventoHistorial, error)
+
+	// ReprogramarTransaccional mueve la reserva a otro horario y guarda el evento en el
+	// historial. El horario nuevo se verifica libre dentro de la transacción.
+	ReprogramarTransaccional(ctx context.Context, reservaID string, slot Slot, actorID, motivo string, ahora time.Time) (*Reserva, error)
 }

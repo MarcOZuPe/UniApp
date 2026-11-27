@@ -68,6 +68,7 @@ var (
 	ErrSlotOcupado           = dominio.ErrSlotOcupado
 	ErrReservaNoCancelable   = dominio.ErrReservaNoCancelable
 	ErrCancelacionTardia     = dominio.ErrCancelacionTardia
+	ErrMismoHorario          = dominio.ErrMismoHorario
 	ErrSlotVencido           = dominio.ErrSlotVencido
 	ErrSolapamiento          = dominio.ErrSolapamiento
 	LimitesPorDefecto        = dominio.LimitesPorDefecto

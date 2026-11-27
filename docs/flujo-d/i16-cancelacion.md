@@ -27,6 +27,7 @@ sesión ya empezó, `403` si quien cancela no participa, `404` si la reserva no 
 |---|---|---|
 | POST | /api/reserva/{id}/cancelar | 200 con la reserva en estado `cancelada` |
 | GET | /api/reserva/{id}/historial | 200 con la lista de eventos |
+| POST | /api/reserva/{id}/reprogramar | 200 con la reserva en el horario nuevo |
 
 Ejemplo del cuerpo opcional:
 
@@ -50,7 +51,16 @@ estar disponible. La migración es `021_reserva_cancelacion`.
 - `TestI16NoSePuedeCancelarDosVeces`: `ErrReservaNoCancelable`.
 - `TestI16NoSeCancelaUnaSesionEmpezada`: `ErrCancelacionTardia`.
 
+## Reprogramar
+
+`POST /api/reserva/{id}/reprogramar` con `{ "slot_id": "...", "motivo": "..." }` mueve la
+reserva a otro horario **conservando su identificador y su historial**. Verifica que el
+horario exista, esté libre, no sea el mismo y cumpla la ventana de 48 horas y el horizonte.
+El evento queda en `reserva_historial` con el slot anterior y el nuevo.
+
+Errores: `409 mismo_horario`, `409 slot_ocupado`, `409 reserva_no_cancelable`,
+`422 anticipacion_insuficiente` u `horizonte_excedido`.
+
 ## Pendiente
 
-- Reprogramar (cancelar y reservar otro horario en una sola operación).
-- Botón de cancelar en la agenda del escolar.
+- Botón de cancelar y reprogramar en la agenda del escolar.

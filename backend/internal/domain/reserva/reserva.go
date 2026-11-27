@@ -136,6 +136,30 @@ func (r *Reserva) Cancelar(motivo string, ahora time.Time) error {
 	return nil
 }
 
+// Reprogramar mueve una reserva confirmada a otro horario. Solo cambia slot, tutor, curso
+// y horas: la reserva conserva su identidad y su lugar en el historial.
+func (r *Reserva) Reprogramar(slot Slot, ahora time.Time) error {
+	if r.Estado != EstadoConfirmada {
+		return ErrReservaNoCancelable
+	}
+	if slot.ID == "" || slot.TutorID == "" || !slot.Fin.After(slot.Inicio) {
+		return ErrSlotInexistente
+	}
+	if slot.ID == r.SlotID {
+		return ErrMismoHorario
+	}
+	if err := validarVentana(slot, ahora); err != nil {
+		return err
+	}
+	r.SlotID = slot.ID
+	r.TutorID = slot.TutorID
+	r.TutorNombre = slot.TutorNombre
+	r.Curso = slot.Curso
+	r.Inicio = slot.Inicio.UTC()
+	r.Fin = slot.Fin.UTC()
+	return nil
+}
+
 // DatosReserva es lo que envía el formulario. El escolar nunca se recibe del cliente:
 // sale de la sesión autenticada. Los adjuntos se suben después de crear la reserva
 // (I09), para que un fallo de análisis no tumbe la reserva.
@@ -169,6 +193,7 @@ var (
 	ErrAlmacen               = errors.New("no se pudo guardar el adjunto")
 	ErrReservaNoCancelable   = errors.New("la reserva ya no se puede cancelar")
 	ErrCancelacionTardia     = errors.New("la sesión ya empezó: no se puede cancelar")
+	ErrMismoHorario          = errors.New("la reserva ya está en ese horario")
 )
 
 // ErrValidacion agrupa los errores por campo para que la vista los muestre sin repetir

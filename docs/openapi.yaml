@@ -1847,6 +1847,38 @@ paths:
         '401': { description: Sin sesión }
         '403': { description: La reserva no es de un participante }
         '404': { description: La reserva no existe }
+  /api/reserva/{id}/reprogramar:
+    post:
+      tags: [D-reserva]
+      summary: Mover una reserva a otro horario (I16)
+      description: >
+        Conserva la identidad de la reserva y su historial. El horario nuevo debe existir,
+        estar libre y cumplir la ventana de 48 horas y el horizonte.
+      security: [{ sesion: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slot_id]
+              properties:
+                slot_id: { type: string }
+                motivo: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: Reserva reprogramada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservaD' }
+        '400': { description: Cuerpo inválido }
+        '401': { description: Sin sesión }
+        '403': { description: La reserva no es de un participante }
+        '404': { description: La reserva o el horario no existen }
+        '409': { description: "slot_ocupado, mismo_horario o reserva_no_cancelable" }
+        '422': { description: "anticipacion_insuficiente u horizonte_excedido" }
   /api/sesion/salud:
     get: { tags: ["E · Sprints 1-2 · Sesión, asistencia y agenda"], summary: Estado del flujo E (sesiones), responses: { '200': { description: OK } } }
   /api/sesion/{id}:

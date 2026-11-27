@@ -167,6 +167,22 @@ func (s *Servicio) Cancelar(ctx context.Context, usuarioID string, rol modeloAcc
 	return s.repositorio.CancelarTransaccional(ctx, reserva.ID, usuarioID, motivo, s.ahora())
 }
 
+// Reprogramar mueve la reserva a otro horario conservando su identidad y su historial.
+func (s *Servicio) Reprogramar(ctx context.Context, usuarioID string, rol modeloAcceso.Rol, reservaID, nuevoSlotID, motivo string) (*Reserva, error) {
+	reserva, err := s.reservaVisible(ctx, reservaID, usuarioID, rol)
+	if err != nil {
+		return nil, err
+	}
+	slot, err := s.oferta.SlotPorID(ctx, nuevoSlotID)
+	if err != nil {
+		return nil, err
+	}
+	if err := reserva.Reprogramar(slot, s.ahora()); err != nil {
+		return nil, err
+	}
+	return s.repositorio.ReprogramarTransaccional(ctx, reserva.ID, slot, usuarioID, motivo, s.ahora())
+}
+
 // Historial devuelve los cambios de estado de la reserva para los participantes.
 func (s *Servicio) Historial(ctx context.Context, usuarioID string, rol modeloAcceso.Rol, reservaID string) ([]EventoHistorial, error) {
 	if _, err := s.reservaVisible(ctx, reservaID, usuarioID, rol); err != nil {
