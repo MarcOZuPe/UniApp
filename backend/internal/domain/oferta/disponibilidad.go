@@ -23,6 +23,7 @@ var (
 	ErrReduccionNoVerificable = errors.New("no se puede verificar si hay compromisos activos para reducir el cupo")
 	ErrCapacidadSemanal       = errors.New("la disponibilidad excede el cupo semanal")
 	ErrSlotNoEncontrado       = errors.New("slot de disponibilidad no encontrado")
+	ErrSlotConReserva         = errors.New("no se puede eliminar un horario con una reserva confirmada")
 )
 
 type SlotSemanal struct {

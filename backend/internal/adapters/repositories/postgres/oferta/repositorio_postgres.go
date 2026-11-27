@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/lib/pq"
@@ -137,6 +138,18 @@ func (r RepositorioPostgres) AgregarSlots(ctx context.Context, tutorID string, s
 }
 
 func (r RepositorioPostgres) EliminarSlot(ctx context.Context, tutorID string, slotID int64) error {
+	// Un horario con reserva confirmada no se borra: la reserva quedaría apuntando a un
+	// slot inexistente y el mismo horario podría publicarse y reservarse otra vez.
+	var reservas int
+	if err := r.DB.QueryRowContext(ctx,
+		`SELECT count(*) FROM reservas WHERE slot_id = $1 AND estado = 'confirmada'`,
+		strconv.FormatInt(slotID, 10)).Scan(&reservas); err != nil {
+		return err
+	}
+	if reservas > 0 {
+		return ErrSlotConReserva
+	}
+
 	resultado, err := r.DB.ExecContext(ctx,
 		`DELETE FROM slots WHERE id = $1 AND tutor_id = $2`, slotID, tutorID)
 	if err != nil {
