@@ -25,25 +25,32 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with: { go-version: "1.22" }
-      - name: Pruebas del backend
-        # Se omite mientras el backend no tenga módulo: el esqueleto (E02) no trae código aún.
+      - name: Pruebas de verificación del backend
         run: |
           if [ ! -f backend/go.mod ]; then
             echo "Sin backend/go.mod todavía: se omite el backend."
             exit 0
           fi
-          cd backend && test -z "$(gofmt -l .)" && go vet ./... && go test -race ./...
+          cd backend
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          cd ..
+          ./scripts/pruebas-verificacion.sh backend
   frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
-      - name: Pruebas del frontend
-        # Se omite mientras el frontend no tenga package.json.
+      - name: Pruebas de verificación del frontend
         run: |
           if [ ! -f frontend/package.json ]; then
             echo "Sin frontend/package.json todavía: se omite el frontend."
             exit 0
           fi
-          cd frontend && npm install && npm test && npm run build
+          cd frontend
+          npm ci
+          cd ..
+          ./scripts/pruebas-verificacion.sh frontend
+          cd frontend
+          npm run build
