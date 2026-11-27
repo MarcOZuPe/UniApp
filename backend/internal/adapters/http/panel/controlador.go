@@ -56,7 +56,7 @@ func (c *Controlador) metricas(w http.ResponseWriter, r *http.Request) {
 		c.errores.Escribir(w, dominio.ErrNoAutorizado)
 		return
 	}
-	metricas, err := c.nucleo.Metricas(r.Context(), usuario.Rol, usuario.FacultadID)
+	metricas, err := c.nucleo.Metricas(r.Context(), solicitanteDe(usuario))
 	if err != nil {
 		c.errores.Escribir(w, err)
 		return
@@ -82,7 +82,7 @@ func (c *Controlador) auditoria(w http.ResponseWriter, r *http.Request) {
 		}
 		limite = convertido
 	}
-	eventos, err := c.nucleo.Auditoria(r.Context(), usuario.Rol, usuario.FacultadID, dominio.FiltroAuditoria{
+	eventos, err := c.nucleo.Auditoria(r.Context(), solicitanteDe(usuario), dominio.FiltroAuditoria{
 		Limite: limite,
 	})
 	if err != nil {
@@ -92,4 +92,8 @@ func (c *Controlador) auditoria(w http.ResponseWriter, r *http.Request) {
 	vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]any{
 		"eventos": vista.PresentarAuditoria(eventos),
 	})
+}
+
+func solicitanteDe(usuario *modeloAcceso.Usuario) modelo.Solicitante {
+	return modelo.Solicitante{Rol: usuario.Rol, FacultadID: usuario.FacultadID}
 }

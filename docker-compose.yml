@@ -31,6 +31,7 @@ services:
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
       FRONTEND_PORT: ${FRONTEND_PORT:-5173}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_SECRET: ${SESSION_SECRET:-uniapp-dev-session-secret-no-usar-en-produccion}
       TUTOR_EMAIL_DOMAIN: ${TUTOR_EMAIL_DOMAIN:-uni.edu.pe,uni.pe}
       SEED_SYNTHETIC: ${SEED_SYNTHETIC:-true}
       SEED_PASSWORD: ${SEED_PASSWORD:-Dev-Passw0rd!2026}

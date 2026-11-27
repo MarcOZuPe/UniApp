@@ -61,3 +61,13 @@ type FiltroAuditoria struct {
 	Limite     int
 	FacultadID string
 }
+
+func (filtro FiltroAuditoria) Normalizado() FiltroAuditoria {
+	if filtro.Limite <= 0 {
+		filtro.Limite = LimiteAuditoriaPorDefecto
+	}
+	if filtro.Limite > LimiteAuditoriaMaximo {
+		filtro.Limite = LimiteAuditoriaMaximo
+	}
+	return filtro
+}

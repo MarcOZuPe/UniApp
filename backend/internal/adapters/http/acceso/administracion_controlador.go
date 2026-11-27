@@ -55,12 +55,11 @@ func (controlador *AdministracionControlador) crearGeneral(response http.Respons
 	}
 	usuario, err := controlador.servicio.Administracion.CrearGeneral(
 		request.Context(),
-		UsuarioDe(request.Context()),
+		modelo.OrigenSolicitud{Actor: UsuarioDe(request.Context()), IP: ipCliente(request)},
 		modelo.DatosNuevoGeneral{
 			Email: entrada.Email, NombreUso: entrada.NombreUso,
 			Clave: entrada.Clave, FacultadID: entrada.FacultadID,
 		},
-		ipCliente(request),
 	)
 	if err != nil {
 		controlador.responderError(response, err)
@@ -72,9 +71,8 @@ func (controlador *AdministracionControlador) crearGeneral(response http.Respons
 func (controlador *AdministracionControlador) eliminarGeneral(response http.ResponseWriter, request *http.Request) {
 	if err := controlador.servicio.Administracion.EliminarGeneral(
 		request.Context(),
-		UsuarioDe(request.Context()),
+		modelo.OrigenSolicitud{Actor: UsuarioDe(request.Context()), IP: ipCliente(request)},
 		request.PathValue("id"),
-		ipCliente(request),
 	); err != nil {
 		controlador.responderError(response, err)
 		return

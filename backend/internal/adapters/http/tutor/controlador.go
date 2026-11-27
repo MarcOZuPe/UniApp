@@ -170,7 +170,7 @@ func (c *Controlador) perfilPublico(w http.ResponseWriter, r *http.Request) {
 		c.responderError(w, err)
 		return
 	}
-	vistaAcceso.EscribirJSON(w, http.StatusOK, vista.PresentarPerfilPublico(expediente))
+	vistaAcceso.EscribirJSONCacheable(w, r, http.StatusOK, vista.PresentarPerfilPublico(expediente), 60)
 }
 
 func (c *Controlador) perfilesPublicos(w http.ResponseWriter, r *http.Request) {
@@ -179,9 +179,9 @@ func (c *Controlador) perfilesPublicos(w http.ResponseWriter, r *http.Request) {
 		c.responderError(w, err)
 		return
 	}
-	vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]any{
+	vistaAcceso.EscribirJSONCacheable(w, r, http.StatusOK, map[string]any{
 		"perfiles": vista.PresentarPerfilesPublicos(perfiles),
-	})
+	}, 60)
 }
 
 func (c *Controlador) documento(w http.ResponseWriter, r *http.Request) {

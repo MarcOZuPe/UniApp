@@ -50,4 +50,25 @@ describe('B-02: éxito anunciado con role="alert"', () => {
     const confirmacion = await screen.findByText('Se retiró el permiso para pedir tutorías.');
     expect(confirmacion.getAttribute('role')).toBe('status');
   });
+
+  it('F-16: pagina el historial en lugar de renderizarlo completo', async () => {
+    historialAutorizaciones.mockResolvedValue({
+      autorizaciones: Array.from({ length: 30 }, (_, indice) => ({
+        id: `a-${indice}`,
+        autorizado: indice % 2 === 0,
+        creada_en: '2026-11-01T10:00:00Z',
+      })),
+    });
+
+    render(
+      <MemoryRouter>
+        <PanelEscolares />
+      </MemoryRouter>
+    );
+    fireEvent.change(await screen.findByLabelText('Escolar'), {
+      target: { value: 'escolar-1' },
+    });
+
+    expect(await screen.findByRole('navigation', { name: /paginación/i })).toBeTruthy();
+  });
 });

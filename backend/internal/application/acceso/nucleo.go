@@ -15,7 +15,6 @@ type Nucleo struct {
 	RepositorioFacultades     RepositorioFacultades
 	RepositorioPerfil         RepositorioPerfil
 	RepositorioLogs           RepositorioLogs
-	RepositorioSesiones       RepositorioSesiones
 	RepositorioTokens         RepositorioTokens
 	RepositorioVinculaciones  RepositorioVinculaciones
 	RepositorioAutorizaciones RepositorioAutorizaciones
@@ -24,6 +23,7 @@ type Nucleo struct {
 	Hasher                    PasswordHasher
 	Bus                       Sujeto
 	Tokens                    GeneradorTokens
+	TokensSesion              TokensSesion
 	Reloj                     Reloj
 	HashSenuelo               string
 }

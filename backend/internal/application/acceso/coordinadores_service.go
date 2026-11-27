@@ -46,7 +46,8 @@ func (servicio *CoordinadoresService) Eliminar(
 	if err := servicio.RepositorioUsuarios.DesactivarUsuario(ctx, coordinador.ID); err != nil {
 		return err
 	}
-	return servicio.RepositorioSesiones.EliminarSesionesDeUsuario(ctx, coordinador.ID)
+	// El middleware comprueba Activo en cada petición; no hay sesión que borrar.
+	return nil
 }
 
 func esCoordinadorGeneral(usuario *Usuario) bool {

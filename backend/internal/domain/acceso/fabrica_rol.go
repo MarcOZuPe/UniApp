@@ -5,26 +5,23 @@ type FabricaRol interface {
 	Permisos() []Permiso
 }
 
+var fabricasPorRol = map[Rol]FabricaRol{
+	RolEscolar:            fabricaRolEscolar{},
+	RolApoderado:          fabricaRolApoderado{},
+	RolTutor:              fabricaRolTutor{},
+	RolCoordinador:        fabricaRolCoordinador{},
+	RolCoordinadorGeneral: fabricaRolCoordinadorGeneral{},
+	RolAdministrador:      fabricaRolAdministrador{},
+}
+
 func FabricaParaRol(rol Rol) (FabricaRol, error) {
-	switch rol {
-	case RolEscolar:
-		return fabricaRolEscolar{}, nil
-	case RolApoderado:
-		return fabricaRolApoderado{}, nil
-	case RolTutor:
-		return fabricaRolTutor{}, nil
-	case RolCoordinador:
-		return fabricaRolCoordinador{}, nil
-	case RolCoordinadorGeneral:
-		return fabricaRolCoordinadorGeneral{}, nil
-	case RolAdministrador:
-		return fabricaRolAdministrador{}, nil
-	default:
-		return nil, ErrValidacion{
-			Campos: map[string]string{
-				"rol": "rol desconocido",
-			},
-		}
+	if fabrica, existe := fabricasPorRol[rol]; existe {
+		return fabrica, nil
+	}
+	return nil, ErrValidacion{
+		Campos: map[string]string{
+			"rol": "rol desconocido",
+		},
 	}
 }
 

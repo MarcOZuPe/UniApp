@@ -40,24 +40,22 @@ func (servicio *SesionService) Ingresar(ctx context.Context, credenciales Creden
 	return token, usuario, nil
 }
 
-func (servicio *SesionService) Salir(ctx context.Context, token string) error {
-	return servicio.RepositorioSesiones.EliminarSesion(ctx, servicio.Tokens.Hash(token))
+func (servicio *SesionService) Salir(context.Context, string) error {
+	// La sesión es autocontenida: el cliente la elimina borrando su cookie.
+	// No existe estado de sesión en el servidor que revocar.
+	return nil
 }
 
 func (servicio *SesionService) UsuarioDeSesion(ctx context.Context, token string) (*Usuario, error) {
-	if token == "" {
-		return nil, ErrNoEncontrado
-	}
-	tokenHash := servicio.Tokens.Hash(token)
-	sesionGuardada, err := servicio.RepositorioSesiones.SesionPorHash(ctx, tokenHash)
+	sesion, err := servicio.TokensSesion.Verificar(token, servicio.Ahora())
 	if err != nil {
 		return nil, ErrNoEncontrado
 	}
-	if !servicio.Ahora().Before(sesionGuardada.ExpiraEn) {
-		return nil, ErrNoEncontrado
+	usuario, err := servicio.RepositorioUsuarios.UsuarioPorID(ctx, sesion.UsuarioID)
+	if err != nil {
+		return nil, err
 	}
-	usuario, err := servicio.RepositorioUsuarios.UsuarioPorID(ctx, sesionGuardada.UsuarioID)
-	if err != nil || !usuario.Activo {
+	if !usuario.Activo || huellaClave(usuario.ClaveHash) != sesion.HuellaClave {
 		return nil, ErrNoEncontrado
 	}
 	return usuario, nil
@@ -78,13 +76,9 @@ func (servicio *SesionService) autenticar(ctx context.Context, credenciales Cred
 }
 
 func (servicio *SesionService) abrirSesion(ctx context.Context, usuario *Usuario) (string, error) {
-	token, tokenHash, err := servicio.Tokens.Nuevo()
-	if err != nil {
-		return "", err
-	}
 	momento := servicio.Ahora()
-	sesion := Sesion{TokenHash: tokenHash, UsuarioID: usuario.ID, ExpiraEn: momento.Add(DuracionSesion)}
-	if err := servicio.RepositorioSesiones.GuardarSesion(ctx, sesion); err != nil {
+	token, err := servicio.TokensSesion.Firmar(usuario, momento.Add(DuracionSesion))
+	if err != nil {
 		return "", err
 	}
 	_ = servicio.RepositorioUsuarios.RegistrarIngreso(ctx, usuario.ID, momento)

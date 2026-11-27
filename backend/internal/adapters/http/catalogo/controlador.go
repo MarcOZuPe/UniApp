@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	ctrlAcceso "uniapp/internal/adapters/http/acceso"
+	vistaAcceso "uniapp/internal/adapters/presentation/acceso"
 	vista "uniapp/internal/adapters/presentation/catalogo"
 	modeloAcceso "uniapp/internal/application/acceso"
 	modelo "uniapp/internal/application/catalogo"
@@ -79,7 +80,7 @@ func (c *Controlador) catalogoPublico(w http.ResponseWriter, r *http.Request) {
 		c.responderError(w, err)
 		return
 	}
-	vista.EscribirJSON(w, http.StatusOK, vista.PresentarImportacion(importacion))
+	vistaAcceso.EscribirJSONCacheable(w, r, http.StatusOK, vista.PresentarImportacion(importacion), 60)
 }
 
 func (c *Controlador) importar(w http.ResponseWriter, r *http.Request) {
