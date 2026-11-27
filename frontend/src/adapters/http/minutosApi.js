@@ -9,9 +9,9 @@ export function crearMinutosApi(cliente = crearClienteHttp()) {
     proponer: (sesionID, minutos) => cliente.post(sesion(sesionID), { minutos }),
     disputar: (sesionID, motivo) => cliente.post(`${sesion(sesionID)}/disputa`, { motivo }),
     pendientes: () => cliente.get('/api/minutos/pendientes'),
-    aprobar: (sesionID) => cliente.post(`${coordinacion(sesionID)}/aprobar`),
-    ajustar: (sesionID, minutos, motivo) => cliente.post(`${coordinacion(sesionID)}/ajustar`, { minutos, motivo }),
-    resolver: (sesionID, minutos, motivo) => cliente.post(`${coordinacion(sesionID)}/resolver`, { minutos, motivo }),
+    aprobar: (sesionID) => cliente.post(`${coordinacion(sesionID)}/aprobacion`),
+    ajustar: (sesionID, minutos, motivo) => cliente.post(`${coordinacion(sesionID)}/ajustes`, { minutos, motivo }),
+    resolver: (sesionID, minutos, motivo) => cliente.post(`${coordinacion(sesionID)}/resolucion`, { minutos, motivo }),
     auditoria: (sesionID) => cliente.get(`${coordinacion(sesionID)}/auditoria`),
     totalPropio: () => cliente.get('/api/minutos/total'),
   };

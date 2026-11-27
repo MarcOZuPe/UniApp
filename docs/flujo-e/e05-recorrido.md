@@ -32,9 +32,9 @@ go test -run E05 -v ./internal/adapters/http/sesion/
  I11  POST /resultado              │                         │                     │
  I17  POST /minutos 45 y 60        │                         │                     │
       POST /minutos (parcial) ──► 422 asistencia_incompleta  │                     │
- I17        │                      │              POST /aprobar (x2)               │
+ I17        │                      │              POST /aprobacion (x2)               │
  I17        │               POST /minutos/disputa ──► congela (suma 0)             │
- I17        │                      │              POST /resolver 35                │
+ I17        │                      │              POST /resolucion 35                │
       GET /minutos/total = 95      │                         │                     │
             │                      │                         │       cancela la reserva
  I18        │                      │              GET /reportes/minutos csv y pdf  │
@@ -46,7 +46,7 @@ go test -run E05 -v ./internal/adapters/http/sesion/
 
 | Caso | Resultado esperado | Cómo se verifica |
 |---|---|---|
-| Sesión completa con disputa | 45 propuestos → aprobados → disputa (suma 0) → resueltos en **35** | Respuestas de `/disputa` y `/resolver`, y la fila del CSV `…,45,35,…` |
+| Sesión completa con disputa | 45 propuestos → aprobados → disputa (suma 0) → resueltos en **35** | Respuestas de `/disputa` y `/resolucion`, y la fila del CSV `…,45,35,…` |
 | Sesión parcial | El escolar reporta su ausencia; el tutor **no puede** proponer minutos | `422 asistencia_incompleta`; en el reporte: `ausencia_reportada` y `sin_registro` |
 | Cancelación | Una reserva cancelada **suma 0**, aunque ya estuviera verificada | Fila `anulado` con `…,60,0,…`; total del tutor de 95 a **35** |
 | Reporte CSV y PDF | Las 3 sesiones del día, aviso *"Sin validez oficial"*, escolar seudonimizado `ESC-…` | El CSV/PDF **no contiene** el ID del escolar |

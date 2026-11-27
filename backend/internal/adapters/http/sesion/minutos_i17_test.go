@@ -147,8 +147,8 @@ func TestI17FlujoCompletoHTTP(t *testing.T) {
 	if lista, _ := pendientes["pendientes"].([]any); len(lista) != 1 {
 		t.Fatalf("la bandeja debe tener 1 pendiente: %v", pendientes)
 	}
-	solicitarI17(t, e, tutor, "POST", "/api/minutos/sesion-i17/aprobar", "", 403)
-	aprobado := solicitarI17(t, e, coordinador, "POST", "/api/minutos/sesion-i17/aprobar", "", 200)
+	solicitarI17(t, e, tutor, "POST", "/api/minutos/sesion-i17/aprobacion", "", 403)
+	aprobado := solicitarI17(t, e, coordinador, "POST", "/api/minutos/sesion-i17/aprobacion", "", 200)
 	if aprobado["estado"] != "verificado" || aprobado["minutos_computables"] != float64(45) {
 		t.Fatalf("45 minutos deben sumar 45: %v", aprobado)
 	}
@@ -160,11 +160,11 @@ func TestI17FlujoCompletoHTTP(t *testing.T) {
 	if disputa["estado"] != "en_disputa" || disputa["minutos_computables"] != float64(0) {
 		t.Fatalf("la disputa debe congelar: %v", disputa)
 	}
-	solicitarI17(t, e, coordinador, "POST", "/api/minutos/sesion-i17/aprobar", "", 409)
+	solicitarI17(t, e, coordinador, "POST", "/api/minutos/sesion-i17/aprobacion", "", 409)
 
 	// Resolucion con motivo y total.
-	solicitarI17(t, e, coordinador, "POST", "/api/minutos/sesion-i17/resolver", `{"minutos":30}`, 422)
-	resuelto := solicitarI17(t, e, coordinador, "POST", "/api/minutos/sesion-i17/resolver", `{"minutos":30,"motivo":"Revisado con ambos"}`, 200)
+	solicitarI17(t, e, coordinador, "POST", "/api/minutos/sesion-i17/resolucion", `{"minutos":30}`, 422)
+	resuelto := solicitarI17(t, e, coordinador, "POST", "/api/minutos/sesion-i17/resolucion", `{"minutos":30,"motivo":"Revisado con ambos"}`, 200)
 	if resuelto["minutos_computables"] != float64(30) {
 		t.Fatalf("resolucion incorrecta: %v", resuelto)
 	}

@@ -2004,7 +2004,7 @@ paths:
                 properties:
                   pendientes: { type: array, items: { $ref: '#/components/schemas/MinutosI17' } }
         '403': { description: 'Rol sin permiso coordinacion:acceder (sin_permiso)' }
-  /api/minutos/{id}/aprobar:
+  /api/minutos/{id}/aprobacion:
     post:
       tags: [E-sesion]
       summary: Verificar los minutos propuestos tal como estan (I17)
@@ -2017,7 +2017,7 @@ paths:
         '403': { description: 'Sin permiso (sin_permiso) o participante de la sesion (autoaprobacion)' }
         '404': { description: 'Sin minutos propuestos (minutos_no_encontrados)' }
         '409': { description: 'Estado no admite aprobar (transicion_invalida) o reserva cancelada (sesion_cancelada)' }
-  /api/minutos/{id}/ajustar:
+  /api/minutos/{id}/ajustes:
     post:
       tags: [E-sesion]
       summary: Ajustar minutos propuestos o verificados con motivo auditado (I17)
@@ -2032,7 +2032,7 @@ paths:
         '403': { description: 'Sin permiso o autoaprobacion' }
         '409': { description: 'En disputa, usar resolver (transicion_invalida), o reserva cancelada' }
         '422': { description: 'Minutos fuera de 0-60 o motivo invalido' }
-  /api/minutos/{id}/resolver:
+  /api/minutos/{id}/resolucion:
     post:
       tags: [E-sesion]
       summary: Resolver una disputa fijando los minutos finales (I17)

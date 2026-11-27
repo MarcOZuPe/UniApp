@@ -154,13 +154,13 @@ func TestE05RecorridoSesionAReporte(t *testing.T) {
 	}
 
 	// 3. Coordinacion aprueba; el escolar disputa; coordinacion resuelve.
-	solicitarI17(t, e, cCoord, "POST", "/api/minutos/e05-completa/aprobar", "", 200)
-	solicitarI17(t, e, cCoord, "POST", "/api/minutos/e05-cancelada/aprobar", "", 200)
+	solicitarI17(t, e, cCoord, "POST", "/api/minutos/e05-completa/aprobacion", "", 200)
+	solicitarI17(t, e, cCoord, "POST", "/api/minutos/e05-cancelada/aprobacion", "", 200)
 	disputa := solicitarI17(t, e, cEscolar, "POST", "/api/sesion/e05-completa/minutos/disputa", `{"motivo":"Empezamos 10 minutos tarde"}`, 200)
 	if disputa["minutos_computables"] != float64(0) {
 		t.Fatalf("una disputa congela los minutos: %v", disputa)
 	}
-	solicitarI17(t, e, cCoord, "POST", "/api/minutos/e05-completa/resolver", `{"minutos":35,"motivo":"Confirmado con ambos"}`, 200)
+	solicitarI17(t, e, cCoord, "POST", "/api/minutos/e05-completa/resolucion", `{"minutos":35,"motivo":"Confirmado con ambos"}`, 200)
 
 	total := solicitarI17(t, e, cTutor, "GET", "/api/minutos/total", "", 200)
 	if total["minutos_verificados"] != float64(95) {
