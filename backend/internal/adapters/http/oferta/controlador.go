@@ -182,6 +182,8 @@ func responderError(w http.ResponseWriter, err error) {
 		vista.EscribirError(w, http.StatusServiceUnavailable, "reduccion_no_verificable", err.Error(), nil)
 	case errors.Is(err, modelo.ErrSlotNoEncontrado):
 		vista.EscribirError(w, http.StatusNotFound, "slot_no_encontrado", err.Error(), nil)
+	case errors.Is(err, modelo.ErrSlotConReserva):
+		vista.EscribirError(w, http.StatusConflict, "slot_con_reserva", err.Error(), nil)
 	default:
 		log.Printf("error en oferta: %v", err)
 		vista.EscribirError(w, http.StatusInternalServerError, "error_interno", "Ocurrió un error inesperado.", nil)

@@ -24,6 +24,7 @@ var (
 	ErrReduccionNoVerificable = dominio.ErrReduccionNoVerificable
 	ErrSlotInvalido           = dominio.ErrSlotInvalido
 	ErrSlotNoEncontrado       = dominio.ErrSlotNoEncontrado
+	ErrSlotConReserva         = dominio.ErrSlotConReserva
 	ErrSolapamiento           = dominio.ErrSolapamiento
 )
 

@@ -15,7 +15,7 @@ go test -run 'F31' -v ./internal/adapters/repositories/postgres/oferta/
 
 Necesita `TEST_DATABASE_URL`; la prueba crea su propia base y aplica las migraciones.
 
-Resultado esperado hoy: **1 en rojo**, con el mensaje `F-31: ...`.
+Estado: **corregido**. El test queda en verde y sirve como prueba de regresión.
 
 | Id | Tipo (lámina *Software Errors*) | Gravedad |
 |---|---|---|
@@ -33,7 +33,7 @@ Resultado esperado hoy: **1 en rojo**, con el mensaje `F-31: ...`.
   1. Un tutor publica el lunes de 09:00 a 10:00 y un escolar reserva ese horario.
   2. El tutor entra a "Mi disponibilidad" y elimina ese bloque.
   3. La reserva sigue confirmada, pero su `slot_id` ya no existe; el horario se puede volver a publicar y reservar otra vez.
-- **Código actual:**
+- **Código anterior:**
   ```go
   func (r RepositorioPostgres) EliminarSlot(ctx context.Context, tutorID string, slotID int64) error {
       resultado, err := r.DB.ExecContext(ctx,
@@ -42,7 +42,10 @@ Resultado esperado hoy: **1 en rojo**, con el mensaje `F-31: ...`.
   }
   ```
 - **Esperado:** rechazar la eliminación mientras el slot tenga una reserva confirmada
-  (`409 slot_con_reserva`), o marcarlo como no vigente sin borrar la fila.
+  (`409 slot_con_reserva`).
+- **Corrección:** `EliminarSlot` cuenta las reservas confirmadas de ese slot y devuelve
+  `ErrSlotConReserva` antes de borrar. El controlador lo traduce a `409 slot_con_reserva`.
+  El test F-31 queda como regresión.
 
 ## Pendiente de cubrir
 
