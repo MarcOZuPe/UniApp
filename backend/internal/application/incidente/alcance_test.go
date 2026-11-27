@@ -11,6 +11,11 @@ import (
 type repositorioPrueba struct {
 	escolares         []EscolarVinculado
 	tutorias          map[string][]Tutoria
+	tutoria           *Tutoria
+	incidente         *Incidente
+	creado            *Incidente
+	evidencia         Evidencia
+	filtro            Filtro
 	consultasTutorias int
 }
 
@@ -20,7 +25,10 @@ func (r *repositorioPrueba) TutoriasDeEscolar(_ context.Context, escolarID strin
 }
 
 func (r *repositorioPrueba) TutoriaDeEscolar(context.Context, string, string, time.Time) (*Tutoria, error) {
-	return nil, ErrTutoriaNoEncontrada
+	if r.tutoria == nil {
+		return nil, ErrTutoriaNoEncontrada
+	}
+	return r.tutoria, nil
 }
 
 func (r *repositorioPrueba) EscolaresDeApoderado(context.Context, string) ([]EscolarVinculado, error) {
@@ -36,24 +44,41 @@ func (r *repositorioPrueba) EsApoderadoDe(_ context.Context, _, escolarID string
 	return false, nil
 }
 
-func (r *repositorioPrueba) Crear(context.Context, *Incidente) (*Incidente, error) {
-	return nil, nil
+func (r *repositorioPrueba) Crear(_ context.Context, incidente *Incidente) (*Incidente, error) {
+	r.creado = incidente
+	return incidente, nil
 }
 
 func (r *repositorioPrueba) PorID(context.Context, string) (*Incidente, error) {
-	return nil, ErrIncidenteNoEncontrado
+	if r.incidente == nil {
+		return nil, ErrIncidenteNoEncontrado
+	}
+	return r.incidente, nil
 }
 
-func (r *repositorioPrueba) Listar(context.Context, Filtro) ([]Incidente, error) {
-	return nil, nil
+func (r *repositorioPrueba) Listar(_ context.Context, filtro Filtro) ([]Incidente, error) {
+	r.filtro = filtro
+	if r.incidente == nil {
+		return nil, nil
+	}
+	return []Incidente{*r.incidente}, nil
 }
 
-func (r *repositorioPrueba) Revisar(context.Context, string, string, Resultado, string, time.Time) (*Incidente, error) {
-	return nil, nil
+func (r *repositorioPrueba) Revisar(_ context.Context, incidenteID, revisorID string, resultado Resultado, comentario string, ahora time.Time) (*Incidente, error) {
+	revisadoEn := ahora.UTC()
+	incidente := &Incidente{
+		ID: incidenteID, Estado: EstadoRevisado, Resultado: resultado,
+		ComentarioRevision: comentario, RevisadoPor: revisorID, RevisadoEn: &revisadoEn,
+	}
+	r.incidente = incidente
+	return incidente, nil
 }
 
 func (r *repositorioPrueba) EvidenciaDe(context.Context, string, string) (Evidencia, error) {
-	return Evidencia{}, ErrEvidenciaNoEncontrada
+	if r.evidencia.ID == "" {
+		return Evidencia{}, ErrEvidenciaNoEncontrada
+	}
+	return r.evidencia, nil
 }
 
 func TestNuevoAlcanceRechazaRolesSinAccesoAIncidentes(t *testing.T) {
