@@ -15,7 +15,7 @@ const LimiteRegistroReportes = 50
 
 // ServicioReporte orquesta I18. Las reglas (filtro, seudonimo, totales y
 // huella) viven en el dominio; aqui se juntan las sesiones, los minutos de
-// I17 (sincronizados con las cancelaciones) y los nombres de los tutores.
+// I17 (vistos con las cancelaciones, sin escribir) y los nombres de los tutores.
 type ServicioReporte struct {
 	Reportes   RepositorioReportes
 	Minutos    ServicioMinutos
@@ -35,7 +35,7 @@ func (s ServicioReporte) Generar(ctx context.Context, filtro FiltroReporte, coor
 	entradas := make([]EntradaReporte, 0, len(sesiones))
 	nombres := map[string]string{}
 	for _, sesion := range sesiones {
-		minutos, err := s.Minutos.Consultar(ctx, sesion.ID(), ahora)
+		minutos, err := s.Minutos.Vista(ctx, sesion.ID(), ahora)
 		switch {
 		case errors.Is(err, dominio.ErrMinutosNoEncontrados):
 			minutos = nil

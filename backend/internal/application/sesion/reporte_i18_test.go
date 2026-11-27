@@ -130,6 +130,30 @@ func TestI18ServicioCancelacionSumaCero(t *testing.T) {
 	}
 }
 
+// El reporte es una lectura: ver una reserva cancelada no debe escribir la
+// anulacion en el repositorio (no repetir F-06 de Consultar).
+func TestI18ServicioNoEscribeAlVerReservaCancelada(t *testing.T) {
+	e := prepararReporteI18(t)
+	e.reservas.canceladas["reserva-sesion-1"] = true
+	if _, err := e.servicio.Generar(context.Background(), e.filtro, "coord", e.ahora); err != nil {
+		t.Fatal(err)
+	}
+	guardado, err := e.servicio.Minutos.Minutos.MinutosPorSesion(context.Background(), "sesion-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if guardado.Estado() != dominio.MinutosVerificados {
+		t.Fatalf("generar el reporte no debe persistir la anulacion: %s", guardado.Estado())
+	}
+}
+
+func TestI18VistaSinRegistroDevuelveNoEncontrado(t *testing.T) {
+	e := prepararReporteI18(t)
+	if _, err := e.servicio.Minutos.Vista(context.Background(), "sesion-3", e.ahora); !errors.Is(err, dominio.ErrMinutosNoEncontrados) {
+		t.Fatalf("esperaba ErrMinutosNoEncontrados: %v", err)
+	}
+}
+
 func TestI18ServicioRegistraDescargaYLista(t *testing.T) {
 	e := prepararReporteI18(t)
 	ctx := context.Background()

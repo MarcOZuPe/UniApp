@@ -56,6 +56,31 @@ func (s ServicioMinutos) Consultar(ctx context.Context, sesionID string, ahora t
 	return s.sincronizar(ctx, registro, ahora)
 }
 
+// Vista devuelve el registro tal como debe leerse ahora, sin escribir nada:
+// si la reserva se cancelo, anula una copia en memoria. La usan las lecturas
+// masivas (reporte de I18) para no repetir el efecto lateral de Consultar.
+func (s ServicioMinutos) Vista(ctx context.Context, sesionID string, ahora time.Time) (*RegistroMinutos, error) {
+	registro, err := s.Minutos.MinutosPorSesion(ctx, sesionID)
+	if err != nil {
+		return nil, err
+	}
+	if registro.Estado() == dominio.MinutosAnulados {
+		return registro, nil
+	}
+	cancelada, err := s.Reservas.Cancelada(ctx, registro.ReservaID())
+	if err != nil {
+		return nil, err
+	}
+	if !cancelada {
+		return registro, nil
+	}
+	copia := registro.Clonar()
+	if err := copia.Anular(ahora); err != nil {
+		return nil, err
+	}
+	return copia, nil
+}
+
 func (s ServicioMinutos) Aprobar(ctx context.Context, sesionID, coordinadorID string, ahora time.Time) (*RegistroMinutos, error) {
 	return s.actuar(ctx, sesionID, ahora, func(r *RegistroMinutos) error {
 		return r.Aprobar(coordinadorID, ahora)
