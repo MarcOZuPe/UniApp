@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { cancelarReserva } from '../../../adapters/http/reservaApi.js';
 import { obtenerAgenda } from '../../../adapters/http/agendaApi.js';
 import { obtenerSesionPorReserva } from '../../../adapters/http/sesionApi.js';
 import { useSesion } from '../../hooks/useSesion.js';
@@ -10,10 +11,28 @@ function esProxima(reserva, ahora) {
   return new Date(reserva.fin).getTime() > ahora;
 }
 
-function ListaReservas({ reservas }) {
+function ListaReservas({ reservas, rol, onCambio }) {
   const navigate = useNavigate();
   const [abriendoReserva, setAbriendoReserva] = useState(null);
+  const [cancelando, setCancelando] = useState(null);
   const [errorSesion, setErrorSesion] = useState('');
+
+  async function cancelar(reserva) {
+    if (!window.confirm('¿Cancelar esta tutoría? El horario volverá a estar disponible.')) {
+      return;
+    }
+    const motivo = window.prompt('Motivo de la cancelación (opcional):') ?? '';
+    setCancelando(reserva.id);
+    setErrorSesion('');
+    try {
+      await cancelarReserva(reserva.id, motivo);
+      onCambio();
+    } catch (err) {
+      setErrorSesion(err.message || 'No se pudo cancelar la reserva.');
+    } finally {
+      setCancelando(null);
+    }
+  }
 
   async function abrirSesion(reservaID) {
     setAbriendoReserva(reservaID);
@@ -67,12 +86,22 @@ function ListaReservas({ reservas }) {
             <button
               type="button"
               onClick={() => abrirSesion(reserva.id)}
-              disabled={abriendoReserva !== null}
+              disabled={abriendoReserva !== null || cancelando !== null}
             >
               {abriendoReserva === reserva.id
                 ? 'Abriendo sesión...'
                 : 'Ver detalle de sesión'}
             </button>
+
+            {rol === 'escolar' && reserva.estado === 'confirmada' && (
+              <button
+                type="button"
+                onClick={() => cancelar(reserva)}
+                disabled={cancelando !== null}
+              >
+                {cancelando === reserva.id ? 'Cancelando…' : 'Cancelar reserva'}
+              </button>
+            )}
           </article>
         </li>
       ))}
@@ -92,6 +121,7 @@ export default function Agenda() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [periodo, setPeriodo] = useState('proximas');
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let activo = true;
@@ -119,7 +149,7 @@ export default function Agenda() {
     return () => {
       activo = false;
     };
-  }, []);
+  }, [version]);
 
   const ahora = Date.now();
 
@@ -179,7 +209,11 @@ export default function Agenda() {
               : 'Tutorías anteriores'}
           </h2>
 
-          <ListaReservas reservas={visibles} />
+          <ListaReservas
+            reservas={visibles}
+            rol={usuario?.rol}
+            onCambio={() => setVersion((valor) => valor + 1)}
+          />
         </>
       )}
 

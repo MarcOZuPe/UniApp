@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import Agenda from './Agenda.jsx';
 import { obtenerAgenda } from '../../../adapters/http/agendaApi.js';
+import { cancelarReserva } from '../../../adapters/http/reservaApi.js';
 
 vi.mock('../../hooks/useSesion.js', () => ({
   useSesion: () => ({
@@ -18,6 +19,10 @@ vi.mock('../../../adapters/http/agendaApi.js', () => ({
 
 vi.mock('../../../adapters/http/sesionApi.js', () => ({
   obtenerSesionPorReserva: vi.fn(),
+}));
+
+vi.mock('../../../adapters/http/reservaApi.js', () => ({
+  cancelarReserva: vi.fn(),
 }));
 
 function renderizar() {
@@ -87,5 +92,34 @@ describe('B-21: actualización temporal de la agenda', () => {
 
     expect(screen.getByRole('button', { name: 'Próximas (0)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Pasadas (1)' })).toBeTruthy();
+  });
+});
+
+describe('I16: cancelar desde la agenda', () => {
+  it('cancela una reserva confirmada y recarga la agenda', async () => {
+    cancelarReserva.mockResolvedValue({ estado: 'cancelada' });
+    obtenerAgenda.mockResolvedValue([{
+      id: 'reserva-i16',
+      curso: 'Álgebra',
+      tema: 'Ecuaciones lineales',
+      tutor_nombre: 'Tutor de Álgebra',
+      estado: 'confirmada',
+      inicio: '2099-11-20T15:00:00Z',
+      fin: '2099-11-20T16:00:00Z',
+      inicio_lima: '2099-11-20 10:00',
+      fin_lima: '2099-11-20 11:00',
+    }]);
+
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.spyOn(window, 'prompt').mockReturnValue('enfermedad');
+
+    renderizar();
+    const boton = await screen.findByRole('button', { name: 'Cancelar reserva' });
+    await act(async () => {
+      boton.click();
+    });
+
+    expect(cancelarReserva).toHaveBeenCalledWith('reserva-i16', 'enfermedad');
+    expect(obtenerAgenda).toHaveBeenCalledTimes(2);
   });
 });

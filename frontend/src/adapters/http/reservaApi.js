@@ -62,6 +62,14 @@ export function crearApiReserva(implementacionFetch = (...argumentos) => fetch(.
       return pedir('POST', ruta(id, '/adjuntos'), { cuerpo: formulario });
     },
 
+    // I16: cancelar y reprogramar conservan la reserva y dejan historial.
+    cancelarReserva: (id, motivo = '') => pedir('POST', ruta(id, '/cancelar'), { cuerpo: { motivo } }),
+
+    reprogramarReserva: (id, slotID, motivo = '') =>
+      pedir('POST', ruta(id, '/reprogramar'), { cuerpo: { slot_id: slotID, motivo } }),
+
+    historialReserva: (id) => pedir('GET', ruta(id, '/historial')),
+
     urlAdjunto: (id, adjuntoId) => ruta(id, `/adjuntos/${encodeURIComponent(adjuntoId)}`),
   };
 }
@@ -75,3 +83,6 @@ export const obtenerReserva = (id) => apiReserva.obtenerReserva(id);
 export const listarAdjuntos = (id) => apiReserva.listarAdjuntos(id);
 export const subirAdjunto = (id, archivo) => apiReserva.subirAdjunto(id, archivo);
 export const urlAdjunto = (id, adjuntoId) => apiReserva.urlAdjunto(id, adjuntoId);
+export const cancelarReserva = (id, motivo) => apiReserva.cancelarReserva(id, motivo);
+export const reprogramarReserva = (id, slotID, motivo) => apiReserva.reprogramarReserva(id, slotID, motivo);
+export const historialReserva = (id) => apiReserva.historialReserva(id);
