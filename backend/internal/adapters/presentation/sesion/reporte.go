@@ -81,21 +81,19 @@ func NombreArchivoReporte(r *modelo.Reporte, formato modelo.FormatoReporte) stri
 
 // TipoContenidoReporte devuelve el Content-Type del formato.
 func TipoContenidoReporte(formato modelo.FormatoReporte) string {
-	if formato == modelo.FormatoPDF {
-		return "application/pdf"
+	if exportador, err := ExportadorPara(formato); err == nil {
+		return exportador.TipoContenido()
 	}
-	return "text/csv; charset=utf-8"
+	return ExportadorCSV{}.TipoContenido()
 }
 
-// RenderizarReporte produce el archivo en el formato pedido.
+// RenderizarReporte produce el archivo con la estrategia del formato pedido.
 func RenderizarReporte(r *modelo.Reporte, formato modelo.FormatoReporte) ([]byte, error) {
-	switch formato {
-	case modelo.FormatoCSV:
-		return ReporteCSV(r)
-	case modelo.FormatoPDF:
-		return ReportePDF(r), nil
+	exportador, err := ExportadorPara(formato)
+	if err != nil {
+		return nil, err
 	}
-	return nil, modelo.ErrFormatoReporteInvalido
+	return exportador.Exportar(r)
 }
 
 // celdaCSV evita la inyeccion de formulas al abrir el archivo en una hoja de

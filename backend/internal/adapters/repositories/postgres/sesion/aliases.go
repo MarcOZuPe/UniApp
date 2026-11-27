@@ -19,6 +19,7 @@ type (
 	Entrega               = dominio.Entrega
 	EstadoMinutos         = dominio.EstadoMinutos
 	EstadoReservas        = dominio.EstadoReservas
+	ExportadorReporte     = dominio.ExportadorReporte
 	FilaReporte           = dominio.FilaReporte
 	FiltroReporte         = dominio.FiltroReporte
 	FormatoReporte        = dominio.FormatoReporte

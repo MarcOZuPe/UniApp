@@ -342,6 +342,15 @@ type RepositorioReportes interface {
 	ReportesRecientes(ctx context.Context, limite int) ([]RegistroReporte, error)
 }
 
+// ExportadorReporte es la estrategia (patron Strategy de GoF) que convierte un
+// Reporte en el archivo que se entrega. Cada formato es una implementacion
+// intercambiable; el caso de uso y el controlador no saben cual usan.
+type ExportadorReporte interface {
+	Formato() FormatoReporte
+	TipoContenido() string
+	Exportar(r *Reporte) ([]byte, error)
+}
+
 // DirectorioNombres traduce un usuario a su nombre visible. Lo implementa un
 // adaptador sobre el flujo A (acceso); "" si no se conoce.
 type DirectorioNombres interface {
