@@ -20,6 +20,7 @@ export const NAVEGACION = [
   { ruta: '/coordinacion/tutores', texto: 'Revisar tutores', descripcion: 'Aprueba o rechaza expedientes.', icono: 'verificado', roles: ROLES_COORDINACION },
   { ruta: '/coordinacion/catalogo', texto: 'Gestionar catálogo', descripcion: 'Cursos, grados y colegios del padrón.', icono: 'lista', roles: ROLES_COORDINACION },
   { ruta: '/coordinacion/minutos', texto: 'Verificar minutos', descripcion: 'Aprueba o ajusta minutos verificados.', icono: 'reloj', roles: ROLES_COORDINACION },
+  { ruta: '/coordinacion/reportes', texto: 'Reporte de minutos', descripcion: 'Descarga en CSV o PDF los minutos de un periodo.', icono: 'documento', roles: ROLES_COORDINACION },
   { ruta: '/coordinacion/coordinadores', texto: 'Gestionar coordinadores', descripcion: 'Crea o elimina cuentas de coordinación.', icono: 'grupo', roles: ['coordinador_general'] },
   { ruta: '/administracion', texto: 'Administración', textoInicio: 'Administración del sistema', descripcion: 'Coordinadores generales y bitácora de seguridad.', icono: 'panel', roles: ['administrador'], fin: true },
   { ruta: '/catalogo', texto: 'Catálogo', descripcion: 'Cursos y perfiles públicos de tutores.', icono: 'catalogo' },

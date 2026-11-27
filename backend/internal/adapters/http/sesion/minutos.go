@@ -58,9 +58,9 @@ func RutasMinutos(
 	mux.Handle("POST /api/sesion/{id}/minutos/disputa", autenticar(http.HandlerFunc(c.disputar)))
 	mux.Handle("GET /api/minutos/total", autenticar(http.HandlerFunc(c.total)))
 	mux.Handle("GET /api/minutos/pendientes", coordinacion(c.pendientes))
-	mux.Handle("POST /api/minutos/{id}/aprobar", coordinacion(c.aprobar))
-	mux.Handle("POST /api/minutos/{id}/ajustar", coordinacion(c.ajustar))
-	mux.Handle("POST /api/minutos/{id}/resolver", coordinacion(c.resolver))
+	mux.Handle("POST /api/minutos/{id}/aprobacion", coordinacion(c.aprobar))
+	mux.Handle("POST /api/minutos/{id}/ajustes", coordinacion(c.ajustar))
+	mux.Handle("POST /api/minutos/{id}/resolucion", coordinacion(c.resolver))
 	mux.Handle("GET /api/minutos/{id}/auditoria", coordinacion(c.auditoria))
 	return mux
 }

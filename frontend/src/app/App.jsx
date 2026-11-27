@@ -25,6 +25,7 @@ import Agenda from '../presentation/pages/reserva/Agenda.jsx';
 import DetalleSesion from '../presentation/pages/sesion/DetalleSesion.jsx';
 import Notificaciones from '../presentation/pages/sesion/Notificaciones.jsx';
 import RevisionMinutos from '../presentation/pages/sesion/RevisionMinutos.jsx';
+import ReporteMinutos from '../presentation/pages/sesion/ReporteMinutos.jsx';
 
 import VincularEscolar from '../presentation/pages/apoderado/VincularEscolar.jsx';
 import PanelEscolares from '../presentation/pages/apoderado/PanelEscolares.jsx';
@@ -121,6 +122,15 @@ export default function App() {
                     element={
                         <RutaProtegida roles={['coordinador', 'coordinador_general']}>
                             <RevisionMinutos />
+                        </RutaProtegida>
+                    }
+                />
+
+                <Route
+                    path="/coordinacion/reportes"
+                    element={
+                        <RutaProtegida roles={['coordinador', 'coordinador_general']}>
+                            <ReporteMinutos />
                         </RutaProtegida>
                     }
                 />

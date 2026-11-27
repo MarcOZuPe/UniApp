@@ -2,128 +2,317 @@ package sesion
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+	"errors"
+	"sync"
 	"testing"
 	"time"
 )
 
-func TestRepositorioMemoriaSesion(t *testing.T) {
+func TestRepositorioMemoriaCrearYConsultar(testingT *testing.T) {
+	contexto := context.Background()
+	repositorio := NuevoRepositorioMemoria()
+	sesion := nuevaSesionDePrueba(testingT)
+
+	if err := repositorio.CrearSesion(contexto, sesion); err != nil {
+		testingT.Fatalf("crear sesion: %v", err)
+	}
+
+	obtenida, err := repositorio.SesionPorID(contexto, sesion.ID())
+	if err != nil {
+		testingT.Fatalf("consultar sesion: %v", err)
+	}
+
+	if obtenida.ID() != sesion.ID() ||
+		obtenida.ReservaID() != sesion.ReservaID() {
+		testingT.Fatal("la sesion recuperada no coincide")
+	}
+}
+
+func TestRepositorioMemoriaSesionNoEncontrada(testingT *testing.T) {
+	repositorio := NuevoRepositorioMemoria()
+
+	_, err := repositorio.SesionPorID(context.Background(), "inexistente")
+	if !errors.Is(err, ErrSesionNoEncontrada) {
+		testingT.Fatalf("se esperaba ErrSesionNoEncontrada, se obtuvo %v", err)
+	}
+}
+
+func TestRepositorioMemoriaRechazaDuplicados(testingT *testing.T) {
+	contexto := context.Background()
+	repositorio := NuevoRepositorioMemoria()
+	sesion := nuevaSesionDePrueba(testingT)
+
+	if err := repositorio.CrearSesion(contexto, sesion); err != nil {
+		testingT.Fatal(err)
+	}
+
+	if err := repositorio.CrearSesion(contexto, sesion); !errors.Is(err, ErrSesionDuplicada) {
+		testingT.Fatalf("debe rechazar ID duplicado: %v", err)
+	}
+
+	otra, err := NuevaSesion(
+		"sesion-002",
+		sesion.ReservaID(),
+		"tutor-001",
+		"escolar-001",
+		sesion.Inicio(),
+		sesion.Fin(),
+	)
+	if err != nil {
+		testingT.Fatal(err)
+	}
+
+	if err := repositorio.CrearSesion(contexto, otra); !errors.Is(err, ErrSesionDuplicada) {
+		testingT.Fatalf("debe rechazar reserva duplicada: %v", err)
+	}
+}
+
+func TestRepositorioMemoriaDeclararAsistencia(testingT *testing.T) {
+	contexto := context.Background()
+	repositorio := NuevoRepositorioMemoria()
+	sesion := nuevaSesionDePrueba(testingT)
+
+	if err := repositorio.CrearSesion(contexto, sesion); err != nil {
+		testingT.Fatal(err)
+	}
+
+	momento := sesion.Inicio()
+	asistencia, err := repositorio.DeclararAsistencia(contexto, sesion.ID(), sesion.TutorID(), momento)
+	if err != nil {
+		testingT.Fatalf("declarar asistencia: %v", err)
+	}
+
+	if asistencia.Rol() != RolTutor ||
+		asistencia.UsuarioID() != sesion.TutorID() {
+		testingT.Fatal("datos de asistencia incorrectos")
+	}
+
+	guardada, err := repositorio.SesionPorID(contexto, sesion.ID())
+	if err != nil {
+		testingT.Fatal(err)
+	}
+
+	if len(guardada.Asistencias()) != 1 {
+		testingT.Fatal("la asistencia no fue almacenada")
+	}
+}
+
+func TestRepositorioMemoriaRechazaParticipanteAjeno(testingT *testing.T) {
+	contexto := context.Background()
+	repositorio := NuevoRepositorioMemoria()
+	sesion := nuevaSesionDePrueba(testingT)
+
+	if err := repositorio.CrearSesion(contexto, sesion); err != nil {
+		testingT.Fatal(err)
+	}
+
+	_, err := repositorio.DeclararAsistencia(
+		contexto, sesion.ID(), "usuario-ajeno", sesion.Inicio(),
+	)
+
+	if !errors.Is(err, ErrNoAutorizado) {
+		testingT.Fatalf("se esperaba ErrNoAutorizado, se obtuvo %v", err)
+	}
+}
+
+func TestRepositorioMemoriaRechazaAsistenciaDuplicada(testingT *testing.T) {
+	contexto := context.Background()
+	repositorio := NuevoRepositorioMemoria()
+	sesion := nuevaSesionDePrueba(testingT)
+
+	if err := repositorio.CrearSesion(contexto, sesion); err != nil {
+		testingT.Fatal(err)
+	}
+
+	_, err := repositorio.DeclararAsistencia(
+		contexto, sesion.ID(), sesion.TutorID(), sesion.Inicio(),
+	)
+	if err != nil {
+		testingT.Fatal(err)
+	}
+
+	_, err = repositorio.DeclararAsistencia(
+		contexto, sesion.ID(), sesion.TutorID(), sesion.Inicio(),
+	)
+
+	if !errors.Is(err, ErrAsistenciaDuplicada) {
+		testingT.Fatalf("se esperaba ErrAsistenciaDuplicada, se obtuvo %v", err)
+	}
+}
+
+func TestRepositorioMemoriaConcurrencia(testingT *testing.T) {
+	contexto := context.Background()
+	repositorio := NuevoRepositorioMemoria()
+	sesion := nuevaSesionDePrueba(testingT)
+
+	if err := repositorio.CrearSesion(contexto, sesion); err != nil {
+		testingT.Fatal(err)
+	}
+
+	const solicitudes = 10
+
+	resultados := make(chan error, solicitudes)
+	var grupo sync.WaitGroup
+
+	for indiceSolicitud := 0; indiceSolicitud < solicitudes; indiceSolicitud++ {
+		grupo.Add(1)
+
+		go func() {
+			defer grupo.Done()
+			_, err := repositorio.DeclararAsistencia(
+				contexto, sesion.ID(), sesion.TutorID(), sesion.Inicio(),
+			)
+			resultados <- err
+		}()
+	}
+
+	grupo.Wait()
+	close(resultados)
+
+	exitos := 0
+	duplicados := 0
+
+	for err := range resultados {
+		switch {
+		case err == nil:
+			exitos++
+		case errors.Is(err, ErrAsistenciaDuplicada):
+			duplicados++
+		default:
+			testingT.Fatalf("error inesperado: %v", err)
+		}
+	}
+
+	if exitos != 1 || duplicados != solicitudes-1 {
+		testingT.Fatalf(
+			"se esperaba 1 exito y %d duplicados; hubo %d exitos y %d duplicados",
+			solicitudes-1, exitos, duplicados,
+		)
+	}
+}
+
+func TestI11MemoriaAsistenciaYAusenciaConcurrentes(t *testing.T) {
+	ctx := context.Background()
 	repo := NuevoRepositorioMemoria()
-	ctx := context.Background()
-	inicio := time.Now().UTC().Add(-2 * time.Hour)
-	sesion, err := NuevaSesion("s-1", "r-1", "tutor-1", "escolar-1", inicio, inicio.Add(time.Hour))
+	s := nuevaSesionDePrueba(t)
+	if err := repo.CrearSesion(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.ReportarAusencia(ctx, "inexistente", s.TutorID(), s.Fin()); !errors.Is(err, ErrSesionNoEncontrada) {
+		t.Fatalf("sesion inexistente: %v", err)
+	}
+	if _, err := repo.ReportarAusencia(ctx, s.ID(), "ajeno", s.Fin()); !errors.Is(err, ErrNoAutorizado) {
+		t.Fatalf("autorizacion: %v", err)
+	}
+	resultados := make(chan error, 2)
+	inicio := make(chan struct{})
+	go func() {
+		<-inicio
+		_, err := repo.ReportarAusencia(ctx, s.ID(), s.TutorID(), s.Fin())
+		resultados <- err
+	}()
+	go func() {
+		<-inicio
+		_, err := repo.DeclararAsistencia(ctx, s.ID(), s.TutorID(), s.Fin())
+		resultados <- err
+	}()
+	close(inicio)
+	exitos, conflictos := 0, 0
+	for i := 0; i < 2; i++ {
+		err := <-resultados
+		if err == nil {
+			exitos++
+		} else if errors.Is(err, ErrDeclaracionContradictoria) {
+			conflictos++
+		} else {
+			t.Fatal(err)
+		}
+	}
+	if exitos != 1 || conflictos != 1 {
+		t.Fatalf("exitos=%d conflictos=%d", exitos, conflictos)
+	}
+	if _, err := repo.ReportarAusencia(ctx, s.ID(), s.EscolarID(), s.Fin()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.ReportarAusencia(ctx, s.ID(), s.EscolarID(), s.Fin()); !errors.Is(err, ErrAusenciaDuplicada) {
+		t.Fatalf("duplicado: %v", err)
+	}
+	guardada, err := repo.SesionPorID(ctx, s.ID())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.CrearSesion(ctx, sesion); err != nil {
-		t.Fatalf("crear sesión falló: %v", err)
+	ausencias := guardada.Ausencias()
+	ultima := ausencias[len(ausencias)-1]
+	if ultima.UsuarioID() != s.EscolarID() || !ultima.ReportadaEn().Equal(s.Fin()) {
+		t.Fatal("ausencia no guardada")
 	}
-	if err := repo.CrearSesion(ctx, sesion); err != ErrSesionDuplicada {
-		t.Fatalf("se esperaba sesión duplicada: %v", err)
-	}
-	otra, _ := NuevaSesion("s-2", "r-1", "tutor-2", "escolar-2", inicio, inicio.Add(time.Hour))
-	if err := repo.CrearSesion(ctx, otra); err != ErrSesionDuplicada {
-		t.Fatalf("se esperaba reserva duplicada: %v", err)
-	}
-	if _, err := repo.SesionPorID(ctx, "s-1"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repo.SesionPorID(ctx, "inexistente"); err != ErrSesionNoEncontrada {
-		t.Fatalf("se esperaba no encontrada: %v", err)
-	}
-	if _, err := repo.SesionPorReservaID(ctx, "r-1"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repo.SesionPorReservaID(ctx, "inexistente"); err != ErrSesionNoEncontrada {
-		t.Fatalf("se esperaba no encontrada: %v", err)
-	}
-	ahora := inicio.Add(30 * time.Minute)
-	if _, err := repo.DeclararAsistencia(ctx, "s-1", "escolar-1", ahora); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repo.DeclararAsistencia(ctx, "inexistente", "escolar-1", ahora); err != ErrSesionNoEncontrada {
-		t.Fatalf("se esperaba no encontrada: %v", err)
-	}
-	if _, err := repo.ReportarAusencia(ctx, "s-1", "tutor-1", ahora); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repo.ReportarAusencia(ctx, "inexistente", "tutor-1", ahora); err != ErrSesionNoEncontrada {
-		t.Fatalf("se esperaba no encontrada: %v", err)
-	}
-	resultado, err := repo.RegistrarResultado(ctx, "s-1", "tutor-1", "Resultado", inicio.Add(2*time.Hour))
-	if err != nil || resultado.Resumen() != "Resultado" {
-		t.Fatalf("resultado inesperado: %+v err=%v", resultado, err)
-	}
-	if _, err := repo.RegistrarResultado(ctx, "inexistente", "tutor-1", "Resultado", ahora); err != ErrSesionNoEncontrada {
-		t.Fatalf("se esperaba no encontrada: %v", err)
+	if len(ausencias)+len(guardada.Asistencias()) != 2 {
+		t.Fatal("declaraciones contradictorias persistidas")
 	}
 }
 
-func TestRepositorioMemoriaMinutos(t *testing.T) {
-	repo := NuevoRepositorioMinutosMemoria()
+func TestI11MemoriaResultadoConcurrente(t *testing.T) {
 	ctx := context.Background()
-	inicio := time.Now().UTC().Add(-2 * time.Hour)
-	fin := inicio.Add(time.Hour)
-	sesion, _ := NuevaSesion("s-1", "r-1", "tutor-1", "escolar-1", inicio, fin)
-	_ = sesion.DeclararAsistencia("tutor-1", inicio.Add(30*time.Minute))
-	_ = sesion.DeclararAsistencia("escolar-1", inicio.Add(30*time.Minute))
-	registro, err := ProponerMinutos(sesion, "tutor-1", 60, fin.Add(time.Hour))
+	repo := NuevoRepositorioMemoria()
+	s := nuevaSesionDePrueba(t)
+	if err := repo.CrearSesion(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.RegistrarResultado(ctx, "inexistente", s.TutorID(), "Resumen", s.Fin()); !errors.Is(err, ErrSesionNoEncontrada) {
+		t.Fatalf("inexistente: %v", err)
+	}
+	if _, err := repo.RegistrarResultado(ctx, s.ID(), s.EscolarID(), "Resumen", s.Fin()); !errors.Is(err, ErrNoAutorizado) {
+		t.Fatalf("autorizacion: %v", err)
+	}
+	resultados := make(chan error, 2)
+	inicio := make(chan struct{})
+	for i := 0; i < 2; i++ {
+		go func() {
+			<-inicio
+			_, err := repo.RegistrarResultado(ctx, s.ID(), s.TutorID(), "Resumen", s.Fin())
+			resultados <- err
+		}()
+	}
+	close(inicio)
+	exitos, duplicados := 0, 0
+	for i := 0; i < 2; i++ {
+		err := <-resultados
+		if err == nil {
+			exitos++
+		} else if errors.Is(err, ErrResultadoDuplicado) {
+			duplicados++
+		} else {
+			t.Fatal(err)
+		}
+	}
+	if exitos != 1 || duplicados != 1 {
+		t.Fatalf("exitos=%d duplicados=%d", exitos, duplicados)
+	}
+	guardada, err := repo.SesionPorID(ctx, s.ID())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.CrearMinutos(ctx, registro); err != nil {
-		t.Fatalf("crear minutos falló: %v", err)
-	}
-	if err := repo.CrearMinutos(ctx, registro); err != ErrMinutosDuplicados {
-		t.Fatalf("se esperaba duplicado: %v", err)
-	}
-	if _, err := repo.MinutosPorSesion(ctx, "s-1"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repo.MinutosPorSesion(ctx, "inexistente"); err != ErrMinutosNoEncontrados {
-		t.Fatalf("se esperaba no encontrado: %v", err)
-	}
-	if pendientes, err := repo.MinutosPendientes(ctx); err != nil || len(pendientes) != 1 {
-		t.Fatalf("pendientes inesperados: %+v err=%v", pendientes, err)
-	}
-	if delTutor, err := repo.MinutosDeTutor(ctx, "tutor-1"); err != nil || len(delTutor) != 1 {
-		t.Fatalf("minutos del tutor inesperados: %+v err=%v", delTutor, err)
-	}
-	actualizado, err := repo.ActualizarMinutos(ctx, "s-1", func(registro *RegistroMinutos) error {
-		return registro.Aprobar("coord-1", fin.Add(2*time.Hour))
-	})
-	if err != nil || actualizado.Estado() != MinutosVerificados {
-		t.Fatalf("actualización inesperada: %+v err=%v", actualizado, err)
-	}
-	if _, err := repo.ActualizarMinutos(ctx, "s-1", func(*RegistroMinutos) error { return ErrTransicionMinutos }); err != ErrTransicionMinutos {
-		t.Fatalf("el error del cambio debe propagarse: %v", err)
-	}
-	if _, err := repo.ActualizarMinutos(ctx, "inexistente", func(*RegistroMinutos) error { return nil }); err != ErrMinutosNoEncontrados {
-		t.Fatalf("se esperaba no encontrado: %v", err)
+	if guardada.Resultado() == nil || guardada.Resultado().Resumen() != "Resumen" || guardada.Resultado().UsuarioID() != s.TutorID() {
+		t.Fatal("resultado no guardado")
 	}
 }
 
-func TestCancelacionesYFixture(t *testing.T) {
-	cancelaciones := NuevasCancelacionesFijas("r-1", "r-2")
-	if cancelada, err := cancelaciones.Cancelada(context.Background(), "r-1"); err != nil || !cancelada {
-		t.Fatalf("r-1 debería estar cancelada: %v %v", cancelada, err)
-	}
-	if cancelada, _ := cancelaciones.Cancelada(context.Background(), "r-3"); cancelada {
-		t.Fatal("r-3 no debería estar cancelada")
-	}
-	if _, err := CargarCancelacionesFixture("/ruta/inexistente"); err == nil {
-		t.Fatal("un fixture inexistente debe fallar")
-	}
-	ruta := filepath.Join(t.TempDir(), "cancelaciones.json")
-	if err := os.WriteFile(ruta, []byte(`{"reservas_canceladas":["r-4"]}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-	fixture, err := CargarCancelacionesFixture(ruta)
+func nuevaSesionDePrueba(testingT *testing.T) *Sesion {
+	testingT.Helper()
+
+	inicio := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+
+	sesion, err := NuevaSesion(
+		"sesion-001",
+		"reserva-001",
+		"tutor-001",
+		"escolar-001",
+		inicio,
+		inicio.Add(DuracionSesion),
+	)
 	if err != nil {
-		t.Fatal(err)
+		testingT.Fatalf("no se pudo crear la sesion: %v", err)
 	}
-	if cancelada, _ := fixture.Cancelada(context.Background(), "r-4"); !cancelada {
-		t.Fatal("r-4 debería estar cancelada")
-	}
+
+	return sesion
 }

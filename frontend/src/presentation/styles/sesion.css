@@ -33,3 +33,45 @@
 .pagina-sesion .sesion-resumen { white-space: pre-wrap; }
 .pagina-sesion .sesion-plazo { margin: .5rem 0; color: #4a5568; }
 .pagina-sesion .sesion-plazo-cerrado, .pagina-sesion .sesion-plazo-pendiente { color: #704b00; }
+
+/* I17 · Revisión de minutos (coordinación): una tarjeta por registro,
+   etiquetas encima de cada control y acciones alineadas. */
+.pagina-sesion .minutos-lista { display: grid; gap: 1.2rem; margin: 0; padding: 0; list-style: none; }
+.pagina-sesion .minutos-tarjeta { display: grid; gap: 1.1rem; container: minutos / inline-size; }
+.pagina-sesion .minutos-cabecera { display: flex; flex-wrap: wrap; align-items: safe center; justify-content: space-between; gap: .6rem 1rem; }
+.pagina-sesion .minutos-cabecera h2 { margin: 0; font-size: 1.15rem; overflow-wrap: anywhere; }
+.pagina-sesion .minutos-estado { padding: .2rem .75rem; border-radius: 20px; font-size: .9rem; font-weight: 650; }
+.pagina-sesion .minutos-estado.propuesto { background: light-dark(#fff5d9, #4a3500); color: light-dark(#704b00, #ffe3a3); }
+.pagina-sesion .minutos-estado.en-disputa { background: light-dark(#fde8e8, #5a1d1d); color: light-dark(#8a1c1c, #ffd2d2); }
+.pagina-sesion .minutos-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; margin: 0; }
+.pagina-sesion .minutos-datos > div { padding: .7rem .9rem; border-radius: 10px; background: var(--accent-suave); }
+.pagina-sesion .minutos-datos dt { color: var(--muted); font-size: .85rem; }
+.pagina-sesion .minutos-datos dd { margin: .15rem 0 0; font-size: 1.25rem; font-weight: 700; }
+.pagina-sesion .minutos-aprobar { display: grid; gap: .3rem; }
+.pagina-sesion .minutos-aprobar .sesion-declarar,
+.pagina-sesion .minutos-formulario .sesion-declarar { width: auto; justify-self: start; margin-top: 0; padding-inline: 1.4rem; }
+.pagina-sesion .minutos-aprobar .sesion-zona { margin: 0; font-size: .9rem; }
+.pagina-sesion .minutos-formulario { display: grid; gap: .9rem; padding-top: 1rem; border-top: 1px solid var(--borde); }
+.pagina-sesion .minutos-formulario h3 { margin: 0; font-size: 1rem; }
+.pagina-sesion .minutos-campos { display: grid; grid-template-columns: 1fr; gap: .9rem; }
+.pagina-sesion .minutos-campo { display: flex; flex-direction: column; gap: .3rem; min-inline-size: 0; }
+.pagina-sesion .minutos-campo label { font-weight: 650; }
+.pagina-sesion .minutos-campo input,
+.pagina-sesion .minutos-campo textarea {
+  box-sizing: border-box; inline-size: 100%; min-block-size: 48px; padding: .6rem .75rem;
+  border: 1px solid var(--borde-campo); border-radius: 8px; background: var(--bg); color: var(--fg);
+  font: inherit; font-size: max(1rem, 1em);
+}
+.pagina-sesion .minutos-campo textarea { resize: vertical; }
+.pagina-sesion .minutos-campo input:focus-visible,
+.pagina-sesion .minutos-campo textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.pagina-sesion .minutos-ayuda { color: var(--muted); font-size: .85rem; }
+.pagina-sesion .minutos-pie { display: grid; gap: .6rem; }
+.pagina-sesion .minutos-secundario {
+  justify-self: start; min-block-size: 44px; padding: .5rem 1.1rem; border: 1px solid var(--accent); border-radius: 8px;
+  background: transparent; color: var(--accent); font: inherit; font-weight: 650; cursor: pointer;
+}
+.pagina-sesion .minutos-auditoria { margin: 0; padding-inline-start: 1.2rem; color: var(--muted); }
+@container minutos (inline-size > 560px) {
+  .pagina-sesion .minutos-campos { grid-template-columns: minmax(9rem, 12rem) 1fr; align-items: start; }
+}
