@@ -41,6 +41,9 @@ func (c *Controlador) Rutas() http.Handler {
 	mux.Handle("GET /api/reserva/{id}/adjuntos", c.autenticar(http.HandlerFunc(c.listarAdjuntos)))
 	mux.Handle("POST /api/reserva/{id}/adjuntos", c.autenticar(http.HandlerFunc(c.subirAdjunto)))
 	mux.Handle("GET /api/reserva/{id}/adjuntos/{adjuntoId}", c.autenticar(http.HandlerFunc(c.descargarAdjunto)))
+	mux.Handle("POST /api/reserva/{id}/cancelar", c.autenticar(http.HandlerFunc(c.cancelar)))
+	mux.Handle("GET /api/reserva/{id}/historial", c.autenticar(http.HandlerFunc(c.historial)))
+	mux.Handle("POST /api/reserva/{id}/reprogramar", c.autenticar(http.HandlerFunc(c.reprogramar)))
 	return mux
 }
 
@@ -155,6 +158,76 @@ func (c *Controlador) listarAdjuntos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]any{"adjuntos": vista.PresentarAdjuntos(adjuntos)})
+}
+
+type entradaCancelacion struct {
+	Motivo string `json:"motivo"`
+}
+
+func (c *Controlador) cancelar(w http.ResponseWriter, r *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		c.responderError(w, modelo.ErrNoAutorizado)
+		return
+	}
+	var entrada entradaCancelacion
+	if r.ContentLength != 0 {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&entrada); err != nil {
+			vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+				Estado: http.StatusBadRequest, Codigo: "solicitud_invalida",
+				Mensaje: "El cuerpo de la solicitud no es válido.",
+			})
+			return
+		}
+	}
+	reserva, err := c.servicio.Cancelar(r.Context(), usuario.ID, usuario.Rol, r.PathValue("id"), entrada.Motivo)
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	vistaAcceso.EscribirJSON(w, http.StatusOK, vista.PresentarReserva(reserva))
+}
+
+type entradaReprogramacion struct {
+	SlotID string `json:"slot_id"`
+	Motivo string `json:"motivo"`
+}
+
+func (c *Controlador) reprogramar(w http.ResponseWriter, r *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		c.responderError(w, modelo.ErrNoAutorizado)
+		return
+	}
+	var entrada entradaReprogramacion
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&entrada); err != nil {
+		vistaAcceso.EscribirError(w, vistaAcceso.RespuestaError{
+			Estado: http.StatusBadRequest, Codigo: "solicitud_invalida",
+			Mensaje: "El cuerpo de la solicitud no es válido.",
+		})
+		return
+	}
+	reserva, err := c.servicio.Reprogramar(r.Context(), usuario.ID, usuario.Rol,
+		r.PathValue("id"), entrada.SlotID, entrada.Motivo)
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	vistaAcceso.EscribirJSON(w, http.StatusOK, vista.PresentarReserva(reserva))
+}
+
+func (c *Controlador) historial(w http.ResponseWriter, r *http.Request) {
+	usuario := ctrlAcceso.UsuarioDe(r.Context())
+	if usuario == nil {
+		c.responderError(w, modelo.ErrNoAutorizado)
+		return
+	}
+	eventos, err := c.servicio.Historial(r.Context(), usuario.ID, usuario.Rol, r.PathValue("id"))
+	if err != nil {
+		c.responderError(w, err)
+		return
+	}
+	vistaAcceso.EscribirJSON(w, http.StatusOK, map[string]any{"historial": vista.PresentarHistorial(eventos)})
 }
 
 func (c *Controlador) subirAdjunto(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,9 @@
 package reserva
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Repositorio guarda solo las tablas del flujo D. La oferta y los usuarios se consultan
 // por su API o por este modelo compartido, nunca escribiendo en sus tablas.
@@ -19,4 +22,13 @@ type Repositorio interface {
 	AdjuntosDe(ctx context.Context, reservaID string) ([]Adjunto, error)
 	AdjuntoPorID(ctx context.Context, reservaID, adjuntoID string) (*Adjunto, error)
 	ActualizarAdjunto(ctx context.Context, adjuntoID string, estado EstadoAdjunto, motivo string) error
+
+	// CancelarTransaccional cambia el estado y guarda el evento de historial en la misma
+	// transacción. Devuelve la reserva actualizada.
+	CancelarTransaccional(ctx context.Context, reservaID, actorID, motivo string, ahora time.Time) (*Reserva, error)
+	HistorialDe(ctx context.Context, reservaID string) ([]EventoHistorial, error)
+
+	// ReprogramarTransaccional mueve la reserva a otro horario y guarda el evento en el
+	// historial. El horario nuevo se verifica libre dentro de la transacción.
+	ReprogramarTransaccional(ctx context.Context, reservaID string, slot Slot, actorID, motivo string, ahora time.Time) (*Reserva, error)
 }

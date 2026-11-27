@@ -20,6 +20,7 @@ type RepositorioMemoria struct {
 	idempotencia       map[string]string
 	adjuntos           map[string]*Adjunto
 	adjuntosPorReserva map[string][]string
+	historial          []EventoHistorial
 }
 
 func NuevoRepositorioMemoria() *RepositorioMemoria {
@@ -33,6 +34,73 @@ func NuevoRepositorioMemoria() *RepositorioMemoria {
 }
 
 func claveIdempotencia(escolarID, clave string) string { return escolarID + "\x00" + clave }
+
+func (r *RepositorioMemoria) CancelarTransaccional(_ context.Context, reservaID, actorID, motivo string, ahora time.Time) (*Reserva, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	reserva, ok := r.reservas[reservaID]
+	if !ok {
+		return nil, ErrReservaNoEncontrada
+	}
+	anterior := reserva.Estado
+	copia := *reserva
+	if err := copia.Cancelar(motivo, ahora); err != nil {
+		return nil, err
+	}
+	r.reservas[reservaID] = &copia
+	r.historial = append(r.historial, EventoHistorial{
+		ID:             fmt.Sprintf("hist-%d", len(r.historial)+1),
+		ReservaID:      reservaID,
+		EstadoAnterior: anterior,
+		EstadoNuevo:    copia.Estado,
+		Motivo:         copia.MotivoCancelacion,
+		ActorID:        actorID,
+		CreadoEn:       ahora.UTC(),
+	})
+	return &copia, nil
+}
+
+func (r *RepositorioMemoria) ReprogramarTransaccional(_ context.Context, reservaID string, slot Slot, actorID, motivo string, ahora time.Time) (*Reserva, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	reserva, ok := r.reservas[reservaID]
+	if !ok {
+		return nil, ErrReservaNoEncontrada
+	}
+	for otraID, otra := range r.reservas {
+		if otraID != reservaID && otra.SlotID == slot.ID && otra.Estado == EstadoConfirmada {
+			return nil, ErrSlotOcupado
+		}
+	}
+	copia := *reserva
+	anterior := copia.SlotID
+	if err := copia.Reprogramar(slot, ahora); err != nil {
+		return nil, err
+	}
+	r.reservas[reservaID] = &copia
+	r.historial = append(r.historial, EventoHistorial{
+		ID:             fmt.Sprintf("hist-%d", len(r.historial)+1),
+		ReservaID:      reservaID,
+		EstadoAnterior: EstadoConfirmada,
+		EstadoNuevo:    EstadoConfirmada,
+		Motivo:         fmt.Sprintf("reprogramada de %s a %s: %s", anterior, slot.ID, motivo),
+		ActorID:        actorID,
+		CreadoEn:       ahora.UTC(),
+	})
+	return &copia, nil
+}
+
+func (r *RepositorioMemoria) HistorialDe(_ context.Context, reservaID string) ([]EventoHistorial, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var eventos []EventoHistorial
+	for _, evento := range r.historial {
+		if evento.ReservaID == reservaID {
+			eventos = append(eventos, evento)
+		}
+	}
+	return eventos, nil
+}
 
 func (r *RepositorioMemoria) ReservarTransaccional(_ context.Context, reserva *Reserva, limites Limites) (*Reserva, bool, error) {
 	r.mu.Lock()

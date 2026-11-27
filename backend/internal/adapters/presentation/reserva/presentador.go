@@ -36,7 +36,33 @@ type ReservaJSON struct {
 	InicioLima  string        `json:"inicio_lima"`
 	FinLima     string        `json:"fin_lima"`
 	CreadaEn    time.Time     `json:"creada_en"`
+	CanceladaEn *time.Time    `json:"cancelada_en,omitempty"`
+	Motivo      string        `json:"motivo_cancelacion,omitempty"`
 	Adjuntos    []AdjuntoJSON `json:"adjuntos"`
+}
+
+type HistorialJSON struct {
+	ID             string `json:"id"`
+	EstadoAnterior string `json:"estado_anterior"`
+	EstadoNuevo    string `json:"estado_nuevo"`
+	Motivo         string `json:"motivo,omitempty"`
+	ActorID        string `json:"actor_id"`
+	CreadoEn       string `json:"creado_en"`
+}
+
+func PresentarHistorial(eventos []modelo.EventoHistorial) []HistorialJSON {
+	salida := make([]HistorialJSON, 0, len(eventos))
+	for _, evento := range eventos {
+		salida = append(salida, HistorialJSON{
+			ID:             evento.ID,
+			EstadoAnterior: string(evento.EstadoAnterior),
+			EstadoNuevo:    string(evento.EstadoNuevo),
+			Motivo:         evento.Motivo,
+			ActorID:        evento.ActorID,
+			CreadoEn:       presentarLima(evento.CreadoEn),
+		})
+	}
+	return salida
 }
 
 func PresentarReserva(reserva *modelo.Reserva) ReservaJSON {
@@ -55,6 +81,8 @@ func PresentarReserva(reserva *modelo.Reserva) ReservaJSON {
 		InicioLima:  presentarLima(reserva.Inicio),
 		FinLima:     presentarLima(reserva.Fin),
 		CreadaEn:    reserva.CreadaEn.UTC(),
+		CanceladaEn: reserva.CanceladaEn,
+		Motivo:      reserva.MotivoCancelacion,
 		Adjuntos:    presentarAdjuntos(reserva.Adjuntos),
 	}
 }
